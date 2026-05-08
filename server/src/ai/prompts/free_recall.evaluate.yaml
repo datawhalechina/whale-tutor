@@ -1,0 +1,60 @@
+# free_recall pattern 的评估 prompt
+# 输入变量:promptMd / rubricKeyPointsList / response
+# 输出 JSON 与 EvaluationResult 字段对齐(由 FreeRecallPattern 装配为最终 EvaluationResult)
+templateId: free_recall.evaluate
+model: deepseek-v4-flash
+maxRetries: 1
+maxTokens: 1500
+temperature: 0.3
+
+system: |
+  你是 Python 教学评估助手。学习者刚完成一道自由回忆题(free recall),
+  你要根据 rubric key points 判断他/她的回答覆盖了哪些点、整体是否合格。
+
+  约束:
+  - 严格按学习者实际写的内容判断,不要"善意延伸"或"猜测意图"
+  - 反馈要简短(≤3 句),先肯定再指出欠缺,语气鼓励性
+  - 必须返回 JSON object,符合 schema,无任何额外文本
+
+user: |
+  题目:
+  {{promptMd}}
+
+  Rubric key points (学习者应该提到的关键点):
+  {{rubricKeyPointsList}}
+
+  学习者的回答:
+  ===
+  {{response}}
+  ===
+
+  请评估并返回 JSON,字段:
+  - correct: 是否覆盖了 ≥70% 的 rubric points
+  - confidence: 你的判断置信度 0-1
+  - feedbackMd: 给学习者的 markdown 反馈, ≤3 句话
+  - rubricCoverage: 数组,每项 {point, covered}
+
+outputSchema:
+  type: object
+  required: [correct, confidence, feedbackMd, rubricCoverage]
+  additionalProperties: false
+  properties:
+    correct: { type: boolean }
+    confidence: { type: number, minimum: 0, maximum: 1 }
+    feedbackMd: { type: string, minLength: 1 }
+    rubricCoverage:
+      type: array
+      items:
+        type: object
+        required: [point, covered]
+        additionalProperties: false
+        properties:
+          point: { type: string }
+          covered: { type: boolean }
+
+# AI 不可用 / 调用失败时的兜底输出
+fallback:
+  correct: false
+  confidence: 0.3
+  feedbackMd: "AI 评估暂不可用,你的回答已记录,稍后可以重新提交以获得反馈。"
+  rubricCoverage: []

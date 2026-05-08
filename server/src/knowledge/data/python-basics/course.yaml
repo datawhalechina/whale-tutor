@@ -1,0 +1,5 @@
+id: python-basics
+name: Python 基础
+description: { $ref: ./course-description.md }
+chapters:
+  - { $ref: ./chapters/list_and_iter/chapter.yaml }

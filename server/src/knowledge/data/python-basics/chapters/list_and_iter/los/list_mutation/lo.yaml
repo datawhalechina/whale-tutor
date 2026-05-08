@@ -1,0 +1,49 @@
+id: lo.list.mutation
+name: 可变性、引用 vs 拷贝
+description: append/extend/pop;变量赋值是引用而非拷贝;何时显式拷贝
+prerequisites:
+  - lo.list.indexing
+estimatedDurationMin: 25
+difficultyBand: beginner
+coreExplanation: { $ref: ./core-explanation.md }
+commonMisconceptions:
+  - "= 是值拷贝(实际只是引用别名,两边指向同一 list)"
+  - append 会展开可迭代对象(实际把对象作为单一元素加入,展开要用 extend)
+  - 函数参数传 list 是拷贝(实际传引用,函数内 mutation 会影响外部)
+masteryCriteria: 能预测 b = a; b.append(x) 后 a 状态;能区分 append 与 extend;能识别函数内 in-place mutation 的副作用
+requiredInteractions:
+  - id: ri.list.mutation.1
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-1.explanation.md }
+      question:
+        stem: "执行 a = [1, 2]; a.append([3, 4]) 后,a 现在是?"
+        options:
+          - "[1, 2, 3, 4]"
+          - "[1, 2, [3, 4]]"
+          - "[3, 4]"
+          - 抛 TypeError
+        answerIndex: 1
+        rationale: { $ref: ./ri-1.rationale.md }
+  - id: ri.list.mutation.2
+    patternId: spot_the_bug
+    prompt:
+      buggyCode: { $ref: ./ri-2.buggy-code.md }
+      bugLocations:
+        - { line: 2, kind: in_place_mutation_of_argument }
+      correctExplanation: { $ref: ./ri-2.correct-explanation.md }
+      hintMd: { $ref: ./ri-2.hint.md }
+  - id: ri.list.mutation.3
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-3.explanation.md }
+      question:
+        stem: "执行 a = [10, 20, 30]; b = a; b.pop() 后,a 等于?"
+        options:
+          - "[10, 20, 30]"
+          - "[10, 20]"
+          - "[]"
+          - 抛错
+        answerIndex: 1
+        rationale: { $ref: ./ri-3.rationale.md }
+adaptivePatterns: [concept_check, spot_the_bug, code_sandbox]

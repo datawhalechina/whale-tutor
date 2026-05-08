@@ -34,3 +34,5 @@ coverage
 # vite / nest cache
 .vite
 .cache
+
+notes

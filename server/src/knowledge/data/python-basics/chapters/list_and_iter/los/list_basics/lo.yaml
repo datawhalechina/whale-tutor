@@ -1,0 +1,48 @@
+id: lo.list.basics
+name: 列表的创建与表示
+description: 用 [] 与 list() 创建列表,理解 len 与异质元素
+prerequisites: []
+estimatedDurationMin: 15
+difficultyBand: beginner
+coreExplanation: { $ref: ./core-explanation.md }
+commonMisconceptions:
+  - list 只能存同类型元素(把 list 当 C 数组)
+  - list 像数组一样定长(把 list 当 tuple)
+masteryCriteria: 连续 2 题正确判断 list 长度 / 元素类型;能写出创建空 list 与含初值 list
+requiredInteractions:
+  - id: ri.list.basics.1
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-1.explanation.md }
+      question:
+        stem: 下列哪个表达式创建一个空列表?
+        options: ["[]", "{}", "list{}", "list[]"]
+        answerIndex: 0
+        rationale: { $ref: ./ri-1.rationale.md }
+  - id: ri.list.basics.2
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-2.explanation.md }
+      question:
+        stem: 关于 Python 列表的描述,下列哪一项正确?
+        options:
+          - 列表创建后长度不可变,需要重新创建
+          - 列表是可变长度的,可以追加和删除元素
+          - 列表中所有元素必须是同一种类型
+          - 列表的索引从 1 开始
+        answerIndex: 1
+        rationale: { $ref: ./ri-2.rationale.md }
+  - id: ri.list.basics.3
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-3.explanation.md }
+      question:
+        stem: "下列代码是否合法?若合法 len(a) 是多少?  a = [1, 'two', 3.0, True]"
+        options:
+          - 不合法,列表元素必须类型一致
+          - 合法,len(a) == 4
+          - 合法,len(a) == 3 (True 与 1 相等被去重)
+          - 合法,len(a) == 1
+        answerIndex: 1
+        rationale: { $ref: ./ri-3.rationale.md }
+adaptivePatterns: [concept_check, free_recall]

@@ -1,0 +1,12 @@
+id: ca.ch.list_and_iter
+name: 列表与迭代:章末综合
+requiredInteractions:
+  - id: ca.ch.list_and_iter.1
+    patternId: free_recall
+    prompt:
+      promptMd: { $ref: ./ca-1.prompt.md }
+      rubricKeyPoints:
+        - 提到 list 是可变长容器
+        - 提到索引或切片访问元素
+        - 提到至少一种迭代方式(for 或 while)
+        - 提到引用与拷贝的区别(`b = a` 后修改 b 影响 a)

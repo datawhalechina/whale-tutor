@@ -1,0 +1,50 @@
+id: lo.list.indexing
+name: 索引与切片
+description: 正负索引、a[i:j:k] 切片表达式、越界与切片越界的差别
+prerequisites:
+  - lo.list.basics
+estimatedDurationMin: 25
+difficultyBand: beginner
+coreExplanation: { $ref: ./core-explanation.md }
+commonMisconceptions:
+  - 切片表达式 a[i:j] 包含右端点 j(实际左闭右开)
+  - 负索引从 0 开始计(实际 -1 是最后一个,-2 是倒数第二)
+  - 越界索引和越界切片行为相同(实际索引 IndexError、切片返回空 list)
+masteryCriteria: 给定 a 与切片/索引表达式能稳定预测输出 3/4 道
+requiredInteractions:
+  - id: ri.list.indexing.1
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-1.explanation.md }
+      question:
+        stem: "给定 a = ['x', 'y', 'z'],下列哪个表达式得到 'z'?"
+        options: ["a[0]", "a[2]", "a[3]", "a[-2]"]
+        answerIndex: 1
+        rationale: { $ref: ./ri-1.rationale.md }
+  - id: ri.list.indexing.2
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-2.explanation.md }
+      question:
+        stem: "a = [10, 20, 30, 40, 50],a[1:3] 的结果是?"
+        options:
+          - "[10, 20, 30]"
+          - "[20, 30]"
+          - "[20, 30, 40]"
+          - "[10, 20]"
+        answerIndex: 1
+        rationale: { $ref: ./ri-2.rationale.md }
+  - id: ri.list.indexing.3
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-3.explanation.md }
+      question:
+        stem: "a = [1, 2, 3],a[5] 与 a[5:10] 分别会发生什么?"
+        options:
+          - 都抛 IndexError
+          - "a[5] 抛 IndexError;a[5:10] 返回 []"
+          - "a[5] 返回 None;a[5:10] 抛 IndexError"
+          - 都返回 []
+        answerIndex: 1
+        rationale: { $ref: ./ri-3.rationale.md }
+adaptivePatterns: [concept_check, code_sandbox, spot_the_bug]

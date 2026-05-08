@@ -1,0 +1,9 @@
+id: ch.list_and_iter
+name: 列表与迭代
+description: { $ref: ./description.md }
+learningObjectives:
+  - { $ref: ./los/list_basics/lo.yaml }
+  - { $ref: ./los/list_indexing/lo.yaml }
+  - { $ref: ./los/list_mutation/lo.yaml }
+  - { $ref: ./los/iter_for_over_list/lo.yaml }
+assessment: { $ref: ./assessment/assessment.yaml }

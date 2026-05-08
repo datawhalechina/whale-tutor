@@ -1,0 +1,66 @@
+id: lo.iter.for_over_list
+name: 用 for 遍历列表
+description: 用 for 循环对列表做累加 / 筛选 / 变换;`for x in nums` 直接绑元素,而不是索引
+prerequisites:
+  - lo.list.basics
+weakPrerequisites:
+  - lo.list.mutation
+estimatedDurationMin: 30
+difficultyBand: beginner
+coreExplanation: { $ref: ./core-explanation.md }
+commonMisconceptions:
+  - "for x in nums 中 x 是索引(实际上 x 是当前元素;Python 不像 C/Java for(i=0;i<n;i++))"
+  - 在循环里修改正在遍历的 list 的长度是安全的(实际可能跳过元素或抛 RuntimeError)
+  - "用 range(len(nums)) 然后 nums[i] 比直接 for x in nums 更 Pythonic(实际相反:除非真的需要索引,否则直接遍历元素更清晰)"
+masteryCriteria: 能用 for 循环写出"求和 / 筛选 / 变换"中至少 2 道,边界(空列表 / 单元素)正确
+requiredInteractions:
+  - id: ri.iter.for_over_list.1
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-1.explanation.md }
+      question:
+        stem: "执行下列代码会输出什么?\n\n```python\nnums = [10, 20, 30]\nfor x in nums:\n    print(x)\n```"
+        options:
+          - "0\n1\n2"
+          - "10\n20\n30"
+          - "[10, 20, 30]"
+          - 抛 TypeError
+        answerIndex: 1
+        rationale: { $ref: ./ri-1.rationale.md }
+  - id: ri.iter.for_over_list.2
+    patternId: code_sandbox
+    prompt:
+      promptMd: { $ref: ./ri-2.prompt.md }
+      starterCode: { $ref: ./ri-2.starter-code.md }
+      testCases:
+        - description: 普通列表
+          setupCode: "print(sum_list([1, 2, 3]))"
+          expectedOutput: "6"
+        - description: 空列表
+          setupCode: "print(sum_list([]))"
+          expectedOutput: "0"
+        - description: 单元素
+          setupCode: "print(sum_list([10]))"
+          expectedOutput: "10"
+        - description: 含负数(测试是否真的是累加)
+          setupCode: "print(sum_list([-1, 1, -2, 2]))"
+          expectedOutput: "0"
+  - id: ri.iter.for_over_list.3
+    patternId: code_sandbox
+    prompt:
+      promptMd: { $ref: ./ri-3.prompt.md }
+      starterCode: { $ref: ./ri-3.starter-code.md }
+      testCases:
+        - description: 一般情况
+          setupCode: "print(even_only([1, 2, 3, 4, 5]))"
+          expectedOutput: "[2, 4]"
+        - description: 空列表(边界)
+          setupCode: "print(even_only([]))"
+          expectedOutput: "[]"
+        - description: 全是偶数
+          setupCode: "print(even_only([2, 4, 6]))"
+          expectedOutput: "[2, 4, 6]"
+        - description: 全是奇数
+          setupCode: "print(even_only([1, 3, 5]))"
+          expectedOutput: "[]"
+adaptivePatterns: [code_sandbox, free_recall, concept_check]
