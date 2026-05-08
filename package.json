@@ -15,6 +15,7 @@
     "build:types": "pnpm --filter @whale-tutor/tutor-types build",
     "build:web": "pnpm --filter ./web build",
     "build:server": "pnpm --filter ./server build",
+    "build:cli-bundle": "node scripts/build-cli-bundle.mjs",
     "lint": "eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --max-warnings 0",
     "lint:fix": "eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --fix",
     "format": "prettier --write \"**/*.{ts,tsx,vue,js,cjs,mjs,json,md,yml,yaml}\"",

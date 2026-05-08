@@ -9,6 +9,8 @@ import {
 import type {
   EndSessionResponse,
   GetSessionProgressResponse,
+  RequestHintRequest,
+  RequestHintResponse,
   StartSessionRequest,
   StartSessionResponse,
   SubmitResponseBody,
@@ -42,6 +44,14 @@ export class SessionController {
     @Param('id', ParseIntPipe) sessionId: number,
   ): Promise<EndSessionResponse> {
     return this.sessions.end(sessionId);
+  }
+
+  @Post(':id/hints')
+  requestHint(
+    @Param('id', ParseIntPipe) sessionId: number,
+    @Body() body: RequestHintRequest,
+  ): Promise<RequestHintResponse> {
+    return this.sessions.requestHint(sessionId, body);
   }
 
   @Get(':id/progress')

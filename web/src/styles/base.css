@@ -1,0 +1,16 @@
+/* 最小化的全局 reset。
+   Element Plus 没 reset body 默认 margin,加上 .learn-view 等组件用 min-height/height: 100vh
+   就会触发 8px body margin 让 body 总高 > 100vh,产生不需要的浏览器 scrollbar。 */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+#app {
+  height: 100%;
+  /* 防止根容器自身溢出导致整页 scrollbar — 内部 scroll 区域(el-main 等)各自管 */
+  overflow: hidden;
+}

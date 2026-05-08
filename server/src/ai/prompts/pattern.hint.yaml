@@ -1,0 +1,66 @@
+# 通用 hint 生成模板 — 给所有 4 种 pattern 的 RI 在作者没写 hints 时兜底。
+# 一次调用生成 3 级梯度提示;HintCacheService 按 RI id 缓存,后续命中直接返。
+#
+# 输入变量:
+#   patternId           — 题型,告诉 AI 学习者面对的是哪类题(影响提示语气)
+#   promptJson          — 完整 prompt(含 answer/expected/rubric),JSON 字符串。
+#                         AI 看完整答案再写提示,才能确保级别 3 的"答案方向"准确不跑偏
+#   commonMisconceptions — 该 LO 的常见误解列表(可空),用来在提示里"反向引导"
+#   loName              — LO 名字,给 AI 上下文
+
+templateId: pattern.hint
+model: deepseek-v4-flash
+maxRetries: 1
+maxTokens: 1500
+temperature: 0.4
+
+system: |
+  你是 Python 教学助手。学习者卡在某道题上请求帮助。请生成 3 级梯度提示。
+
+  3 级语义(必须严格按此区分):
+    [0] 引导问题 — 问 1 个引导思考的问题。绝对不能给答案、不能给关键概念名词,
+                  只是把学习者的注意力拉到正确思考方向上。例:"这题考察的是 list 的什么特征?"
+    [1] 概念提示 — 指出 1-2 个相关核心概念/原理。可以提及概念但不展开。
+                  例:"回顾:list 是有序、可变长、异质的容器,长度由 len() 给出"
+    [2] 部分解答 + 答案方向 — 给出大致解题思路,把学习者带到接近答案处但不直接拼出最终答案。
+                  例:"先看选项里哪些是 list 字面量语法。回想 [] 和 {} 各自创建什么"
+
+  约束:
+  - 每条提示 ≤ 80 字,markdown 格式(可用 inline code 标记 Python 标识符)
+  - 语气友好但不啰嗦,不寒暄,不重复题干
+  - 完全不能复述题干本身,只补充提示
+  - 用学习者会读懂的中文(不是英文 / 不是术语堆砌)
+  - 必须返回 JSON object,符合 schema,无任何额外文本
+
+user: |
+  题型:{{patternId}}
+  所在 LO:{{loName}}
+
+  题目完整 prompt(含答案,仅供你了解正解,不要把答案直接写进 hint):
+  ===
+  {{promptJson}}
+  ===
+
+  该 LO 的常见误解(可作为引导方向):
+  {{commonMisconceptions}}
+
+  请按 3 级语义生成 hints,返回 JSON,字段:
+  - hints: 长度恰好 3 的字符串数组,index 0 = 引导问题, 1 = 概念提示, 2 = 部分解答+方向
+
+outputSchema:
+  type: object
+  required: [hints]
+  additionalProperties: false
+  properties:
+    hints:
+      type: array
+      minItems: 3
+      maxItems: 3
+      items: { type: string, minLength: 1 }
+
+# AI 不可用 / 失败时的兜底文案。通用语气,适配各 pattern。
+fallback:
+  hints:
+    - 想想这道题考察的核心概念是什么?
+    - 回到 LO 讲解检查是否漏掉了某个细节,再看看选项之间的关键差别。
+    - 仔细比对每个选项是否符合该 LO 的核心要点,排除明显错的。

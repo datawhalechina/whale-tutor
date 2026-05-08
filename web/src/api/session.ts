@@ -1,6 +1,8 @@
 import type {
   EndSessionResponse,
   GetSessionProgressResponse,
+  RequestHintRequest,
+  RequestHintResponse,
   StartSessionRequest,
   StartSessionResponse,
   SubmitResponseBody,
@@ -38,6 +40,17 @@ export async function getSessionProgress(
 ): Promise<GetSessionProgressResponse> {
   const res = await http.get<GetSessionProgressResponse>(
     `/sessions/${sessionId}/progress`,
+  );
+  return res.data;
+}
+
+export async function requestHint(
+  sessionId: number,
+  body: RequestHintRequest,
+): Promise<RequestHintResponse> {
+  const res = await http.post<RequestHintResponse>(
+    `/sessions/${sessionId}/hints`,
+    body,
   );
   return res.data;
 }

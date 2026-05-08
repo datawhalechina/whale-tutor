@@ -2,3 +2,8 @@ packages:
   - 'web'
   - 'server'
   - 'packages/*'
+  # cli-py 是 Python 包(用 pip 分发),不是 npm workspace
+  - '!packages/cli-py'
+  # cli-node 是分发包,deps 含 file:./_bundle/... 在 build 前不存在,不能在 pnpm workspace 里参与
+  # 用法:pnpm build:cli-bundle 之后,cd packages/cli-node && npm install
+  - '!packages/cli-node'

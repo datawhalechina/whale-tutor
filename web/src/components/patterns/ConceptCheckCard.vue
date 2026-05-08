@@ -17,13 +17,14 @@ const sessionStore = useSessionStore();
 const { lastEvaluation, showFeedback, pendingNextInteraction, loading } =
   storeToRefs(sessionStore);
 
-const selected = ref<number | null>(null);
+// el-radio-group 的 v-model 类型不接 null,所以用 undefined 表示"未选"
+const selected = ref<number | undefined>(undefined);
 
 // 切换到新 interaction 时清空选项(答错重做同 ri 也是新 interaction id)
 watch(
   () => props.interaction.id,
   () => {
-    selected.value = null;
+    selected.value = undefined;
   },
 );
 
@@ -51,7 +52,7 @@ const continueButtonLabel = computed(() => {
 });
 
 async function submit(): Promise<void> {
-  if (selected.value === null) return;
+  if (selected.value === undefined) return;
   await sessionStore.submit({
     interactionId: props.interaction.id,
     patternId: 'concept_check',
@@ -105,7 +106,7 @@ function continueToNext(): void {
       <template v-if="!showFeedback">
         <el-button
           type="primary"
-          :disabled="selected === null"
+          :disabled="selected === undefined"
           :loading="loading"
           @click="submit"
         >
@@ -147,8 +148,19 @@ function continueToNext(): void {
   border-radius: 6px;
   margin: 0;
   width: 100%;
+  /* box-sizing: 把 padding + border 算进 width:100%,否则会撑出父容器右侧 */
+  box-sizing: border-box;
   height: auto;
   white-space: normal;
+  line-height: 1.5;
+  /* 防止超长 inline code / 不可断的标识符撑宽 */
+  min-width: 0;
+}
+.option :deep(.el-radio__label) {
+  /* el-radio 内部 label 默认 white-space:nowrap,长选项文字会一行不换。
+     option-text 已经有 white-space:normal,但要让 el-radio 自己也允许换行 */
+  white-space: normal;
+  word-break: break-word;
   line-height: 1.5;
 }
 .option:hover {

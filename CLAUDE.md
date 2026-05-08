@@ -40,8 +40,22 @@ whale-tutor/
 │   ├── src/learner/      # Learner Model
 │   ├── src/event/        # Event Bus(唯一写入 events 表的入口)
 │   └── src/ai/           # AI Gateway + prompt YAML
-├── packages/tutor-types/ # 前后端共享类型
-├── db/init/01-schema.sql # MySQL 初始化(容器首启执行)
+├── packages/
+│   ├── tutor-types/      # 前后端共享 TS 类型(workspace 内部)
+│   ├── cli-py/           # ★ Python pip 包(发到 PyPI)
+│   │   ├── pyproject.toml
+│   │   ├── whale_tutor/  # cli.py / config.py / db.py / runner.py / scaffold.py / doctor.py
+│   │   ├── _bundle/      # ⚠ 构建产物,不入 git(由 build:cli-bundle 填充,含 node_modules)
+│   │   └── README.md
+│   └── cli-node/         # ★ npm 包(发到 npm,给已经有 Node 的用户)
+│       ├── package.json  # bin: whale-tutor → bin/cli.mjs
+│       ├── bin/cli.mjs   # commander 入口
+│       ├── lib/          # config.mjs / db.mjs / runner.mjs / scaffold.mjs / doctor.mjs
+│       ├── _bundle/      # ⚠ 构建产物,不入 git(同 cli-py 但不含 node_modules)
+│       └── README.md
+├── scripts/
+│   └── build-cli-bundle.mjs  # 同时填两个 _bundle/(共享 server-bundle 中间产物)
+├── db/init/01-schema.sql # MySQL 初始化(docker 首启 + cli-py start 时 idempotent 都跑)
 ├── notes/                # 产品理念 + 完整架构文档
 └── docker-compose.yml
 ```
@@ -279,6 +293,99 @@ pnpm format / pnpm format:check
 
 [plan 文件](C:/Users/gyh/.claude/plans/readme-md-mvp-notes-3-background-md-luminous-shannon.md) 的"留给 v0.2 / v1 的接口"列了 8 个扩展点。在改任何核心模块前先看一遍,确认改动不会破坏这些边界。
 
+## 分发形态:双 CLI(pip 与 npm),包裹同一份 node bundle
+
+面向用户的目标是 **`pip install whale-tutor` 或 `npm install -g whale-tutor` 后 `whale-tutor start` 一键起**(用户面向的快速上手见 [packages/cli-py/README.md](packages/cli-py/README.md) / [packages/cli-node/README.md](packages/cli-node/README.md))。这一节解释架构边界,**不是用户教程**。
+
+### 为什么有两个 CLI
+
+| 包 | 目标用户 | 安装命令 | 包体积 |
+|---|---|---|---|
+| `packages/cli-py` (pip) | 教研/教育圈,装过 Python 但不熟 Node | `pip install whale-tutor` | wheel ~8 MB / 解压后 ~37 MB(含 node_modules) |
+| `packages/cli-node` (npm) | 已经有 Node 工具链的开发者 | `npm install -g whale-tutor` | tarball ~1 MB / 装完 ~50 MB(其中 ~48 MB 由 npm 在用户机器上 `npm install` 恢复) |
+
+两包功能完全相同(init / start / doctor),共享同一个 server bundle 中间产物。**两边都是包装器** — 真正运行的是同一份 NestJS server,业务逻辑只一份(server 源码),没有重写。
+
+### 用户机器需要预装
+
+- **Node.js ≥ 22**(server 运行时,两版都需要)
+- **MySQL ≥ 8.0**(在某端口监听,本机或远程)
+- **Python ≥ 3.9**(只 cli-py 需要)
+
+### 构建管道 [scripts/build-cli-bundle.mjs](scripts/build-cli-bundle.mjs)
+
+`pnpm build:cli-bundle` 一次性填两个 `_bundle/`(共享 `build/server-bundle/` 中间产物):
+
+```
+_bundle/
+├── server/
+│   ├── dist/                  ← 复制自 server/dist (NestJS 多文件 build,不能 single-bundle)
+│   ├── _local/tutor-types/    ← 拷过来的 workspace 包(含 dist + package.json)
+│   ├── package.json           ← workspace:* 重写成 file:./_local/tutor-types
+│   └── node_modules/          ← ★ 仅 cli-py 路线:build 时 npm install --omit=dev,平铺
+├── web/                       # ServeStaticModule rootPath = web/dist
+├── db/init/01-schema.sql      # CLI start 时自动应用
+├── templates/python-basics/   # whale-tutor init scaffold 源
+└── MANIFEST.json              # build 时间 + git commit + node 版本
+```
+
+**两个路线的差异**:
+
+- **cli-py**: build 时跑 `npm install --omit=dev` 在 bundle 内填出 `node_modules/`(因为 pip 包发出去后没法再让 pip 触发 npm),整包 ~37 MB。
+- **cli-node**: 不跑 `npm install`。`packages/cli-node/package.json` 自己声明 server 的所有 runtime 依赖(从 `server/package.json` 同步过来),`@whale-tutor/tutor-types` 用 `file:./_bundle/server/_local/tutor-types` 引用。用户 `npm install -g whale-tutor` 时 npm 自动把 nest 等装到 `cli-node/node_modules/`,server 主进程被 spawn 时模块解析向上走能找到。tarball ~1 MB。
+
+**关键细节**(踩过的坑):
+
+1. **不用 pnpm deploy 用 npm install**(仅 cli-py 路线):pnpm 默认嵌套 `.pnpm/` 软链结构,Windows MAX_PATH(260 字符)会触发 `hatchling` 打包失败。npm 的平铺 node_modules 跨平台都安全。
+2. **workspace:\* 改 file: 协议**:`@whale-tutor/tutor-types: workspace:*` 在 monorepo 外解析不了。两个路线都把 tutor-types 拷到 `_local/` 并改写依赖声明为 `file:` — cli-py 改的是 bundle 内的 `server/package.json`,cli-node 改的是顶层 `packages/cli-node/package.json`。
+3. **NestJS 不能 single-bundle**:`@nestjs/common` 用了 `Reflect.metadata` + 装饰器,esbuild/webpack bundle 后 DI 经常坏。保持多文件 dist + node_modules 是 v0 的妥协。
+4. **课程模板源**:`server/src/knowledge/data/python-basics` 同时被三处用 — monorepo dev 模式直接读源,两版 CLI 各自 `init` scaffold 出来给作者改。这是有意的"working sample"复用。
+5. **cli-node 不在 pnpm workspace**:它的 `dependencies` 里有 `file:./_bundle/...` 路径,bundle 还没构建时 pnpm 解析失败,所以在 [pnpm-workspace.yaml](pnpm-workspace.yaml) 中显式 `!packages/cli-node` 排除。安装方式:`pnpm build:cli-bundle && cd packages/cli-node && npm install`。
+
+### 两个运行模式(monorepo dev vs pip 用户)
+
+server 启动逻辑用环境变量分叉,**同一份代码两种部署**:
+
+| 行为 | env 没设(monorepo dev) | env 已设(pip 用户) |
+|---|---|---|
+| 课程目录 | `__dirname/data` | `WHALE_TUTOR_COURSES_DIR` 指向用户 cwd 下 `courses/` |
+| 静态文件 | 不 serve(vite dev server 顶在前面) | `WHALE_TUTOR_WEB_DIR` 触发 `ServeStaticModule` serve `web/dist` |
+| Schema bootstrap | docker-entrypoint-initdb.d 容器首启自动跑 | CLI 在启 node 之前 idempotent 探测 + 应用(env trigger 是双保险) |
+| API 前缀 | `/api`(`globalPrefix('api')`) | `/api`(同前) |
+
+Dev 期 `pnpm dev` 走 Vite proxy `/api → :3000` + 不 strip prefix,因为 server 现在带 globalPrefix 跟生产同。
+
+### CLI 边界(两版同构)
+
+| 模块 | cli-py | cli-node |
+|---|---|---|
+| 入口 | `cli.py` (click) | `bin/cli.mjs` (commander) |
+| 配置 | `config.py` | `lib/config.mjs` |
+| Schema 探测/应用 | `db.py` (mysql-connector multi=True) | `lib/db.mjs` (mysql2 multipleStatements) |
+| 子进程编排 | `runner.py` (subprocess.Popen + signal 转发 + threading 轮询 webbrowser) | `lib/runner.mjs` (child_process.spawn + SIG 转发 + net 轮询 + open via cmd/open/xdg-open) |
+| Init scaffold | `scaffold.py` (importlib.resources + shutil) | `lib/scaffold.mjs` (cpSync) |
+| Doctor 健康检查 | `doctor.py` (rich Table) | `lib/doctor.mjs` (kleur) |
+
+两版命令行参数、行为、错误信息保持对齐。改一边一般也要改另一边。
+
+**不要在 CLI 里写业务逻辑**(评估、出题、AI 调用、mastery 状态…)。两个 CLI 都只负责"读配置 + 探测/应用 schema + spawn 子进程 + 信号转发 + 开浏览器"。所有教学语义都在 NestJS server,只一份。
+
+### 发版流程
+
+**前置**: `pnpm build:cli-bundle`(同时填充两个 `_bundle/`)
+
+**cli-py → TestPyPI**:
+1. `cd packages/cli-py && python -m build`(生成 wheel + sdist)
+2. `twine upload --repository testpypi dist/*`
+3. 干净环境 `pip install -i https://test.pypi.org/simple/ whale-tutor` 验证
+
+**cli-node → npm**:
+1. `cd packages/cli-node && npm install`(本地解析 file: 依赖,确认能工作)
+2. `npm publish --dry-run` 看 tarball 内容
+3. `npm publish` (登录 npm 账号 + name 没被占用)
+
+bundle 自身不入 git(`.gitignore` 各自排除 `_bundle/`)。cli-py 用 hatchling 的 `force-include` 把 `_bundle` 打进 wheel;cli-node 用 `package.json` 的 `files` 字段把 `bin / lib / _bundle` 打进 tarball。
+
 ## v0 已实现清单(2026-05 更新)
 
 ### 后端
@@ -304,6 +411,17 @@ pnpm format / pnpm format:check
 
 ### 内容
 - ✅ Python 基础 / 列表与迭代 — 4 个 LO 全部完整内容(YAML + 含教学讲解的 .md):`list.basics` / `list.indexing` / `list.mutation` / `iter.for_over_list`
+
+### 分发 (双 CLI:pip + npm)
+- ✅ **packages/cli-py/** — Python CLI(pip),`whale-tutor init / start / doctor` 三命令(click + rich)
+- ✅ **packages/cli-node/** — Node CLI(npm),同名同三命令(commander + kleur);包体积 1.7 MB(对比 cli-py 37 MB,差额由 npm install 在用户机器上恢复)
+- ✅ **scripts/build-cli-bundle.mjs** — 一次性填充两个 `_bundle/`,共享 `build/server-bundle/` 中间产物
+- ✅ **server 双模式适配** — `WHALE_TUTOR_COURSES_DIR` / `WHALE_TUTOR_WEB_DIR` env trigger 课程目录外置 + 静态文件 serve;monorepo dev 模式行为不变
+- ✅ **Schema idempotent bootstrap** — CLI 启 node 前探测 events 表,缺则跑 01-schema.sql
+- ✅ **API globalPrefix /api** — server 加全局前缀,前端 dev/prod 同 origin;vite proxy 不再 strip
+- ✅ **e2e 验证通过**(2026-05-08):
+  - cli-py: 干净 venv `pip install -e .` → init → doctor 全绿 → start 自动 schema + :3000 + 开浏览器
+  - cli-node: `npm install` → 直接 `node bin/cli.mjs init / doctor / start --no-open` → :3000 同样可用
 
 ### 跳过 / 占位的(v0.2 路线图)
 

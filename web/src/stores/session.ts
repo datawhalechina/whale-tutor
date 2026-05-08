@@ -50,6 +50,11 @@ export const useSessionStore = defineStore('session', () => {
   // demo learner id,从 start() 入参记录,后续 archive endpoint 等需要
   const learnerId = ref<number | null>(null);
 
+  // StuckProtocol:当前 interaction 上学习者已用过的最高 hint 级别。
+  // submit 时自动加进 body.hintLevelUsed,让 server 写入 responses.hint_level。
+  // 切到下一题(continueToNext)/ start / end 时清零。
+  const currentHintLevel = ref(0);
+
   async function ensureLoMeta(loId: string): Promise<LearningObjective> {
     if (loMetaCache.value[loId]) return loMetaCache.value[loId];
     const meta = await knowledgeApi.getLearningObjective(loId);
@@ -73,7 +78,7 @@ export const useSessionStore = defineStore('session', () => {
       progress.value = await sessionApi.getSessionProgress(sessionId.value);
     } catch (e) {
       // 进度 fetch 失败不阻塞主流(sidebar 缺数据但其他可继续)
-      // eslint-disable-next-line no-console
+       
       console.warn('[session] refreshProgress failed:', (e as Error).message);
     }
   }
@@ -102,6 +107,7 @@ export const useSessionStore = defineStore('session', () => {
       pendingNextInteraction.value = null;
       showFeedback.value = false;
       acknowledgedLoIds.value = new Set();
+      currentHintLevel.value = 0;
       await refreshLoIntroFlag();
       await refreshProgress();
     } catch (e) {
@@ -117,7 +123,12 @@ export const useSessionStore = defineStore('session', () => {
     loading.value = true;
     error.value = null;
     try {
-      const data = await sessionApi.submitResponse(sessionId.value, body);
+      // 自动把 currentHintLevel 注入 submit body — pattern cards 不需要感知
+      const enriched = {
+        ...body,
+        hintLevelUsed: (currentHintLevel.value as 0 | 1 | 2 | 3 | 4) ?? 0,
+      } as SubmitResponseBody;
+      const data = await sessionApi.submitResponse(sessionId.value, enriched);
       lastEvaluation.value = data.evaluation;
       lastLoState.value = data.updatedLoState;
       currentDecision.value = data.nextDecision;
@@ -138,6 +149,7 @@ export const useSessionStore = defineStore('session', () => {
     pendingNextInteraction.value = null;
     lastEvaluation.value = null;
     showFeedback.value = false;
+    currentHintLevel.value = 0;
     await refreshLoIntroFlag();
     void refreshProgress();
   }
@@ -158,6 +170,7 @@ export const useSessionStore = defineStore('session', () => {
       acknowledgedLoIds.value = new Set();
       showLoIntro.value = false;
       progress.value = null;
+      currentHintLevel.value = 0;
     }
   }
 
@@ -177,6 +190,7 @@ export const useSessionStore = defineStore('session', () => {
     acknowledgedLoIds,
     showLoIntro,
     progress,
+    currentHintLevel,
     // actions
     start,
     submit,

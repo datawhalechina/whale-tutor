@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   Logger,
@@ -7,7 +8,6 @@ import {
 import { sql } from 'kysely';
 import type {
   ChapterAssessmentAction,
-  ChapterDefinition,
   ChapterPhase,
   EndSessionResponse,
   EvaluationResult,
@@ -17,6 +17,8 @@ import type {
   MasteryLevel,
   PathDecision,
   PatternId,
+  RequestHintRequest,
+  RequestHintResponse,
   RequiredInteraction,
   ServeInteractionAction,
   ServedInteraction,
@@ -31,6 +33,7 @@ import { EventService } from '../event/event.service';
 import { KnowledgeService } from '../knowledge/knowledge.service';
 import { LearnerService, parseJsonArray } from '../learner/learner.service';
 import { PatternRegistry } from '../pattern/pattern.registry';
+import { HintCacheService } from './hint-cache.service';
 
 @Injectable()
 export class SessionService {
@@ -42,6 +45,7 @@ export class SessionService {
     private readonly events: EventService,
     private readonly learners: LearnerService,
     private readonly patterns: PatternRegistry,
+    private readonly hints: HintCacheService,
   ) {}
 
   // ========================================================
@@ -264,6 +268,81 @@ export class SessionService {
 
     // M1 暂不生成 archive,留给 M3
     return {};
+  }
+
+  // ========================================================
+  // 静态梯度提示(StuckProtocol)
+  // 作者写了 RI.hints → 直接返;没写 → AI 兜底生成 3 级 + cache
+  // ========================================================
+
+  async requestHint(
+    sessionId: number,
+    body: RequestHintRequest,
+  ): Promise<RequestHintResponse> {
+    const interactionRow = await this.db
+      .selectFrom('interactions')
+      .selectAll()
+      .where('id', '=', body.interactionId)
+      .where('session_id', '=', sessionId)
+      .executeTakeFirst();
+    if (!interactionRow) {
+      throw new NotFoundException(
+        `Interaction ${body.interactionId} not found in session ${sessionId}`,
+      );
+    }
+
+    // adaptive 题(无 required_interaction_id)目前不支持 hint(留给 v0.2 PathO 智能化时,
+    // 用同 HintCacheService.generate 路径,key 改为 interactionId)
+    const riId = interactionRow.required_interaction_id;
+    if (!riId) {
+      return { hintLevel: body.targetLevel, hintMd: '', totalLevels: 0 };
+    }
+
+    const ri = this.knowledge.getRequiredInteraction(riId);
+    // RI 可能属于 LO 也可能属于章末测试 — 后者没有 owning LO,commonMisconceptions 传 []
+    const owningLo = this.knowledge.getOwningLoOfRi(riId);
+
+    await this.events.emit({
+      sessionId,
+      learnerId: interactionRow.learner_id,
+      loId: interactionRow.lo_id,
+      type: 'hint.requested',
+      payload: { interactionId: body.interactionId, level: body.targetLevel },
+    });
+
+    const result = await this.hints.getHint(
+      ri,
+      {
+        loName: owningLo?.name ?? '章末综合测试',
+        commonMisconceptions: owningLo?.commonMisconceptions ?? [],
+        sessionId,
+      },
+      body.targetLevel,
+    );
+
+    if (!result) {
+      throw new BadRequestException(
+        `targetLevel ${body.targetLevel} out of range for interaction ${body.interactionId}`,
+      );
+    }
+
+    await this.events.emit({
+      sessionId,
+      learnerId: interactionRow.learner_id,
+      loId: interactionRow.lo_id,
+      type: 'hint.served',
+      payload: {
+        interactionId: body.interactionId,
+        level: body.targetLevel,
+        totalLevels: result.totalLevels,
+      },
+    });
+
+    return {
+      hintLevel: body.targetLevel,
+      hintMd: result.hintMd,
+      totalLevels: result.totalLevels,
+    };
   }
 
   // ========================================================

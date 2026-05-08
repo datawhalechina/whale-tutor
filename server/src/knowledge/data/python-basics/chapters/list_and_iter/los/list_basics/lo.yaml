@@ -19,6 +19,10 @@ requiredInteractions:
         options: ["[]", "{}", "list{}", "list[]"]
         answerIndex: 0
         rationale: { $ref: ./ri-1.rationale.md }
+    # 作者觉得这题简单,只给 2 级提示(看 4 个选项的字面差异即可)
+    hints:
+      - 留意四个选项里**括号的形状**(方括号 / 花括号)和**调用语法**(带 `()` 与否),不是所有都是 list 字面量
+      - "Python 创建空容器有两种写法:**字面量**(`[]`、`{}`)和**构造函数**(`list()`、`dict()`)。这道题的正确答案应该用最直接的字面量"
   - id: ri.list.basics.2
     patternId: concept_check
     prompt:

@@ -3,9 +3,9 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "composite": true,
-    "baseUrl": ".",
+    // TS 5.0+ 的 paths 不依赖 baseUrl,直接相对 tsconfig 位置解析(避免 TS 7 移除 baseUrl 的警告)
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
     "types": ["element-plus/global"]
   },

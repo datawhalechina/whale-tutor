@@ -29,10 +29,11 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       proxy: {
+        // server 现在用 globalPrefix('api'),所以 dev 期 proxy 直接转发 /api/* 到 server,
+        // 不需要 rewrite。这与 prod / pip 包模式行为一致。
         '/api': {
           target: apiTarget,
           changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api/, ''),
         },
       },
     },

@@ -54,7 +54,7 @@ export const usePyodideStore = defineStore('pyodide', () => {
     };
     worker.onerror = (err) => {
       // 全局 worker 错误 — 比如 importScripts 加载 pyodide.js 失败
-      // eslint-disable-next-line no-console
+       
       console.error('[pyodide.worker] error:', err);
       status.value = 'error';
       errorMessage.value = err.message || 'pyodide worker error';

@@ -305,7 +305,7 @@ function renderPatternDetail(
   patternId: PatternId,
   prompt: unknown,
   response: unknown,
-  correct: boolean,
+  _correct: boolean,
 ): string[] {
   switch (patternId) {
     case 'concept_check':

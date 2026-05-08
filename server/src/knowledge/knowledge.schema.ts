@@ -105,6 +105,14 @@ const courseSchema = {
         id: { type: 'string' },
         patternId: { $ref: '#/definitions/patternId' },
         prompt: { type: 'object' },
+        // 静态梯度提示。作者可填 1-5 级,缺省走 AI 兜底生成 3 级。
+        // 上限 5 防滥用。半填(只写 0 元素)等价缺省。
+        hints: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 5,
+          items: { type: 'string', minLength: 1 },
+        },
         note: { type: 'string' },
       },
       allOf: [

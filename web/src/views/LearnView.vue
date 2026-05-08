@@ -194,9 +194,9 @@ async function onOpenHistory(): Promise<void> {
 
     <!-- Archive viewer modal -->
     <ArchiveViewer
+      :id="archiveId"
       :visible="archiveVisible"
       :kind="archiveKind"
-      :id="archiveId"
       :learner-id="learnerId"
       @update:visible="archiveVisible = $event"
     />
@@ -207,7 +207,8 @@ async function onOpenHistory(): Promise<void> {
 
 <style scoped>
 .learn-view {
-  min-height: 100vh;
+  /* 严格 = 100vh,el-main 内部 overflow:auto 处理内容滚动,避免触发浏览器外层 scrollbar */
+  height: 100vh;
   background: #fafafa;
 }
 .main-container {

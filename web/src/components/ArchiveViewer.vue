@@ -83,12 +83,12 @@ function close(): void {
 <template>
   <el-dialog
     :model-value="visible"
-    @update:model-value="emit('update:visible', $event)"
     :title="title || '学习档案'"
     width="760px"
     align-center
     :close-on-click-modal="false"
     destroy-on-close
+    @update:model-value="emit('update:visible', $event)"
   >
     <div v-if="loading" v-loading="true" class="loading-area"></div>
     <el-alert

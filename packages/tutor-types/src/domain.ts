@@ -49,6 +49,10 @@ export type RequiredInteraction = {
     id: string;                     // 在 chapter 范围内唯一,如 "ri.list.basics.1"
     patternId: P;
     prompt: PatternPromptMap[P];    // server-only,含 answer/expected/rubric
+    // 静态梯度提示(server-only)。作者可定制 1-5 级,缺省走 AI 兜底生成 3 级。
+    // hints 数组下标 0 = level 1(最轻),依次递进。
+    // 取的时候永远 hints[level - 1]。详见 server/src/session/hint-cache.service.ts
+    hints?: string[];
     note?: string;                  // 可选,内容作者的备注
   };
 }[PatternId];
@@ -60,14 +64,18 @@ export interface RequiredInteractionMeta {
 }
 
 // ============================================================
-// 知识图谱：API 公开版（前端可见）
+// 知识图谱：Server-side 完整版（仅 server 内部使用,YAML 解析的源结构）
 // ------------------------------------------------------------
-// LO 不入库,以 YAML 落盘 server/src/knowledge/data/*.yaml；
-// 此处定义的是经过 sanitize 后下发到前端的安全子集。
-// 完整的 server-side 结构见下方 *Definition 系列。
+// KnowledgeService 启动时从 YAML 解析得到的内存结构,含答案/expected/rubric。
+// 永远不应通过 HTTP 直接下发到前端 — 公开版(下方)是它的派生子集。
+//
+// ★ 加字段时的两难规则:
+//   1. 想公开 → 直接加在 Definition 上,Public 默认会包含(Omit 没排除它)
+//   2. 想 server-only → 加在 Definition 上后,在下方 Omit 列表里加上字段名
+//   3. 想字段名换种语义(如 markdown 后缀)→ Omit 原名,在 Public 的 & 子句里加新字段
 // ============================================================
 
-export interface LearningObjective {
+export interface LearningObjectiveDefinition {
   id: string;                       // e.g. "lo.list.basics"
   name: string;
   description: string;
@@ -75,68 +83,21 @@ export interface LearningObjective {
   weakPrerequisites?: string[];     // 弱依赖,可越过
   estimatedDurationMin: number;     // 15-30
   difficultyBand: DifficultyBand;
+  coreExplanation: string;          // 教学讲解原文(YAML 里通过 $ref 引入 .md)
+  commonMisconceptions: string[];   // server-only,出题灵感 + 评估识别(v0.2 PathOrchestrator 智能化时用)
   masteryCriteria: string;          // 人类可读的判定标准描述
-  requiredInteractionCount: number; // 让前端展示"已做 M / N 道必做"
+  requiredInteractions: RequiredInteraction[];   // server-only,按序必做(含答案)
   adaptivePatterns: PatternId[];    // 必做完成后,AI 动态生成时可用的 pattern 集
-  // 教学开场用的核心讲解(markdown)。前端进入 LO 第一道题之前显示一个 intro 页,
-  // 由学习者点"开始练习"才进入题目。
-  // server 端同字段在 LearningObjectiveDefinition.coreExplanation,本字段是它的公开镜像
-  // (后续 v0.2 可加 AI 个性化讲解,此字段作为"标准讲解"或 AI 失败兜底)。
-  coreExplanationMd: string;
-}
-
-export interface ChapterAssessmentSummary {
-  id: string;                       // e.g. "ca.ch.list_and_iter"
-  name: string;
-  requiredInteractionCount: number;
-}
-
-export interface Chapter {
-  id: string;                       // e.g. "ch.list_and_iter"
-  name: string;
-  description: string;
-  learningObjectives: LearningObjective[];
-  assessment: ChapterAssessmentSummary | null;
-}
-
-export interface Course {
-  id: string;                       // e.g. "python-basics"
-  name: string;
-  description: string;
-  chapters: Chapter[];
-}
-
-// ============================================================
-// 知识图谱：Server-side 完整版（仅 server 内部使用）
-// ------------------------------------------------------------
-// KnowledgeService 启动时从 YAML 解析得到的内存结构,
-// 含完整 requiredInteractions（带 answer/expected/rubric）。
-// 永远不应通过 HTTP 直接下发到前端。
-// ============================================================
-
-export interface LearningObjectiveDefinition {
-  id: string;
-  name: string;
-  description: string;
-  prerequisites: string[];
-  weakPrerequisites?: string[];
-  estimatedDurationMin: number;
-  difficultyBand: DifficultyBand;
-  coreExplanation: string;          // server-only,AI Gateway 失败时的兜底文案
-  commonMisconceptions: string[];   // server-only,出题灵感 + 评估识别
-  masteryCriteria: string;
-  requiredInteractions: RequiredInteraction[];   // server-only,按序必做
-  adaptivePatterns: PatternId[];
 }
 
 export interface ChapterAssessmentDefinition {
-  id: string;
+  id: string;                       // e.g. "ca.ch.list_and_iter"
   name: string;
   requiredInteractions: RequiredInteraction[];   // server-only
 }
 
 export interface ChapterDefinition {
-  id: string;
+  id: string;                       // e.g. "ch.list_and_iter"
   name: string;
   description: string;
   learningObjectives: LearningObjectiveDefinition[];
@@ -144,11 +105,62 @@ export interface ChapterDefinition {
 }
 
 export interface CourseDefinition {
-  id: string;
+  id: string;                       // e.g. "python-basics"
   name: string;
   description: string;
   chapters: ChapterDefinition[];
 }
+
+// ============================================================
+// 知识图谱：API 公开版（前端可见）
+// ------------------------------------------------------------
+// 派生自 Definition,通过 Omit + 显式追加字段表达"删什么 + 改什么"。
+// service 层做转换(server/src/knowledge/knowledge.service.ts toPublic*)。
+//
+// 派生关系:
+//   LearningObjective       = LearningObjectiveDefinition
+//                             - commonMisconceptions       (server-only)
+//                             - requiredInteractions       (含答案,改成 count)
+//                             - coreExplanation            (改名加 Md 后缀强调渲染语义)
+//                             + requiredInteractionCount: number
+//                             + coreExplanationMd: string
+//
+//   ChapterAssessmentSummary = ChapterAssessmentDefinition
+//                             - requiredInteractions
+//                             + requiredInteractionCount: number
+//
+//   Chapter / Course        = 各自 Definition,把嵌套的 *Definition[] 替换成公开版数组
+// ============================================================
+
+export type LearningObjective = Omit<
+  LearningObjectiveDefinition,
+  'commonMisconceptions' | 'requiredInteractions' | 'coreExplanation'
+> & {
+  requiredInteractionCount: number; // 让前端展示"已做 M / N 道必做"
+  // 教学开场用的核心讲解(markdown)。前端进入 LO 第一道题之前显示一个 intro 页,
+  // 学习者点"开始练习"才进入题目。Definition.coreExplanation 的公开镜像
+  // (v0.2 可加 AI 个性化讲解,此字段作为"标准讲解"或 AI 失败兜底)
+  coreExplanationMd: string;
+};
+
+export type ChapterAssessmentSummary = Omit<
+  ChapterAssessmentDefinition,
+  'requiredInteractions'
+> & {
+  requiredInteractionCount: number;
+};
+
+export type Chapter = Omit<
+  ChapterDefinition,
+  'learningObjectives' | 'assessment'
+> & {
+  learningObjectives: LearningObjective[];
+  assessment: ChapterAssessmentSummary | null;
+};
+
+export type Course = Omit<CourseDefinition, 'chapters'> & {
+  chapters: Chapter[];
+};
 
 // ============================================================
 // 学习者（Learner Model）

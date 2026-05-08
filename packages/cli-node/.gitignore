@@ -1,0 +1,3 @@
+# Bundle 由 build:cli-bundle 填充,不入 git
+_bundle/
+node_modules/

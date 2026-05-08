@@ -92,16 +92,25 @@ export interface EndSessionResponse {
 
 // ============================================================
 // /api/sessions/:id/hints
-// v0：单级提示;v0.2：梯度提示协议
+// v0.2 实施:静态梯度提示协议(server/src/session/hint-cache.service.ts)
+//   - 作者在 RI.hints 写好 1-5 级文案 → 直接返
+//   - 作者没写 → AI Gateway 生成 3 级,首次生成后 in-memory cache
+//   - adaptive 题或 totalLevels=0 → 前端引导用 QA
 // ============================================================
 
 export interface RequestHintRequest {
   interactionId: number;
+  // 1-5。前端按"求提示"时为 1,"再来一级"时累加。server 不强制单调递增,
+  // 但 level 超过 totalLevels 时返 400(前端通常不会发到这里 — 看到 totalLevels 后会 disable 按钮)
+  targetLevel: HintLevel;
 }
 
 export interface RequestHintResponse {
-  hintLevel: HintLevel;
+  hintLevel: HintLevel;     // 实际返回的 level(等于 targetLevel,除非 server clamp)
   hintMd: string;
+  // 该 RI 一共有多少级 hint。前端用它决定"再来一级"按钮何时 disable。
+  // 0 表示无 hint(adaptive 题或 AI 生成失败且无 fallback),前端应隐藏 hint UI 并引导 QA
+  totalLevels: number;
 }
 
 // ============================================================
