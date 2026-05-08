@@ -1,0 +1,44 @@
+{
+  "name": "whale-tutor",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@8.15.9",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter=./web --filter=./server run dev",
+    "dev:web": "pnpm --filter ./web dev",
+    "dev:server": "pnpm --filter ./server start:dev",
+    "build": "pnpm -r run build",
+    "build:types": "pnpm --filter @whale-tutor/tutor-types build",
+    "build:web": "pnpm --filter ./web build",
+    "build:server": "pnpm --filter ./server build",
+    "lint": "eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --max-warnings 0",
+    "lint:fix": "eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,vue,js,cjs,mjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,vue,js,cjs,mjs,json,md,yml,yaml}\"",
+    "typecheck": "pnpm -r run typecheck",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "db:up": "docker compose up -d mysql",
+    "db:down": "docker compose stop mysql",
+    "db:reset": "docker compose down -v && docker compose up -d mysql",
+    "clean": "pnpm -r exec rimraf dist .turbo node_modules/.cache"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.12.0",
+    "@typescript-eslint/eslint-plugin": "^8.8.0",
+    "@typescript-eslint/parser": "^8.8.0",
+    "eslint": "^9.12.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-vue": "^9.28.0",
+    "prettier": "^3.3.3",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.2",
+    "vue-eslint-parser": "^9.4.3"
+  }
+}

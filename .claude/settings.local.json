@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-NetTCPConnection -LocalPort 3306 -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,State,OwningProcess | Format-Table -AutoSize; Get-NetTCPConnection -LocalPort 3306 -ErrorAction SilentlyContinue | ForEach-Object { Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue } | Select-Object Id,ProcessName,Path -Unique | Format-Table -AutoSize)",
+      "PowerShell(netsh interface ipv4 show excludedportrange protocol=tcp)",
+      "Bash(npx tsc *)",
+      "Bash(pnpm --filter @whale-tutor/tutor-types build)"
+    ]
+  }
+}

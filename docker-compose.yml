@@ -1,0 +1,65 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: whale-tutor-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-whale_tutor}
+      MYSQL_USER: ${MYSQL_USER:-tutor}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-tutor}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-authentication-plugin=caching_sha2_password
+    ports:
+      - '${MYSQL_PORT:-3306}:3306'
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        - CMD
+        - mysqladmin
+        - ping
+        - -h
+        - localhost
+        - -u
+        - root
+        - -p${MYSQL_ROOT_PASSWORD:-root}
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - whale-tutor
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: whale-tutor-server
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      SERVER_PORT: ${SERVER_PORT:-3000}
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_USER: ${MYSQL_USER:-tutor}
+      DATABASE_PASSWORD: ${MYSQL_PASSWORD:-tutor}
+      DATABASE_NAME: ${MYSQL_DATABASE:-whale_tutor}
+    ports:
+      - '${SERVER_PORT:-3000}:3000'
+    networks:
+      - whale-tutor
+
+volumes:
+  mysql-data:
+    name: whale-tutor-mysql-data
+
+networks:
+  whale-tutor:
+    name: whale-tutor
