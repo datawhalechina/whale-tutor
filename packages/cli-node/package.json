@@ -1,6 +1,6 @@
 {
   "name": "whale-tutor",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "AI-driven interactive learning platform — course authoring CLI",
   "license": "AGPL-3.0-or-later",
   "type": "module",
