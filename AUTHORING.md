@@ -812,6 +812,6 @@ whale-tutor start                          # 试学
 
 ## 附:进一步阅读
 
-- 学习者交互的运行时业务逻辑(状态机 / decideNext / 答错处理) — [notes/orchestrator.md](../notes/orchestrator.md)
-- 整体产品理念(为什么是动态路径 / 个体化记忆 / 可重新进入) — [notes/background_1.md](../notes/background_1.md) → 2.md → 3.md
-- 工程边界(给开发本工具的人) — [CLAUDE.md](../CLAUDE.md)
+- 想给项目贡献代码 / 报 bug / 提 feature → [CONTRIBUTING.md](CONTRIBUTING.md)
+- 工程边界、模块职责、命名约定(给二次开发本工具的人) → [CLAUDE.md](CLAUDE.md)
+- 整体项目状态、安装、demo → [README.md](README.md)

@@ -92,7 +92,7 @@ courses/python-basics/
 - Markdown 里写**长内容**(讲解 / 题干 / 反馈),用 `{ $ref: ./xxx.md }` 引用
 - 多课程并存:`courses_dir` 下每个含 `course.yaml` 的子目录都会被自动加载
 
-完整作者教程(yaml / $ref / 4 种 pattern / hint / 评价机制 / build 流程)见仓库 [doc/course-authoring.md](https://github.com/datawhalechina/whale-tutor/blob/main/doc/course-authoring.md)。
+完整作者教程(yaml / $ref / 4 种 pattern / hint / 评价机制 / build 流程)见仓库 [AUTHORING.md](https://github.com/datawhalechina/whale-tutor/blob/main/AUTHORING.md)。
 
 ## AI 辅助生成课程(`whale-tutor build`)
 
@@ -108,7 +108,7 @@ whale-tutor lint                                # 校验
 whale-tutor start                               # 试学
 ```
 
-详细约定见 [doc/course-authoring.md §10](https://github.com/datawhalechina/whale-tutor/blob/main/doc/course-authoring.md#10-whale-tutor-build)。
+详细约定见 [AUTHORING.md §10](https://github.com/datawhalechina/whale-tutor/blob/main/AUTHORING.md#10-whale-tutor-buildai-辅助生成课程骨架)。
 
 ## 故障排查
 
@@ -120,4 +120,4 @@ whale-tutor start                               # 试学
 
 ## 许可
 
-MIT
+[AGPL-3.0-or-later](https://www.gnu.org/licenses/agpl-3.0.html) — 强 copyleft。任何修改/分发(包括以 SaaS 形式部署)都需要按 AGPL-3.0 公开源码。

@@ -1,0 +1,139 @@
+# Whale Tutor CI — 跑在每个 PR 和 main push 上。
+#
+# 目的:防止"破坏性 PR 进 main"。最小可用守门:
+#   1. 共享类型构建过(否则 server / web 拿不到类型)
+#   2. typecheck 全包过(tsc / vue-tsc)
+#   3. ESLint 0 警告(--max-warnings 0)
+#   4. Prettier 格式正确
+#   5. server / web build 成功(不跑测试 — 项目目前无测试,后续加)
+#   6. 内置课程过 ajv 校验(boot KnowledgeModule 在 validate-only 模式)
+#
+# 不跑的:
+#   - 单元测试(等社区贡献了再加 vitest job)
+#   - e2e(需要 mysql 容器,后续拆 job 加)
+#   - whale-tutor build(消耗 DEEPSEEK_API_KEY 成本,留 manual workflow_dispatch)
+#
+# 性能:在 ubuntu-latest 上一次 ~3-4 分钟,主要是 pnpm install + nest build。
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-check:
+    name: Build + Typecheck + Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.9
+
+      - name: Setup Node 22 + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared types
+        # tutor-types 必须先 build,server / web 通过 workspace:* 引用其 dist/
+        run: pnpm build:types
+
+      - name: Typecheck (all packages)
+        run: pnpm typecheck
+
+      - name: Lint (max-warnings 0)
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Build server
+        run: pnpm build:server
+
+      - name: Build web
+        run: pnpm build:web
+
+      - name: Validate built-in courses (ajv schema)
+        # boot KnowledgeModule with WHALE_TUTOR_VALIDATE_ONLY=1 — 不连 mysql,
+        # 只走 yaml 加载 + $ref resolve + ajv schema 校验。失败会以非 0 退出。
+        run: WHALE_TUTOR_VALIDATE_ONLY=1 node server/dist/main.js
+
+  cli-smoke:
+    # 验证 CLI 包装层(cli-node)能正常 spawn server 跑 init / lint。
+    # 不跑 start / doctor(需要 mysql,留给 release-test job 加 service container)。
+    name: CLI smoke (init + lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build-and-check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.9
+
+      - name: Setup Node 22 + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install monorepo deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build cli-node bundle
+        # 同时 build types/server/web,然后把 server bundle + web/dist + db/init + templates
+        # 装配到 packages/cli-node/_bundle/
+        run: pnpm build:cli-bundle
+
+      - name: Install cli-node (resolves file:./_bundle/... deps)
+        working-directory: packages/cli-node
+        run: npm install --no-audit --no-fund
+
+      - name: CLI smoke — version + help
+        working-directory: packages/cli-node
+        run: |
+          node bin/cli.mjs --version
+          node bin/cli.mjs --help
+          node bin/cli.mjs init --help
+          node bin/cli.mjs build --help
+
+      - name: CLI smoke — init scaffolds python-basics + config
+        run: |
+          mkdir /tmp/wt-smoke && cd /tmp/wt-smoke
+          node $GITHUB_WORKSPACE/packages/cli-node/bin/cli.mjs init
+          test -f whale-tutor.config.yaml
+          test -d courses/python-basics
+          test -f courses/python-basics/course.yaml
+
+      - name: CLI smoke — lint passes on scaffolded course
+        # lint 走 WHALE_TUTOR_VALIDATE_ONLY 不连 mysql,只校验 yaml/$ref/pattern 结构
+        working-directory: /tmp/wt-smoke
+        run: node $GITHUB_WORKSPACE/packages/cli-node/bin/cli.mjs lint
+
+      - name: CLI smoke — npm pack tarball is well-formed
+        # 验证发布 tarball 包含必需文件(bin / lib / _bundle),为后续 npm publish 兜底
+        working-directory: packages/cli-node
+        run: |
+          npm pack --dry-run 2>&1 | tee /tmp/pack.log
+          grep -q "bin/cli.mjs" /tmp/pack.log
+          grep -q "lib/build.mjs" /tmp/pack.log
+          grep -q "_bundle/server/dist/main.js" /tmp/pack.log
+          grep -q "_bundle/web/" /tmp/pack.log
+          grep -q "_bundle/db/init/01-schema.sql" /tmp/pack.log

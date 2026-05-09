@@ -1,8 +1,8 @@
 {
   "name": "whale-tutor",
-  "version": "0.1.0",
-  "description": "AI-driven interactive Python tutor — content authoring CLI (Node)",
-  "license": "MIT",
+  "version": "0.0.0",
+  "description": "AI-driven interactive learning platform — course authoring CLI",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "engines": {
     "node": ">=22.0.0"
@@ -15,6 +15,12 @@
     "lib",
     "_bundle"
   ],
+  "scripts": {
+    "prepublishOnly": "node -e \"const fs=require('fs'); const need=['_bundle/server/dist/main.js','_bundle/web/index.html','_bundle/db/init/01-schema.sql','_bundle/templates/python-basics/course.yaml']; const miss=need.filter(p=>!fs.existsSync(p)); if(miss.length){console.error('\\n✗ _bundle missing files (run `pnpm build:cli-bundle` from monorepo root first):\\n  '+miss.join('\\n  '));process.exit(1)} else {console.log('✓ _bundle complete')}\""
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@nestjs/common": "^10.4.4",
     "@nestjs/config": "^3.2.3",

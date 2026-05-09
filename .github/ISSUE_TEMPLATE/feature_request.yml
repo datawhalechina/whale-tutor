@@ -1,0 +1,58 @@
+name: ✨ Feature 请求
+description: 提议一个新特性或对现有特性的扩展
+title: "[Feature] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢思考!**大改动(超 100 行 / 跨多个模块)请先开 Issue 讨论,别直接发 PR**,避免方向不对要重做。
+        小修小改可以直接发 PR。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决什么问题
+      description: 不是"你想加什么功能",是"你遇到什么场景,现有的方案不够用"
+      placeholder: |
+        我作为课程作者,写了一道 free_recall 题但 rubric 写得不准,学习者答对了被判错。
+        现在我没办法在 server log 里看到"AI 评估时认为哪些 rubric 点未覆盖",只能盲猜。
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 你想到的方案
+      description: 期望的行为 / API 形态 / UI / CLI 命令
+      placeholder: |
+        建议在 server 答题反馈里,作者模式(env trigger)下额外返回 AI 评估的 per-rubric breakdown,前端 dev mode 显示。
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考虑过的其他方案
+      description: 想清楚为什么这个方案优于其他
+      placeholder: |
+        - 方案 B:让作者把 ai_calls 表查出来手动看,但门槛高
+        - 方案 C:CLI 出一个 `whale-tutor explain-rubric` 命令,但每次都要重新调 AI 浪费
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 涉及的模块
+      description: 你估计要改哪些模块?(看 [CLAUDE.md](https://github.com/datawhalechina/whale-tutor/blob/main/CLAUDE.md) 模块列表)
+      placeholder: server/src/pattern/free_recall + server/src/session + web 反馈视图
+
+  - type: dropdown
+    id: willing-to-pr
+    attributes:
+      label: 你愿意自己实现吗?
+      options:
+        - "是,等讨论确认方向后我来发 PR"
+        - "可以,但需要 maintainer 提示从哪入手"
+        - "只想提议,实现请别人来"
+    validations:
+      required: true

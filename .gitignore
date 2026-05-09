@@ -35,4 +35,8 @@ coverage
 .vite
 .cache
 
+# 内部设计稿(给 maintainer 的草稿,非 OSS 内容)
 notes
+
+# Claude Code agent 会话历史(本地排查用,不入仓库)
+.cc-history

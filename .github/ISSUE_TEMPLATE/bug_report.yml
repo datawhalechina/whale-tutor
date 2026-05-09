@@ -1,0 +1,68 @@
+name: 🐛 Bug 报告
+description: 你发现某个现有功能没按预期工作
+title: "[Bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢报告!请尽量详细,maintainer 才能复现 + 修复。
+        **如果只是不知道怎么用某个功能,请去 [Discussions](https://github.com/datawhalechina/whale-tutor/discussions) 而不是 Issues**。
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 期望行为 vs 实际行为。"按 X 按钮应该 Y,实际 Z"
+      placeholder: |
+        期望:点"开始练习"后进入第一道必做题
+        实际:点了之后页面白屏,console 里有 "Cannot read property 'patternId' of undefined"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤(尽量最小化)
+      description: 一步步列出怎么触发的
+      placeholder: |
+        1. `pnpm db:reset && pnpm dev`
+        2. 浏览器开 http://localhost:5173
+        3. 点 Python 基础课
+        4. 选第二章
+        5. 白屏
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 错误日志
+      description: server 控制台 / 浏览器 console / network panel 的相关报错
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: |
+        - 用 git 跑的:`git log -1 --format='%h %s'` 复制粘贴
+        - 用 `whale-tutor` CLI 跑的:`whale-tutor --version`
+      placeholder: "8abc35b complete v0.1  /  whale-tutor 0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: 环境
+      description: 操作系统 / Node 版本 / MySQL 版本
+      placeholder: "macOS 14.5 / Node 22.4 / MySQL 8.4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 其他
+      description: 截图 / 你怀疑的原因 / 你试过的 workaround 等

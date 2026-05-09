@@ -1,0 +1,86 @@
+name: 📚 课程内容贡献
+description: 想往项目里加一门新课程或一个新章节
+title: "[Course] "
+labels: ["course", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        欢迎贡献课程内容!这是项目最直接的"教学价值增长"路径。
+        **流程**:先开这个 Issue 让 maintainer 知道你在做(避免撞车),然后边写边沟通。完整教程见 [AUTHORING.md](https://github.com/datawhalechina/whale-tutor/blob/main/AUTHORING.md)。
+
+  - type: input
+    id: subject
+    attributes:
+      label: 学科
+      description: 一个英文单词(给 AI prompt 的 {{subject}} 变量用)
+      placeholder: "Pandas / Linux / Git / Statistics / SQL ..."
+    validations:
+      required: true
+
+  - type: input
+    id: course-name
+    attributes:
+      label: 课程名称
+      description: 学习者看到的中文标题
+      placeholder: "Pandas 数据分析入门"
+    validations:
+      required: true
+
+  - type: textarea
+    id: target-audience
+    attributes:
+      label: 目标学习者
+      description: 谁来学、为什么学完后能做什么
+      placeholder: |
+        受众:有 Python 基础但没用过 pandas 的数据分析新手
+        学完能做到:用 pandas 读 csv、做基本筛选/聚合、画简单可视化
+    validations:
+      required: true
+
+  - type: textarea
+    id: chapter-outline
+    attributes:
+      label: 章节 + LO 大纲
+      description: 列出章节,每章列 2-5 个 LO(学完能做到 X)
+      placeholder: |
+        Chapter 1: 数据读取与基本操作
+          - LO 1.1: 用 read_csv 读取 csv 文件
+          - LO 1.2: 用 head/tail/info 探查数据
+          - LO 1.3: 索引 vs 列名访问
+
+        Chapter 2: 筛选与变换
+          - LO 2.1: boolean indexing
+          - LO 2.2: groupby + agg
+          ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: build-or-manual
+    attributes:
+      label: 你打算怎么生成内容
+      options:
+        - "用 `whale-tutor build`(写每章 markdown 讲稿,AI 生成 yaml)"
+        - "手写 yaml(从示例改,精细控制每道题型 / hint / rubric)"
+        - "混合(部分用 build,部分手写)"
+    validations:
+      required: true
+
+  - type: input
+    id: timeline
+    attributes:
+      label: 预计工期
+      description: 一个粗略的"什么时候大概能 PR"。Maintainer 会在这个时间附近问进度
+      placeholder: "2-3 周内 / 大约 2026-06 中"
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 其他
+      description: |
+        - 是否需要 maintainer 帮忙看某个特殊设计(如这门课需要新 pattern)
+        - 你对自己的领域专长 / 教学经验
+        - 任何其他想说的

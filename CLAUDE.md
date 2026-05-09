@@ -447,7 +447,7 @@ bundle 自身不入 git(`packages/cli-node/.gitignore` 排除 `_bundle/`)。`pac
 - ✅ **多 chapter session 编排** — `pickStartingLo` 找首个未完成章节;sidebar 列全部章节并允许点切换(`POST /api/sessions/:id/switch-chapter`,session.current_lo_id 改写)
 - ✅ **多 course HomeView picker** — `GET /api/courses` 返 `CourseSummary[]`,首页卡片选课;支持 `python-basics` 与 `sql-basics` 并存
 - ✅ **内容扩展** — Python 加 `string_and_format` 章(2 LO);新增 SQL 课(`select_and_filter` 2 LO + `joins` 1 LO)— 用 `subject: SQL` 验证学科参数化
-- ✅ **课程作者文档** — [doc/course-authoring.md](doc/course-authoring.md) 740+ 行 step-by-step 指南(yaml/$ref/4 种 pattern/hint/评价/工作流/排查)
+- ✅ **课程作者文档** — [AUTHORING.md](AUTHORING.md) 740+ 行 step-by-step 指南(yaml/$ref/4 种 pattern/hint/评价/工作流/排查)
 
 ## v0.3 已实现清单(2026-05-09 更新)
 
@@ -469,7 +469,7 @@ bundle 自身不入 git(`packages/cli-node/.gitignore` 排除 `_bundle/`)。`pac
 - ✅ **AI 生成约定**:全部 `concept_check`(成功率最高,作者后续可手改 pattern);id 命名 `lo.<chapter-slug>.<lo-slug>` 等确定性派生
 - ✅ **失败语义**:AI 返 fallback object 时 build 直接报错退出(不静默兜底,质量优先)
 - ✅ **e2e 验证通过**(2026-05-09):单章 1.7K 字测试源 → 3 LO + 14 RI + 6 assessment,2 分钟跑完,过 lint
-- ✅ **文档** — [doc/course-authoring.md §10](doc/course-authoring.md#10-whale-tutor-build) 完整使用指南 + 限制说明
+- ✅ **文档** — [AUTHORING.md §10](AUTHORING.md#10-whale-tutor-buildai-辅助生成课程骨架) 完整使用指南 + 限制说明
 
 ## v0.3 路线图
 

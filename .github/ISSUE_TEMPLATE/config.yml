@@ -1,0 +1,13 @@
+# 关掉 blank issue,强制走模板。可绕开但需要点一下"open a regular issue"。
+blank_issues_enabled: false
+
+contact_links:
+  - name: 💬 一般讨论 / 设计探讨 / 求助
+    url: https://github.com/datawhalechina/whale-tutor/discussions
+    about: 不是 bug 也不是明确 feature 请求(比如"想知道某个设计为什么这么做" / "我想用它做 X 可行吗"),开 Discussion 而不是 Issue
+  - name: 📖 课程作者教程
+    url: https://github.com/datawhalechina/whale-tutor/blob/main/AUTHORING.md
+    about: 想用 Whale Tutor 做自己的课程,先看作者教程(yaml 怎么写 / 4 种 pattern / hint / build 命令等)
+  - name: 🛠️ 想贡献代码
+    url: https://github.com/datawhalechina/whale-tutor/blob/main/CONTRIBUTING.md
+    about: 看贡献指南(开发环境 / commit 规范 / good first issue / AI 代码使用约定)
