@@ -7,23 +7,25 @@ import { CONFIG_FILENAME } from './config.mjs';
 
 const CONFIG_TEMPLATE = `\
 # Whale Tutor 配置文件
-# 参考:https://github.com/datawhale/whale-tutor
+# 参考:https://github.com/datawhalechina/whale-tutor
 
 # 课程内容根目录(相对此配置文件所在位置)
 # 该目录下每个含 course.yaml 的子目录都被视为一门课程,自动加载。
 courses_dir: ./courses
 
-# MySQL 连接 — 课程作者本机已开 MySQL
-# (server 启动时若发现 schema 缺失会自动应用 db/init/01-schema.sql)
+# MySQL 连接(默认值适合本机刚装 MySQL 还没改过的状态)
+# - 'whale_tutor' 数据库不需要你手工建,whale-tutor start 会自动创建并应用 schema
+# - 如果你的 root 密码不是空,改 password(★ 纯数字密码必须加引号:password: "12345678")
 database:
   host: localhost
-  port: 13306
-  user: tutor
-  password: tutor
+  port: 3306
+  user: root
+  password: ""
   database: whale_tutor
 
 # AI Gateway — DeepSeek (OpenAI 兼容协议)
-# 留空则所有 AI 调用走 fallback 文案,不影响 e2e 但章末测试无法通过
+# 留空 AI 评估走 fallback 文案,不影响 e2e 但章末测试 / whale-tutor build 不可用
+# 申请:https://platform.deepseek.com/api_keys
 ai:
   deepseek_api_key: ""
   deepseek_api_base_url: https://api.deepseek.com

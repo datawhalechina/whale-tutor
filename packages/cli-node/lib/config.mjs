@@ -32,11 +32,13 @@ export function loadConfig(configPath) {
 
   const dbRaw = raw.database ?? {};
   const database = {
-    host: process.env.DATABASE_HOST ?? dbRaw.host ?? 'localhost',
-    port: Number(process.env.DATABASE_PORT ?? dbRaw.port ?? 13306),
-    user: process.env.DATABASE_USER ?? dbRaw.user ?? 'tutor',
-    password: process.env.DATABASE_PASSWORD ?? dbRaw.password ?? 'tutor',
-    database: process.env.DATABASE_NAME ?? dbRaw.database ?? 'whale_tutor',
+    host: String(process.env.DATABASE_HOST ?? dbRaw.host ?? 'localhost'),
+    port: Number(process.env.DATABASE_PORT ?? dbRaw.port ?? 3306),
+    // user 和 password 强制 String:yaml 里 `password: 12121212`(无引号)会被 parse 成 number,
+    // mysql2 拿到非 string 直接抛 "first argument must be of type string..."。这里兜底 coerce。
+    user: String(process.env.DATABASE_USER ?? dbRaw.user ?? 'root'),
+    password: String(process.env.DATABASE_PASSWORD ?? dbRaw.password ?? ''),
+    database: String(process.env.DATABASE_NAME ?? dbRaw.database ?? 'whale_tutor'),
   };
 
   const aiRaw = raw.ai ?? {};

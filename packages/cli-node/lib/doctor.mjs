@@ -31,15 +31,45 @@ function checkBundle(bundleRoot) {
   return { ok: true, detail: 'server / web / schema 都在' };
 }
 
+// MySQL 检查分两层:先 ping 整库,失败再 ping server(不指定库),区分:
+//   (a) server 都连不上(MySQL 没装 / 没启 / 端口错 / 密码错)— 致命
+//   (b) server 通但库不存在 — 不致命,whale-tutor start 会自动建库
+function explainMysqlError(code, msg) {
+  if (code === 'ECONNREFUSED') return '连不上 MySQL — 检查是否启动 + 端口对(默认 3306)';
+  if (code === 'ETIMEDOUT' || code === 'ENOTFOUND')
+    return '连接超时 / 找不到 host — 检查 host 字段';
+  if (code === 'ER_ACCESS_DENIED_ERROR') return '用户名 / 密码错';
+  if (msg && msg.includes('Received type number')) {
+    return '密码被 yaml parse 成了数字。纯数字密码必须加引号:password: "12121212"';
+  }
+  return msg;
+}
+
 async function checkMysql(cfg) {
-  const { ok, error } = await dbPing(cfg);
-  if (ok) {
+  const dbResult = await dbPing(cfg);
+  if (dbResult.ok) {
     return {
       ok: true,
       detail: `${cfg.database.user}@${cfg.database.host}:${cfg.database.port}/${cfg.database.database}`,
     };
   }
-  return { ok: false, detail: error };
+
+  // 库连不上 — 区分 "数据库不存在"(可自愈)vs "server 整体连不上"(致命)
+  if (dbResult.code === 'ER_BAD_DB_ERROR') {
+    // server 通,只是库还没建 — whale-tutor start 会自动 CREATE DATABASE。算 OK 但标黄。
+    return {
+      ok: true,
+      warn: true,
+      detail:
+        `${cfg.database.user}@${cfg.database.host}:${cfg.database.port} ✓ ` +
+        `(库 \`${cfg.database.database}\` 暂不存在,start 时自动创建)`,
+    };
+  }
+
+  return {
+    ok: false,
+    detail: explainMysqlError(dbResult.code, dbResult.error),
+  };
 }
 
 function checkApiKey(cfg) {
@@ -56,8 +86,8 @@ function checkApiKey(cfg) {
   return { ok: true, detail: `已设(${key.slice(0, 8)}…,长度 ${key.length})` };
 }
 
-function row(name, { ok, detail }) {
-  const mark = ok ? kleur.green('✓') : kleur.red('✗');
+function row(name, { ok, warn, detail }) {
+  const mark = !ok ? kleur.red('✗') : warn ? kleur.yellow('!') : kleur.green('✓');
   return `  ${mark}  ${kleur.cyan(name.padEnd(18))}  ${detail}`;
 }
 
