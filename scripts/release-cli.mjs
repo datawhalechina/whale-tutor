@@ -106,6 +106,21 @@ try {
   fail('当前分支没有 upstream remote (无法 push)。', '先跑 git push -u origin main');
 }
 
+// === 1.5. npm 登录校验 ===
+// 早 fail 比 build 完才发现强 — 如果没登 npm,后面 npm publish 必败,
+// 但那时候本地已经 bump 了 version + 创了 commit + tag + 推了 GitHub,
+// 留个悬空 tag 在远端,要补救麻烦。这里先验。
+let npmUser;
+try {
+  npmUser = check('npm whoami');
+} catch {
+  fail(
+    '没登录 npm(`npm whoami` 401)— 之后 npm publish 必败。',
+    '先跑 `npm login`(浏览器跳转输账号密码),登录完成后重跑 `pnpm release:cli`',
+  );
+}
+console.log(`  ✓ npm 登录账号: ${npmUser}`);
+
 // === 2. build bundle ===
 
 run('pnpm build:cli-bundle');
@@ -148,14 +163,34 @@ const tagName = `v${versionAfter}`;
 const commitMsg = `release(cli): ${tagName}`;
 
 // === 5. 显式 commit + tag ===
+// 注意:`npm version --no-git-tag-version` 既改 package.json 也改 package-lock.json
+// (把 lock 顶层 version 同步到新版本),所以两个文件都得 stage。
+// 历史 bug:v0.0.2 ~ v0.0.6 都只 commit 了 package.json,lock 的 version 一直滞后。
 
-run(
-  `git add ${CLI_PKG.replace(ROOT + '\\', '')
-    .replace(ROOT + '/', '')
-    .replace(/\\/g, '/')}`,
-);
+const cliPkgRel = 'packages/cli-node/package.json';
+const cliLockRel = 'packages/cli-node/package-lock.json';
+run(`git add ${cliPkgRel}`);
+// lock 是 npm install 自动维护的,可能 tracked 也可能没 tracked(取决于作者意愿)
+// 用 git ls-files 探,有就一起 stage
+const lockTracked = check(`git ls-files ${cliLockRel}`);
+if (lockTracked) {
+  run(`git add ${cliLockRel}`);
+}
 run(`git commit -m "${commitMsg}"`);
 run(`git tag -a ${tagName} -m "${tagName}"`);
+
+// commit 后再确认 tree 完全干净 — 如果还有漏掉的 tracked 改动,这里能立刻发现
+const dirtyAfterCommit = check('git status --porcelain');
+if (dirtyAfterCommit) {
+  fail(
+    'commit 后工作区仍不干净:\n' +
+      dirtyAfterCommit
+        .split('\n')
+        .map((l) => '    ' + l)
+        .join('\n'),
+    'release commit 漏了文件。先 git stash / 处理这些改动,再重跑 pnpm release:cli',
+  );
+}
 
 const newCommit = check('git rev-parse HEAD');
 console.log(`  ✓ Created commit ${newCommit.slice(0, 8)} + tag ${tagName}`);
