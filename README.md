@@ -22,7 +22,7 @@
 **Whale Tutor 是教学引擎**:
 
 - 📐 **课程作者用 YAML 预设学习路径**(LO + 必做题 + adaptive 题型集),AI 在路径内动态出题 / 评估 / 兜底
-- 🎯 **每个学习目标(LO)有 mastery 状态机**(untouched → exposed → practicing → mastered)
+- 🎯 **每个学习目标(LO, Learning Objective)有 mastery 状态机**(untouched → exposed → practicing → mastered)
 - 🔁 **答错自动触发 AI 出"换说法"题**(同一概念换场景),连续错 3 次强制回 LO 讲解兜底
 - 💡 **梯度提示(StuckProtocol)**:作者写 1-5 级 hint,没写则 AI 自动生成 3 级缓存
 - 💬 **侧支 QA 提问**:答题时随时 drawer 提问 / 嵌套追问,不影响主路径
@@ -89,7 +89,7 @@ whale-tutor build my-source/
 whale-tutor lint && whale-tutor start
 ```
 
-AI 自动拆 LO / 出 commonMisconceptions / 出 3-5 道必做题 / 出章末综合。详见 [AUTHORING.md §10](AUTHORING.md#10-whale-tutor-buildai-辅助生成课程骨架)。
+AI 自动拆 LO （学习目标） / 出 commonMisconceptions / 出 3-5 道必做题 / 出章末综合。详见 [AUTHORING.md §10](AUTHORING.md#10-whale-tutor-buildai-辅助生成课程骨架)。
 
 完整课程作者教程见 [AUTHORING.md](AUTHORING.md)。
 
