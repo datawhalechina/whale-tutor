@@ -86,11 +86,25 @@ export type SubmitResponseBody = {
   };
 }[keyof PatternResponseMap];
 
+// POST /api/sessions/:id/responses 现在只返"评估 + 状态"两块,不再阻塞等下一题。
+// 下一题(可能涉及 AI 生成 adaptive retry)由后续 GET /sessions/:id/next-interaction 拉。
+//
+// 这样 concept_check 这种确定性评估总是瞬秒返回对错;答错后的 AI 出题在背景跑,
+// 用户读完反馈点"下一题"时通常已经准备好。
 export interface SubmitResponseResult {
   evaluation: EvaluationResult;
+  updatedLoState: LearnerLoState;
+}
+
+// ============================================================
+// GET /api/sessions/:id/next-interaction
+// 决定 + 服务下一道题。可能 block 几秒(adaptive retry 走 AI 生成)。
+// 配合 submit 拆分使用;前端 submit 后立即显示反馈,后台静默调本接口取下一题。
+// ============================================================
+
+export interface GetNextInteractionResponse {
   nextDecision: PathDecision;
   nextInteraction: ServedInteraction | null;
-  updatedLoState: LearnerLoState;
 }
 
 // ============================================================
