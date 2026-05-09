@@ -43,7 +43,7 @@
 #### 第一步(共同):创工作目录 + 装 CLI + 初始化
 
 ```bash
-# 1. 装 CLI(全局,一次性)
+# 1. 装 CLI(全局,一次性) — 之后想升级到最新版重跑同一条命令即可:`npm install -g whale-tutor@latest`
 npm install -g whale-tutor
 
 # 2. 创工作目录(后续所有 whale-tutor 命令都在这里跑)
