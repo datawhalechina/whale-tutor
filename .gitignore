@@ -4,7 +4,9 @@ node_modules
 
 # build
 dist
-/build              # 仅根级 build/ (build-cli-bundle 中间产物);裸 `build` 会误伤 server/src/build/
+# 仅根级 build/ (build-cli-bundle 中间产物);裸 `build` 会误伤 server/src/build/
+# .gitignore 不支持行内 # 注释,这条单独成行
+/build
 *.tsbuildinfo
 
 # env
