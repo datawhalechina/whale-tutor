@@ -37,6 +37,11 @@ coverage
 .vite
 .cache
 
+# unplugin-auto-import / unplugin-vue-components 在每次 vite build 都会重写这两个文件
+# (依据当前组件 / API 用法生成),不该 tracked,否则 release/CI 流程的 clean-tree 校验会误报
+web/auto-imports.d.ts
+web/components.d.ts
+
 # 内部设计稿(给 maintainer 的草稿,非 OSS 内容)
 notes
 
