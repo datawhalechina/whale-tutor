@@ -12,6 +12,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import readline from 'node:readline';
 import { createInterface } from 'node:readline/promises';
 import process from 'node:process';
 import { stdin as input, stdout as output } from 'node:process';
@@ -26,19 +27,78 @@ async function ask(prompt, { defaultValue = '' } = {}) {
   return answer || defaultValue;
 }
 
-// 选择题 — 反复问直到答案在 options 列表里
+// 选择题 — 上下方向键切换 + Enter 确认。零依赖,基于 node:readline 的 keypress 事件。
+// 非 TTY 环境(管道输入 / 没有终端)自动 fallback 到默认选项。
 async function askChoice(prompt, options, defaultIndex = 0) {
-  const optionsLine = options
-    .map((o, i) => (i === defaultIndex ? kleur.bold(`[${o.key}]`) : `${o.key}`) + `=${o.label}`)
-    .join('  ');
-  while (true) {
-    const ans = await ask(`${prompt}  (${optionsLine})`, {
-      defaultValue: options[defaultIndex].key,
-    });
-    const found = options.find((o) => o.key === ans.toLowerCase());
-    if (found) return found.key;
-    console.log(kleur.yellow(`  请输入 ${options.map((o) => o.key).join(' / ')} 之一`));
+  // 非 TTY → 直接用默认值,避免在 CI / 重定向场景死循环
+  if (!input.isTTY) {
+    console.log(
+      `${kleur.cyan('?')} ${prompt} ${kleur.dim(`(non-TTY,使用默认 ${options[defaultIndex].key})`)}`,
+    );
+    return options[defaultIndex].key;
   }
+
+  return new Promise((resolveSelect) => {
+    let idx = defaultIndex;
+    let firstRender = true;
+
+    const render = () => {
+      // 二次渲染前先把上次的输出抹掉(question 1 行 + 每个选项 1 行 + 提示 1 行)
+      if (!firstRender) {
+        const linesToErase = options.length + 2;
+        for (let i = 0; i < linesToErase; i++) {
+          process.stdout.write('\x1B[1A\x1B[2K'); // 上移 1 行 + 清除该行
+        }
+      }
+      firstRender = false;
+
+      // 题目
+      process.stdout.write(`${kleur.cyan('?')} ${prompt}\n`);
+      // 选项列表
+      options.forEach((o, i) => {
+        const cursor = i === idx ? kleur.cyan('❯') : ' ';
+        const label = i === idx ? kleur.cyan().bold(o.label) : kleur.dim(o.label);
+        process.stdout.write(`  ${cursor} ${label}\n`);
+      });
+      // 操作提示
+      process.stdout.write(kleur.dim('  使用 ↑/↓ 切换,Enter 确认,Ctrl+C 取消\n'));
+    };
+
+    readline.emitKeypressEvents(input);
+    if (input.isTTY) input.setRawMode(true);
+    process.stdout.write('\x1B[?25l'); // 隐藏光标
+
+    const onKey = (str, key) => {
+      if (!key) return;
+      if (key.name === 'up' || (key.name === 'k' && !key.ctrl)) {
+        idx = (idx - 1 + options.length) % options.length;
+        render();
+      } else if (key.name === 'down' || (key.name === 'j' && !key.ctrl)) {
+        idx = (idx + 1) % options.length;
+        render();
+      } else if (key.name === 'return') {
+        cleanup();
+        // Enter 后输出当前选中,固定下来
+        process.stdout.write(kleur.dim(`  ✓ 已选: ${kleur.cyan(options[idx].label)}\n`));
+        resolveSelect(options[idx].key);
+      } else if (key.ctrl && key.name === 'c') {
+        cleanup();
+        process.stdout.write('\n' + kleur.yellow('已取消\n'));
+        process.exit(130);
+      }
+    };
+
+    const cleanup = () => {
+      input.off('keypress', onKey);
+      if (input.isTTY) input.setRawMode(false);
+      process.stdout.write('\x1B[?25h'); // 恢复光标
+      input.pause();
+    };
+
+    input.on('keypress', onKey);
+    input.resume();
+    render();
+  });
 }
 
 // 把课程名转成 kebab-case slug 当默认 course id
