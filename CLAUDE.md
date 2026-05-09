@@ -364,16 +364,17 @@ Dev 期 `pnpm dev` 走 Vite proxy `/api → :3000` + 不 strip prefix,因为 ser
 
 ### CLI 模块边界
 
-| 文件               | 职责                                                                     |
-| ------------------ | ------------------------------------------------------------------------ |
-| `bin/cli.mjs`      | commander 入口,5 个子命令                                                |
-| `lib/config.mjs`   | 读 `whale-tutor.config.yaml` + env override → 转 dict 给 node 子进程     |
-| `lib/db.mjs`       | mysql2 multipleStatements,探测 events 表缺失则跑 schema                  |
-| `lib/runner.mjs`   | child_process.spawn server + SIG 转发 + net 轮询端口 ready + open 浏览器 |
-| `lib/scaffold.mjs` | `init` 命令:cpSync template 到目标目录                                   |
-| `lib/lint.mjs`     | spawn server with `WHALE_TUTOR_VALIDATE_ONLY=1`                          |
-| `lib/build.mjs`    | spawn server with `WHALE_TUTOR_BUILD_MODE=1` + 输入输出 env              |
-| `lib/doctor.mjs`   | 健康检查(node / bundle / mysql / API key 4 项,kleur 输出)                |
+| 文件               | 职责                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| `bin/cli.mjs`      | commander 入口,6 个子命令(init / start / doctor / lint / build / generate)              |
+| `lib/config.mjs`   | 读 `whale-tutor.config.yaml` + env override → 转 dict 给 node 子进程                    |
+| `lib/db.mjs`       | mysql2 multipleStatements,探测 events 表缺失则跑 schema                                 |
+| `lib/runner.mjs`   | child_process.spawn server + SIG 转发 + net 轮询端口 ready + open 浏览器                |
+| `lib/scaffold.mjs` | `init` 命令:cpSync template 到目标目录                                                  |
+| `lib/lint.mjs`     | spawn server with `WHALE_TUTOR_VALIDATE_ONLY=1`                                         |
+| `lib/build.mjs`    | spawn server with `WHALE_TUTOR_BUILD_MODE=1` + 输入输出 env                             |
+| `lib/generate.mjs` | 交互式问答(readline) + spawn server with `WHALE_TUTOR_GENERATE_MODE=1` + temp JSON 输入 |
+| `lib/doctor.mjs`   | 健康检查(node / bundle / mysql / API key 4 项,kleur 输出)                               |
 
 **不要在 CLI 里写业务逻辑**(评估、出题、AI 调用、mastery 状态…)。CLI 只负责"读配置 + 探测/应用 schema + spawn 子进程 + 信号转发 + 开浏览器"。所有教学语义都在 NestJS server,只一份。
 
@@ -496,7 +497,21 @@ bundle 自身不入 git(`packages/cli-node/.gitignore` 排除 `_bundle/`)。`pac
 - ✅ **AI 生成约定**:全部 `concept_check`(成功率最高,作者后续可手改 pattern);id 命名 `lo.<chapter-slug>.<lo-slug>` 等确定性派生
 - ✅ **失败语义**:AI 返 fallback object 时 build 直接报错退出(不静默兜底,质量优先)
 - ✅ **e2e 验证通过**(2026-05-09):单章 1.7K 字测试源 → 3 LO + 14 RI + 6 assessment,2 分钟跑完,过 lint
-- ✅ **文档** — [AUTHORING.md §10](AUTHORING.md#10-whale-tutor-buildai-辅助生成课程骨架) 完整使用指南 + 限制说明
+- ✅ **文档** — [AUTHORING.md §10](AUTHORING.md#10-whale-tutor-generate--build-ai-辅助生成课程) 完整使用指南 + 限制说明
+
+### `whale-tutor generate` — 交互式 AI 一键生成完整课程(v0.3 末期增补)
+
+- ✅ **新命令**:`whale-tutor generate`(无参数,纯交互式),问 5 个问题(courseName / mode(ai/manual)/ topic / audience / chapterCount)
+- ✅ **比 build 更高一阶**:user 不用先手写 markdown 讲稿,AI 全包写讲稿 → 然后内部接 build pipeline 拆 LO + 出题
+- ✅ **2 个新 prompt**(都用 deepseek-v4-flash):
+  - `generate.course_outline` — 1 次,从 courseName + topic + audience + chapterCount 生成 course id/subject/description + N 个章节 outline(每章 summary 必须具体可考核)
+  - `generate.chapter_content` — N 次,逐章扩写 markdown 讲稿(2000-3500 字,含 3-8 个代码块 + 易错点段落)。每章独立调用,失败可单独重试,上下文带 prev/next chapter summary 防重复 / 防偷跑
+- ✅ **总调用次数 = 2 + 3N + M**(N 章数,M 总 LO 数);例:5 章 20 LO → 37 次 ≈ $0.10
+- ✅ **`server/src/build/generate.service.ts`** 复用 `BuildModule`(同 KYSELY=null 配置,加 `GenerateService` 内部依赖 `BuildService`,跑完写讲稿后调 `buildService.buildCourse(sourceDir, outputDir, force)`)
+- ✅ **CLI 交互**(`packages/cli-node/lib/generate.mjs`):用 node 内置 `readline/promises` 而非新 dep,问答完序列化输入到 OS temp dir 的 JSON 文件,通过 `WHALE_TUTOR_GENERATE_INPUT` env 把路径传给 server
+- ✅ **manual 模式**:用户选 manual 时不调 AI,scaffold 一个最小源目录骨架(course.md + chapters/01-introduction.md + 02-second-topic.md 占位)+ 提示用户编辑后跑 `whale-tutor build`
+- ✅ **source markdown 保留**:AI 写的讲稿落到 `<workspace>/<course-id>-source/`,不满意可手改后重跑 `whale-tutor build` 单独再生(不重写讲稿)
+- ✅ **文档** — [AUTHORING.md §10](AUTHORING.md#10-whale-tutor-generate--build-ai-辅助生成课程) 已更新,README 选项 2 已重写为 generate 流程
 
 ## v0.3 路线图
 

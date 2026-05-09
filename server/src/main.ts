@@ -6,6 +6,7 @@ import { createConnection } from 'mysql2/promise';
 import { AppModule } from './app.module';
 import { BuildModule } from './build/build.module';
 import { BuildService } from './build/build.service';
+import { GenerateService } from './build/generate.service';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { KnowledgeService } from './knowledge/knowledge.service';
 
@@ -23,6 +24,13 @@ async function bootstrap() {
   // 输入输出通过 env:WHALE_TUTOR_BUILD_INPUT / WHALE_TUTOR_BUILD_OUTPUT / WHALE_TUTOR_BUILD_FORCE
   if (process.env.WHALE_TUTOR_BUILD_MODE === '1') {
     await runBuild();
+    return;
+  }
+
+  // -3. generate 模式(`whale-tutor generate`):比 build 高一阶 — AI 先写讲稿,
+  // 再走 build pipeline 拆 LO + 出题。输入由 CLI 写到 JSON file,通过 env 传路径。
+  if (process.env.WHALE_TUTOR_GENERATE_MODE === '1') {
+    await runGenerate();
     return;
   }
 
@@ -100,6 +108,62 @@ async function runBuild(): Promise<void> {
     process.exit(0);
   } catch (err) {
     console.error(`[build] ${(err as Error).message}`);
+    await ctx.close();
+    process.exit(1);
+  }
+}
+
+/**
+ * generate 模式:CLI 把交互式问答收集的输入写到 JSON 文件,通过 WHALE_TUTOR_GENERATE_INPUT env
+ * 传 path 进来。GenerateService 跑两阶 AI(outline + per-chapter content),写到 sourceDir,
+ * 然后内部调 BuildService.buildCourse 把 markdown 转成完整 yaml/md 课程。
+ *
+ * 输入 JSON 形如:
+ *   { courseName, topic, audience, chapterCountHint, sourceDir, outputDir, force }
+ */
+async function runGenerate(): Promise<void> {
+  const inputFile = process.env.WHALE_TUTOR_GENERATE_INPUT;
+  if (!inputFile) {
+    console.error(
+      '[generate] WHALE_TUTOR_GENERATE_MODE=1 needs WHALE_TUTOR_GENERATE_INPUT (path to JSON config)',
+    );
+    process.exit(2);
+  }
+  let input: {
+    courseName: string;
+    topic: string;
+    audience: string;
+    chapterCountHint: string;
+    sourceDir: string;
+    outputDir: string;
+    force: boolean;
+  };
+  try {
+    const raw = await fs.readFile(inputFile, 'utf8');
+    input = JSON.parse(raw);
+  } catch (err) {
+    console.error(`[generate] failed reading input JSON ${inputFile}: ${(err as Error).message}`);
+    process.exit(2);
+  }
+
+  const ctx = await NestFactory.createApplicationContext(BuildModule, {
+    logger: ['error', 'warn', 'log'],
+  });
+  const generateService = ctx.get(GenerateService);
+  try {
+    const summary = await generateService.generateCourse(input);
+    console.log('');
+    console.log(
+      `✓ Generated course '${summary.courseId}' (${summary.subject}): ` +
+        `${summary.chapterCount} chapter(s), ${summary.loCount} LO(s), ` +
+        `${summary.riCount} LO RI(s), ${summary.assessmentRiCount} assessment RI(s)`,
+    );
+    console.log(`  source markdowns → ${summary.sourceDir}`);
+    console.log(`  built course → ${summary.outputDir}`);
+    await ctx.close();
+    process.exit(0);
+  } catch (err) {
+    console.error(`[generate] ${(err as Error).message}`);
     await ctx.close();
     process.exit(1);
   }

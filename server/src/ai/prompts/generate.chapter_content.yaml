@@ -1,0 +1,105 @@
+# `whale-tutor generate` 阶段 2:为单个章节扩写完整 markdown 讲稿。
+#
+# 一章一次调用 — 单独 prompt 而非把整门课塞一次,理由:
+#   1. 单次 token 上限够给一章充分展开(2000-3500 字),整门课塞不下
+#   2. 每章独立调度 → 失败重试只重试该章;某章不理想可以单独再生
+#   3. 上下文窗口里只塞当前章 + 相邻章 summary,AI 注意力集中
+#
+# 输入:
+#   subject                    — 学科名(用于 prompt 角色)
+#   courseName / courseDescription — 课程层信息(给 AI 全局上下文)
+#   chapterIndex / totalChapters   — 当前在第几章 / 共几章
+#   chapterName / chapterSummary  — 当前章的元信息(阶段 1 outline 输出)
+#   previousChaptersSummary       — 已经讲过的章节 summary(避免重复)
+#   nextChaptersSummary           — 后面要讲的章节 summary(避免偷跑)
+#
+# 输出:**该章节的完整 markdown 讲稿**,后续给阶段 3 (whale-tutor build) 拆 LO 用。
+#
+# 设计要点(质量是关键 — 阶段 3 build 拆 LO 的好坏完全取决于这里写的内容):
+#   - 长度 2000-3500 字:够展开 3-5 个 LO,又不会过载 build 的拆 LO 调用
+#   - 必须有真实可执行代码块(3-8 个),展示用法 + 输出
+#   - 必须有 1-2 段"易错点 / 常见误解"段落 — 阶段 3 会从这里抽 commonMisconceptions
+#   - 必须用 ## / ### 分段,逻辑层次清楚 — 阶段 3 拆 LO 时识别段落边界更准
+#   - 不写"# 第 N 章" 这种导航(name 已经在 chapter outline 里了),从 ## 开始
+
+templateId: generate.chapter_content
+model: deepseek-v4-flash
+maxRetries: 1
+maxTokens: 8000
+temperature: 0.5
+
+system: |
+  你是 {{subject}} 教学内容创作专家。给你课程上下文 + 当前章节元信息,
+  你写出**该章节的完整 markdown 讲稿**,2000-3500 字,中文。
+
+  关键准则(质量直接决定后续 AI 拆 LO 的质量,务必认真):
+
+  1. **教学法导向 + 真实知识**:
+     - 讲解必须准确,经得起专家审视
+     - 代码片段必须能跑通(语法正确 + 逻辑正确)
+     - 有教学法:从动机出发,引出概念,举例,对比,易错点,小结
+
+  2. **结构清晰**:
+     - 用 ## 一级小标题分主要话题(3-5 个)
+     - 必要时用 ### 二级小标题细分
+     - **不要**写 "# 第 N 章 ..." 这种章节导航(name 已经在阶段 1 决定),
+       直接从第一个 ## 开始
+
+  3. **足够细节,有教学的密度**:
+     - 不能只是 bullet 罗列;要展开"为什么是这样"、"vs 其他方案如何选"
+     - 关键概念有 1-3 句定义 + 1 个具体例子
+     - 关键操作有完整代码示例
+
+  4. **代码示例要求**:
+     - 3-8 个完整代码块(```python / ```sql 等,加 language tag)
+     - 每个代码块附 1-2 行说明:这段代码做什么,输出是什么
+     - 优先展示**实用模式**而非语法罗列
+     - 反例 / 错误示范也用代码块,但标记 ⚠️ 或 "错误示范"
+
+  5. **必须有 "易错点 / 常见误解" 段落**:
+     - 至少 1-2 段,用"### ⚠️ 常见误解"或"### 易错点"小标题
+     - 写**具体可识别**的错误(如 "以为 X 会抛 IndexError 实际返 []"),
+       不要写抽象的"对 X 不熟" — 后续 build 会从这里抽 commonMisconceptions 当 retry 题陷阱选项
+
+  6. **章节边界严格**:
+     - **严格按 chapterSummary 给的范围**写,不要超纲
+     - **不要重复**前面章节已讲的内容(可一句话引用 + 不展开)
+     - **不要偷跑**后面章节的内容(用户的学习节奏由章节顺序决定)
+
+  7. **输出仅是 markdown 字符串**,放进 JSON 的 markdown 字段返回,
+     不要任何额外解释、不要 yaml frontmatter、不要顶层 # 标题
+
+user: |
+  ## 课程上下文
+  课程名:{{courseName}}
+  课程简介:{{courseDescription}}
+  学科:{{subject}}
+
+  ## 当前章节
+  位置:第 {{chapterIndex}} 章 / 共 {{totalChapters}} 章
+  名称:{{chapterName}}
+  目标(严格按这个范围):{{chapterSummary}}
+
+  ## 前面已讲过的章节(避免重复;可一句话引用,不展开)
+  {{previousChaptersSummary}}
+
+  ## 后面要讲的章节(避免偷跑;不要在本章触及这些主题)
+  {{nextChaptersSummary}}
+
+  ## 任务
+  写当前章节的完整 markdown 讲稿,返回 JSON:
+  - markdown: 字符串,该章 markdown 内容(2000-3500 字,
+    含 3-8 个 ```代码块,分段用 ## / ###,至少 1-2 段易错点 / 常见误解)
+
+outputSchema:
+  type: object
+  required: [markdown]
+  additionalProperties: false
+  properties:
+    markdown:
+      type: string
+      minLength: 1500
+      maxLength: 9000
+
+fallback:
+  markdown: '_FALLBACK_'

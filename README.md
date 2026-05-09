@@ -73,25 +73,33 @@ whale-tutor start                           # 浏览器自动打开 http://local
 
 学完想加自己的课程?复制 `courses/python-basics/` 当模板手改,或者上选项 2。
 
-#### 选项 2 — 用 AI 生成你自己的课程
+#### 选项 2 — 用 AI 一键生成你自己的课程(交互式向导)
 
 ```bash
-# 1. 在 whale-workspace/ 内建源目录,写每章 markdown 讲稿
-mkdir my-source && cd my-source && mkdir chapters
-# 编辑 my-source/course.md(课程介绍)
-# 编辑 my-source/chapters/01-xxx.md, 02-xxx.md ...(每章一份完整讲稿)
-cd ..                                       # 回到 whale-workspace/
-
-# 2. AI 4 阶段生成完整 yaml/md → courses/my-source/
-whale-tutor build my-source/
-
-# 3. 校验 → 试学
-whale-tutor lint && whale-tutor start
+whale-tutor generate
 ```
 
-AI 自动拆 LO （学习目标） / 出 commonMisconceptions / 出 3-5 道必做题 / 出章末综合。详见 [AUTHORING.md §10](AUTHORING.md#10-whale-tutor-buildai-辅助生成课程骨架)。
+这是个**交互式命令**,问几个问题就完事:
 
-完整课程作者教程见 [AUTHORING.md](AUTHORING.md)。
+```
+? 课程名字(中文 OK,如 "Pandas 数据分析入门"): Pandas 数据分析入门
+? 生成方式  ([ai]=AI 自动写讲稿(推荐) / manual=我自己写 markdown): ai
+? 课程主题/范围(可选,留空 AI 从课程名推断): pandas 读 csv / 筛选 / 聚合 / 简单可视化
+? 目标受众(可选,如 "数据分析新手"): 有 Python 基础但没用过 pandas 的新手
+? 章节数(留空 AI 自己定;一般 3-7): [auto]
+```
+
+回答完几分钟后,**完整可学的课程已经生成**。AI 干了三件事:
+
+1. **写课程大纲** — 决定 course id / subject / 几个章节 / 每章主题
+2. **逐章扩写 markdown 讲稿** — 每章 2000-3500 字,含代码示例 + 易错点段落
+3. **自动跑 build pipeline** — 从 markdown 拆 LO + 出题 + 章末测试 → 完整 yaml/md 课程
+
+跑完直接 `whale-tutor lint && whale-tutor start` 试学。AI 写的 markdown 讲稿留在 `<course-id>-source/` 目录,**不满意可以手改后重跑 `whale-tutor build`**。
+
+> 想自己写 markdown(不用 AI 写讲稿,只让 AI 拆 LO + 出题)?选 `manual` 模式 — 会 scaffold 一个最小源目录骨架,你写完讲稿后手工跑 `whale-tutor build` 即可。
+
+详见 [AUTHORING.md §10](AUTHORING.md#10-whale-tutor-generate--build-ai-辅助生成课程)。完整课程作者教程见 [AUTHORING.md](AUTHORING.md)。
 
 ---
 

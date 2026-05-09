@@ -11,6 +11,7 @@ import { runBuild } from '../lib/build.mjs';
 import { findConfig, loadConfig } from '../lib/config.mjs';
 import { ensureSchema } from '../lib/db.mjs';
 import { runDoctor } from '../lib/doctor.mjs';
+import { runGenerate } from '../lib/generate.mjs';
 import { runLint } from '../lib/lint.mjs';
 import { startServer } from '../lib/runner.mjs';
 import { scaffoldInit } from '../lib/scaffold.mjs';
@@ -136,6 +137,29 @@ program
       output: opts.output,
       force: !!opts.force,
     });
+    process.exit(code);
+  });
+
+program
+  .command('generate')
+  .description(
+    '交互式问答 → AI 一键生成完整课程(含 markdown 讲稿)。\n' +
+      '比 `build` 更上层:不需要先手写 markdown,AI 全包。\n' +
+      '问答收集 课程名 / 模式(ai-默认 / manual) / 章节数 / 受众,然后调 AI:\n' +
+      '  1. 写课程大纲(course id + N 个章节 outline)\n' +
+      '  2. 逐章扩写 markdown 讲稿(2000-3500 字 / 章)\n' +
+      '  3. 自动跑 build pipeline 拆 LO + 出题 → 完整可学课程',
+  )
+  .action(async () => {
+    let configPath;
+    try {
+      configPath = findConfig();
+    } catch (e) {
+      console.error(kleur.red(`✗ ${e.message}`));
+      process.exit(1);
+    }
+    const cfg = loadConfig(configPath);
+    const code = await runGenerate(bundleRoot(), cfg);
     process.exit(code);
   });
 

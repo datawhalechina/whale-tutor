@@ -74,7 +74,9 @@ export default [
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
-      '**/build/**',
+      // 只 ignore 根级 build/(build-cli-bundle 中间产物);
+      // 裸 `**/build/**` 会误伤 server/src/build/(BuildModule + GenerateService 源码)。
+      'build/**',
       '**/coverage/**',
       '**/.vite/**',
       'packages/cli-node/_bundle/**',

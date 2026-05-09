@@ -19,7 +19,7 @@
 7. [评价机制(系统怎么判对错)](#7-评价机制系统怎么判对错)
 8. [日常工作流](#8-日常工作流)
 9. [常见错误 + 排查](#9-常见错误--排查)
-10. [`whale-tutor build`:AI 辅助生成课程骨架](#10-whale-tutor-buildai-辅助生成课程骨架)
+10. [`whale-tutor generate` & `build`:AI 辅助生成课程](#10-whale-tutor-generate--build-ai-辅助生成课程)
 
 ---
 
@@ -563,25 +563,36 @@ server 进程是常驻的,内容改完必须重启才能重新加载(v0.2 没做
 
 ### 8.4 加一门新课程
 
-**两条路径**,按你手头资料选:
+**三条路径**,按你手头资料 / 想要的控制粒度选:
 
-#### A 路径 — `whale-tutor build` AI 生成(推荐,从 markdown 起步)
+#### A 路径 — `whale-tutor generate` 一键 AI 生成(推荐起步,详见 [§10](#10-whale-tutor-generate--build-ai-辅助生成课程))
 
-如果你手头有"原始讲稿"(每章一份 markdown),走 build 流程,详见 [§10](#10-whale-tutor-buildai-辅助生成课程骨架):
+什么资料都没有,只有个想法?
 
 ```bash
-mkdir my-source && cd my-source
-mkdir chapters
+whale-tutor generate                     # 交互式问答 → AI 写讲稿 + 拆 LO + 出题
+whale-tutor lint && whale-tutor start    # 试学
+```
+
+最快从 0 到课程的方式。AI 写完后留一份 markdown 在 `<course-id>-source/`,可手改后重跑 `whale-tutor build` 优化。
+
+#### B 路径 — 自己写讲稿 + `whale-tutor build` 拆题
+
+已经有教案 markdown(每章一份)?跳过 AI 写讲稿,只让 AI 拆 LO + 出题:
+
+```bash
+mkdir my-source && cd my-source && mkdir chapters
 # 写 course.md(课程介绍)+ chapters/01-xxx.md / 02-xxx.md(每章一份完整讲稿)
 cd ..
-whale-tutor build my-source/             # AI 4 阶段生成完整 yaml/md → courses/my-source/
-whale-tutor lint                         # 校验
-whale-tutor start                        # 试学
+whale-tutor build my-source/             # AI 拆 LO + 出题 → courses/my-source/
+whale-tutor lint && whale-tutor start
 ```
+
+或:`whale-tutor generate` 选 `manual` 模式 → CLI 帮你 scaffold 一个最小源目录骨架,你按提示写完讲稿后跑 `whale-tutor build`。
 
 build 出来都是 `concept_check` 题型 + 默认 `adaptivePatterns: [concept_check]`,作者后续可手改部分 RI 为其他 pattern(参考 §5)。
 
-#### B 路径 — 手写 yaml(改示例,适合定向控制)
+#### C 路径 — 手写 yaml(改示例,适合定向控制)
 
 如果你想精细控制每道题的 pattern / hints / rubric / 测试用例(尤其 code_sandbox / spot_the_bug),从示例改:
 
@@ -706,15 +717,69 @@ v0 demo learner 硬编码 `id=1`,所以 `WHERE learner_id = 1` 永远对。等 v
 
 ---
 
-## 10. `whale-tutor build`:AI 辅助生成课程骨架
+## 10. `whale-tutor generate` & `build`:AI 辅助生成课程
 
-> ★ **v0.3 已实现**(2026-05)。从作者写的原始 markdown(每章一份 md)一键生成完整 yaml/md 课程结构。
+两个命令,**两层抽象**:
 
-### 痛点
+| 命令                         | 输入                                                 | AI 干的事                  | 输出                    |
+| ---------------------------- | ---------------------------------------------------- | -------------------------- | ----------------------- |
+| `whale-tutor generate`(高层) | 交互式问答(课程名 / 主题 / 章节数 / 受众)            | **写讲稿 + 拆 LO + 出题**  | 完整可学课程(yaml + md) |
+| `whale-tutor build`(底层)    | 你已经写好的 markdown(`course.md` + `chapters/*.md`) | 拆 LO + 出题(讲稿是你写的) | 完整可学课程(yaml + md) |
 
-写 yaml 骨架(LO 元信息、必做题选项、rationale)是机械活。`whale-tutor init` 给你一个完整示例复制,但写第二门课你还是要从零开始。`build` 把这部分外包给 AI,作者只写 markdown 讲稿。
+**简单选择**:不想动笔写就 `generate`(默认 ai 模式);你已经有讲稿草稿就直接 `build`。
 
-### 输入约定(MD 一份 = 一个 chapter)
+### `whale-tutor generate` — 一键生成(推荐起步)
+
+```bash
+whale-tutor generate
+```
+
+交互式问答(都有合理默认值,直接回车就行):
+
+```
+? 课程名字(中文 OK,如 "Pandas 数据分析入门")
+? 生成方式  ([ai]=AI 自动写讲稿(推荐) / manual=我自己写 markdown)
+? 课程主题/范围(可选,留空 AI 从课程名推断)
+? 目标受众(可选,如 "数据分析新手")
+? 章节数(留空 AI 自己定;一般 3-7)
+```
+
+回答完 AI 跑两步,然后自动接 build pipeline:
+
+| 阶段 | prompt                     | 调用次数 | 干什么                                                                |
+| ---- | -------------------------- | -------- | --------------------------------------------------------------------- |
+| 1    | `generate.course_outline`  | 1        | 决定 course id / subject / description / N 个章节 outline(含 summary) |
+| 2    | `generate.chapter_content` | N        | **逐章扩写 markdown 讲稿**(2000-3500 字 / 章,含代码块 + 易错点段落)   |
+| 3    | (build pipeline,见下面)    | 1+2N+M   | 拆 LO + 出题 + 章末测试                                               |
+
+**总调用次数 = 2 + 3N + M**。例:5 章共 20 个 LO → 2 + 15 + 20 = 37 次,deepseek-v4-flash ≈ $0.10,2-5 分钟。
+
+**生成完后**:
+
+- `<workspace>/<course-id>-source/` — AI 写的 markdown 讲稿,**留下来供你 review/手改**
+- `<workspace>/courses/<course-id>/` — 完整可学课程
+
+不满意 AI 写的某章?改 `<course-id>-source/chapters/03-xxx.md`,然后:
+
+```bash
+whale-tutor build <course-id>-source/ --force
+```
+
+只重跑底层 build pipeline(3 阶段拆 LO + 出题),不重写讲稿。
+
+#### `manual` 模式 — 不让 AI 写讲稿,只让 AI 拆 LO
+
+`whale-tutor generate` 选 `manual`:CLI scaffold 出一个最小源目录骨架(`course.md` + `chapters/01-introduction.md` + `chapters/02-second-topic.md` 占位),你按提示写完讲稿后跑 `whale-tutor build <source>/` 即可。这条路径适合**你已经有教案稿子,只是不想写 yaml**。
+
+### `whale-tutor build` — 给已写好的讲稿拆 LO + 出题
+
+```bash
+whale-tutor build my-course-source/                # 输出到 <coursesDir>/<source 目录名>/
+whale-tutor build my-course-source/ --force        # 已存在时覆盖
+whale-tutor build my-course-source/ --output ./courses/awesome   # 指定输出目录
+```
+
+**输入约定**(MD 一份 = 一个 chapter):
 
 ```
 my-course-source/                # 自由命名,等下传给 build
@@ -729,15 +794,7 @@ my-course-source/                # 自由命名,等下传给 build
 
 **为什么 chapter 粒度而不是 LO 粒度作为输入** — LO 边界本身就是认知粒度判断,作者很难一开始就拆好;chapter 粒度更接近作者写课时自然的思维单元(一节课讲什么)。AI 看完整章上下文拆 LO 比作者孤立写每个 LO 更准。
 
-### 跑
-
-```bash
-whale-tutor build my-course-source/                # 输出到 <coursesDir>/<source 目录名>/
-whale-tutor build my-course-source/ --force        # 已存在时覆盖
-whale-tutor build my-course-source/ --output ./courses/awesome   # 指定输出目录
-```
-
-**前置**:必须配置 `DEEPSEEK_API_KEY`(在 `whale-tutor.config.yaml` 或环境变量)。无 key 时 build 直接报错退出 — AI 调用全 fallback 没意义。
+**前置**:必须配置 `DEEPSEEK_API_KEY`(在 `whale-tutor.config.yaml` 或环境变量)。无 key 时 generate / build 直接报错退出 — AI 调用全 fallback 没意义。
 
 ### AI 4 阶段 pipeline
 
@@ -818,14 +875,15 @@ whale-tutor start                          # 试学
 
 ## 附:CLI 命令速查
 
-| 命令                                                    | 作用                                                        |
-| ------------------------------------------------------- | ----------------------------------------------------------- |
-| `whale-tutor init`                                      | 在当前目录 scaffold 完整示例 + 配置文件                     |
-| `whale-tutor start [--no-open]`                         | 启动 server(自动应用 schema + serve API + 静态前端)         |
-| `whale-tutor lint`                                      | 校验当前目录课程结构(yaml / $ref / pattern / 等),不动 mysql |
-| `whale-tutor doctor`                                    | 健康检查(node / bundle / mysql / API key 4 项)              |
-| `whale-tutor --version`                                 | 打印版本                                                    |
-| `whale-tutor build <source> [--force] [--output <dir>]` | 从原始 markdown AI 生成课程骨架(详见 §10)                   |
+| 命令                                                    | 作用                                                                  |
+| ------------------------------------------------------- | --------------------------------------------------------------------- |
+| `whale-tutor init`                                      | 在当前目录 scaffold 完整示例 + 配置文件                               |
+| `whale-tutor start [--no-open]`                         | 启动 server(自动应用 schema + serve API + 静态前端)                   |
+| `whale-tutor doctor`                                    | 健康检查(node / bundle / mysql / API key 4 项)                        |
+| `whale-tutor lint`                                      | 校验当前目录课程结构(yaml / $ref / pattern / 等),不动 mysql           |
+| `whale-tutor generate`                                  | **(高层)**交互式问答,AI 一键生成完整课程(讲稿 + LO + 题)。详见 §10    |
+| `whale-tutor build <source> [--force] [--output <dir>]` | **(底层)**从已写好的 markdown 讲稿 AI 生成课程骨架(LO + 题)。详见 §10 |
+| `whale-tutor --version`                                 | 打印版本                                                              |
 
 ---
 

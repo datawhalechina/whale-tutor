@@ -65,7 +65,7 @@
 
 1. fork 仓库 + clone 到本地
 2. 在 `server/src/knowledge/data/` 下开新课程目录(如 `pandas-basics/`)— 或者扩展已有课程加 chapter
-3. 按 [AUTHORING.md](AUTHORING.md) 写 yaml + md 内容,推荐先用 `whale-tutor build` AI 生成骨架再手改
+3. 按 [AUTHORING.md](AUTHORING.md) 写 yaml + md 内容。**最快路径**:用 `whale-tutor generate` 一键 AI 生成讲稿 + 题(交互式问答),然后手改优化;或 `whale-tutor build` 把你已有的 markdown 讲稿拆成可学课程
 4. 跑 `whale-tutor lint`(或 `pnpm dev:server` 看启动日志)确认结构合法
 5. PR 到 main,标题用 `course: 加 pandas-basics 课程` 或 `course(python-basics): 加迭代器进阶章节`
 6. PR 描述里贴一张 LearnView 截图证明能跑

@@ -8,7 +8,7 @@
 
 - **Node.js ≥ 22** (https://nodejs.org/)
 - **MySQL ≥ 8.0** (本机已运行,在某端口监听)
-- **DeepSeek API key**(可选;无 key 时 AI 评估走 fallback 文案,完整 e2e 仍可走通,但 `whale-tutor build` 必须有 key)
+- **DeepSeek API key**(可选;无 key 时 AI 评估走 fallback 文案,完整 e2e 仍可走通,但 `whale-tutor build` / `generate` 必须有 key)
 
 ## 快速开始
 
@@ -39,14 +39,15 @@ npx whale-tutor start
 
 ## 命令参考
 
-| 命令                                                    | 作用                                                           |
-| ------------------------------------------------------- | -------------------------------------------------------------- |
-| `whale-tutor init`                                      | 在当前目录 scaffold 完整 python-basics 示例 + 配置文件模板     |
-| `whale-tutor start [--no-open]`                         | 启动 server(自动应用 schema + serve API + 静态前端)            |
-| `whale-tutor lint`                                      | 校验当前目录的课程 yaml/$ref/pattern 结构是否合法              |
-| `whale-tutor build <source> [--force] [--output <dir>]` | 从原始 markdown(course.md + chapters/\*.md)AI 生成完整课程骨架 |
-| `whale-tutor doctor`                                    | 健康检查(node 版本 / bundle / mysql 连通 / API key 是否设)     |
-| `whale-tutor --version`                                 | 打印版本                                                       |
+| 命令                                                    | 作用                                                         |
+| ------------------------------------------------------- | ------------------------------------------------------------ |
+| `whale-tutor init`                                      | 在当前目录 scaffold 完整 python-basics 示例 + 配置文件模板   |
+| `whale-tutor start [--no-open]`                         | 启动 server(自动应用 schema + serve API + 静态前端)          |
+| `whale-tutor lint`                                      | 校验当前目录的课程 yaml/$ref/pattern 结构是否合法            |
+| `whale-tutor generate`                                  | **(高层)** 交互式问答,AI 一键生成完整课程(讲稿 + LO + 题)    |
+| `whale-tutor build <source> [--force] [--output <dir>]` | **(底层)** 从已写好的 markdown 讲稿 AI 生成课程骨架(LO + 题) |
+| `whale-tutor doctor`                                    | 健康检查(node 版本 / bundle / mysql 连通 / API key 是否设)   |
+| `whale-tutor --version`                                 | 打印版本                                                     |
 
 ## 配置文件 `whale-tutor.config.yaml`
 
@@ -95,27 +96,38 @@ courses/python-basics/
 
 完整作者教程(yaml / $ref / 4 种 pattern / hint / 评价机制 / build 流程)见仓库 [AUTHORING.md](https://github.com/datawhalechina/whale-tutor/blob/main/AUTHORING.md)。
 
-## AI 辅助生成课程(`whale-tutor build`)
+## AI 辅助生成课程
 
-如果你手头有"原始 markdown 讲稿"(每章一份 md),不想从零写 yaml,用 build:
+两个命令两层抽象 — 都是 AI 帮你做苦力,区别在于"讲稿是 AI 写还是你自己写":
+
+### 一键生成(没 markdown 讲稿,推荐起步)
 
 ```bash
-mkdir my-source && cd my-source
-mkdir chapters
-# 写 course.md(课程介绍)+ chapters/01-xxx.md / 02-xxx.md(每章一份完整讲稿)
-cd ..
-whale-tutor build my-source/                    # AI 4 阶段生成完整 yaml/md → courses/my-source/
-whale-tutor lint                                # 校验
-whale-tutor start                               # 试学
+whale-tutor generate                            # 交互式问答 → AI 写讲稿 + 拆 LO + 出题
 ```
 
-详细约定见 [AUTHORING.md §10](https://github.com/datawhalechina/whale-tutor/blob/main/AUTHORING.md#10-whale-tutor-buildai-辅助生成课程骨架)。
+会问 5 个问题(课程名 / ai 还是 manual / 主题 / 受众 / 章节数),AI 完成后:
+
+- AI 写的 markdown 讲稿留在 `<course-id>-source/` 目录,可手改后重跑 build 优化
+- 完整可学课程在 `courses/<course-id>/`
+
+### 从已写好的讲稿生成(只让 AI 拆 LO + 出题)
+
+```bash
+mkdir my-source && cd my-source && mkdir chapters
+# 写 course.md(课程介绍)+ chapters/01-xxx.md / 02-xxx.md(每章一份完整讲稿)
+cd ..
+whale-tutor build my-source/                    # AI 4 阶段拆 LO + 出题 → courses/my-source/
+whale-tutor lint && whale-tutor start
+```
+
+详细约定见 [AUTHORING.md §10](https://github.com/datawhalechina/whale-tutor/blob/main/AUTHORING.md#10-whale-tutor-generate--build-ai-辅助生成课程)。
 
 ## 故障排查
 
 - **`whale-tutor start` 报 mysql 连不上**:检查 `whale-tutor.config.yaml` 中 host/port/user 是否对,mysql 是否在监听
 - **AI 评估总是 fallback**:`whale-tutor doctor` 检查 API key 是否填了
-- **`whale-tutor build` 报错退出**:必须配置 DEEPSEEK_API_KEY(否则全部 AI 调用走 fallback,无法生成内容)
+- **`whale-tutor build` / `generate` 报错退出**:必须配置 DEEPSEEK_API_KEY(否则全部 AI 调用走 fallback,无法生成内容)
 - **浏览器 404**:确认 `whale-tutor start` 的端口跟你访问的一致(默认 3000)
 - **`node` 版本过低**:`node --version` < 22,装 https://nodejs.org/ ≥ 22
 
