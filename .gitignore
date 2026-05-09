@@ -4,7 +4,7 @@ node_modules
 
 # build
 dist
-build
+/build              # 仅根级 build/ (build-cli-bundle 中间产物);裸 `build` 会误伤 server/src/build/
 *.tsbuildinfo
 
 # env

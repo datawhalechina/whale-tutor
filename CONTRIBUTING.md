@@ -185,46 +185,49 @@ pnpm release:cli:minor                     # 0.1.x → 0.2.0
 pnpm release:cli:major                     # 0.x.y → 1.0.0
 ```
 
-**完整流水线**(由 [scripts/release-cli.mjs](scripts/release-cli.mjs) 自动跑):
+**完整流水线**(由 [scripts/release-cli.mjs](scripts/release-cli.mjs) 自动跑,**任一步失败 fail-fast**):
 
-1. 校验 git 工作区干净 + 在 main 分支 + 有 upstream remote(任一不满足直接 fail,不动 npm)
+1. 校验 git 干净 + 在 main + 有 upstream(不满足直接退,不留痕迹)
 2. `pnpm build:cli-bundle` 重建 `packages/cli-node/_bundle/`
-3. `cd packages/cli-node && npm install` 解析 `file:./_bundle/...` 依赖
-4. `npm version <type>` 改 package.json + 自动创建 `release(cli): vX.Y.Z` commit + `vX.Y.Z` tag
-5. `npm publish --access public` 推到 npm registry(`prepublishOnly` 钩子兜底校验 `_bundle/` 含 4 个关键文件)
-6. `git push --follow-tags` 推 commit + tag 到 GitHub
+3. 在 cli-node 跑 `npm install`(只装 `node_modules/`,不动 tracked 文件)
+4. **显式** bump 版本:`npm version <type> --no-git-tag-version` 只改 `package.json`,不让 npm 管 git
+5. **显式** `git add packages/cli-node/package.json` + `git commit -m "release(cli): vX.Y.Z"` + `git tag -a vX.Y.Z`
+6. **`git push --follow-tags`**(commit + tag 一起推)+ 验证远端 HEAD 跟本地匹配
+7. `npm publish --access public`(`prepublishOnly` 钩子兜底校验 `_bundle/` 完整)
 
-发完只剩**一步手工**(为了让你看一眼版本说明):
-
-```bash
-gh release create vX.Y.Z --generate-notes  # 自动按 commit 列表生成 release notes
-```
-
-**预览(不真的发)**:
+发完手工最后一步生成 release notes:
 
 ```bash
-pnpm release:cli:dry-run                   # 跑全流程但跳过 npm publish + git push
+gh release create vX.Y.Z --generate-notes
 ```
 
-dry-run 仍然会本地 bump version + 创 git tag,所以预览完想撤回:
+#### 为什么 push 在 publish 之前(故意的设计)
+
+传统 npm 流程是 publish→push,但 npm 一发出去就没法撤回(`npm unpublish` 有 72 小时窗口且条件苛刻)。如果 publish 成功 push 失败,你的 bump commit 就悬空在本地 — 必须手工补 push,而且容易忘记,**这就是上一版踩到的坑**。
+
+反过来 push→publish:
+- push 失败可以原地重试(commit + tag 已在本地,不丢)
+- publish 失败也可以重试(`cd packages/cli-node && npm publish --access public`)
+- bump commit **总是先入 git**,不会出现"npm 上有这个版本但 GitHub 没"的反向悬空
+
+代价:publish 失败时 GitHub 上有 tag 但 npm 上没有 — 这种情况可见性高(用户跑 `npm install whale-tutor@X.Y.Z` 会立刻发现版本不存在),修复也只需重跑一条 publish。
+
+#### 失败时怎么办
+
+| 失败步 | 状态 | 修复 |
+|---|---|---|
+| 4-5(bump / commit / tag) | package.json 可能改了,git 状态不全 | `git checkout packages/cli-node/package.json` 撤回 + 排查 + 重跑 `pnpm release:cli` |
+| 6(push) | 本地有 commit + tag,远端没 | 排查(常见:网络 / 权限),修复后跑 `git push --follow-tags`,**不要重跑整个脚本** |
+| 7(publish) | commit + tag 已在 GitHub,npm 没该版本 | 修问题(常见:没 `npm login`),跑 `cd packages/cli-node && npm publish --access public` 重试 |
+| 完全撤回(已 publish) | 全推送 + 已发布 | `npm unpublish whale-tutor@X.Y.Z`(72h 内)+ `git push origin :refs/tags/vX.Y.Z` 删远端 tag + `git revert <commit>` |
+
+#### 预览(不真的发)
 
 ```bash
-git tag -d v$(node -p "require('./packages/cli-node/package.json').version")
-git reset --hard HEAD~1
+pnpm release:cli:dry-run     # 跑 1-5 步,跳过 6 (push) + 7 (publish)
 ```
 
-**publish 失败时怎么办**(网络抖 / 没 npm login / npm 那边报 conflict):
-
-第 4 步已经创了本地 commit + tag,第 5 步失败但第 6 步没跑。修复办法:
-
-```bash
-cd packages/cli-node
-# 先解决问题(npm login 等)
-npm publish --access public                # 重试 publish
-cd ../.. && git push --follow-tags         # 成功后再推
-```
-
-如果你想完全撤回这一版:
+预览仍然会本地 bump + commit + tag(这些是本地 git 操作,无外部副作用)。预览完想撤回:
 
 ```bash
 git tag -d v$(node -p "require('./packages/cli-node/package.json').version")

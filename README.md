@@ -38,40 +38,49 @@
 > - **MySQL ≥ 8.0**:可以直接装 [MySQL 官方版](https://dev.mysql.com/downloads/installer/)(Windows/Mac/Linux 都有);或者装 [Docker Desktop](https://www.docker.com/products/docker-desktop/) 用容器跑(开发期推荐)
 > - **DeepSeek API Key**(可选,但强烈推荐):去 [DeepSeek 平台](https://platform.deepseek.com/api_keys) 申一个,没有的话 AI 评估走 fallback 文案,但 `whale-tutor build` 不可用
 
-### 选项 1:用 CLI 装 ⭐️ 推荐(课程作者 / 试用学习者)
+### 路径 A:用 CLI(课程作者 / 试用学习者)⭐️ 推荐
 
-不需要 clone 仓库,5 分钟跑通:
+#### 第一步(共同):创工作目录 + 装 CLI + 初始化
 
 ```bash
-# 1. 装 CLI(全局)
+# 1. 装 CLI(全局,一次性)
 npm install -g whale-tutor
 
-# 2. 在某个空目录初始化示例课程
-mkdir my-course && cd my-course
-whale-tutor init                            # scaffold 完整 python-basics 示例
+# 2. 创工作目录(后续所有 whale-tutor 命令都在这里跑)
+mkdir whale-workspace && cd whale-workspace
 
-# 3. 用任意编辑器(VSCode / Notepad / vim 都行)打开 whale-tutor.config.yaml
-#    填入 mysql 连接 + (可选) DeepSeek API key
+# 3. scaffold 完整 python-basics 示例 + whale-tutor.config.yaml 配置模板
+whale-tutor init
 
-# 4. 健康检查(强烈推荐第一次跑)
+# 4. 编辑 whale-tutor.config.yaml(填 mysql 连接 + 可选 DeepSeek key)
+#    用任意编辑器打开都行,例如:
+#      Windows:  notepad whale-tutor.config.yaml
+#      macOS:    open -e whale-tutor.config.yaml
+#      Linux:    nano / vim whale-tutor.config.yaml
+#    或者直接用 VSCode 打开 whale-workspace/ 目录
+
+# 5. 健康检查(强烈推荐第一次跑)
 whale-tutor doctor                          # 检查 node / mysql / API key
-
-# 5. 启动 — 浏览器自动打开 http://localhost:3000
-whale-tutor start
 ```
 
-详细课程作者教程见 [AUTHORING.md](AUTHORING.md)。
+完成共同步骤后,**留在 `whale-workspace/` 目录里**,二选一:
 
-### 选项 2:用 AI 一键生成你自己的课程
-
-延续选项 1 的安装,把"写 yaml" 这步交给 AI:
+#### 选项 1 — 跑内置 python-basics 示例
 
 ```bash
-# 1. 准备源 markdown(每章一份)
+whale-tutor start                           # 浏览器自动打开 http://localhost:3000
+```
+
+学完想加自己的课程?复制 `courses/python-basics/` 当模板手改,或者上选项 2。
+
+#### 选项 2 — 用 AI 生成你自己的课程
+
+```bash
+# 1. 在 whale-workspace/ 内建源目录,写每章 markdown 讲稿
 mkdir my-source && cd my-source && mkdir chapters
-# 在 my-source/ 写 course.md(课程介绍)
-# 在 my-source/chapters/ 写 01-xxx.md / 02-xxx.md(每章一份完整讲稿,markdown)
-cd ..
+# 编辑 my-source/course.md(课程介绍)
+# 编辑 my-source/chapters/01-xxx.md, 02-xxx.md ...(每章一份完整讲稿)
+cd ..                                       # 回到 whale-workspace/
 
 # 2. AI 4 阶段生成完整 yaml/md → courses/my-source/
 whale-tutor build my-source/
@@ -82,7 +91,11 @@ whale-tutor lint && whale-tutor start
 
 AI 自动拆 LO / 出 commonMisconceptions / 出 3-5 道必做题 / 出章末综合。详见 [AUTHORING.md §10](AUTHORING.md#10-whale-tutor-buildai-辅助生成课程骨架)。
 
-### 选项 3:clone 仓库 dev 模式(开发者)
+完整课程作者教程见 [AUTHORING.md](AUTHORING.md)。
+
+---
+
+### 路径 B:clone 仓库 dev 模式(开发者)
 
 适合**想给项目贡献代码、改架构、加新 pattern** 的开发者。需要额外装 [pnpm 8](https://pnpm.io/installation)(`corepack enable && corepack prepare pnpm@8.15.9 --activate`)+ 已经准备好 [Docker Desktop](https://www.docker.com/products/docker-desktop/):
 
