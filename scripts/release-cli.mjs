@@ -198,4 +198,7 @@ console.log(`\n下一步(手工生成 release notes):`);
 console.log(`  gh release create ${tagName} --generate-notes`);
 console.log(`\n查看:`);
 console.log(`  npm:  https://www.npmjs.com/package/whale-tutor/v/${versionAfter}`);
-console.log(`  git:  ${check(`git log -1 --format='%h %s'`)}`);
+// 用两次单字段 format 拼接,避开 Windows shell 不剥单引号导致的 `'%s'` 被当路径的坑
+const lastHash = check('git log -1 --format=%h');
+const lastSubj = check('git log -1 --format=%s');
+console.log(`  git:  ${lastHash} ${lastSubj}`);
