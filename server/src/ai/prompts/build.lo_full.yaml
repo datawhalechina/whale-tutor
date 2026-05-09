@@ -1,0 +1,111 @@
+# `whale-tutor build` 阶段 3:为单个 LO 生成完整教学元素。
+# 输入:
+#   subject               — 学科名
+#   chapterName           — 所在章节名(给 AI 上下文,避免出题超纲)
+#   loName / loDescription — 当前 LO 名 / 描述
+#   coreExplanationMd     — 当前 LO 的教学讲解(stage 2 已生成,作者写的)
+#   siblingLoNames        — 同章其他 LO 名称(逗号分隔字符串,避免出题踩到下一个 LO 的内容)
+# 输出:
+#   - commonMisconceptions:学习者最容易犯的具体错误(给后续 retry 出题用陷阱选项灵感)
+#   - masteryCriteria:1-2 句话,该 LO 通过标准
+#   - requiredInteractions:3-5 道 concept_check 题,完整字段
+#
+# 设计要点(教育学):
+#   - commonMisconceptions 是这门课"陷阱选项灵感库",必须**具体可识别**,不能抽象
+#     ✓ "以为 a[5:10] 在越界时抛 IndexError(实际返 [])"
+#     ✗ "对切片不熟"
+#   - RI 难度递进:第 1 题最基础(单点辨析),第 3-5 题综合 / 易错陷阱
+#   - 选项 4 个,1 正 3 错;陷阱选项尽量从 commonMisconceptions 中找
+#   - 正确选项 index 不要全放第 0 位 — 必须分散
+#   - rationale 1-2 句话,直接说为什么正确;不要重复题干
+#   - explanationMd 是题前引子,大多数题可以为空字符串(题干已经清楚就不需要)
+#   - 题干必须可独立读懂,**不要**引用"上面讲解中提到的..."(运行时学习者看不到 coreExplanation 时也能答)
+
+templateId: build.lo_full
+model: deepseek-v4-flash
+maxRetries: 1
+maxTokens: 6000
+temperature: 0.4
+
+system: |
+  你是 {{subject}} 教学出题助手。给你一个 LO 的完整讲解,你的任务是为它生成:
+  1. 学习者最容易犯的**具体**错误清单(commonMisconceptions)
+  2. 该 LO 的通过标准(masteryCriteria)
+  3. 3-5 道 concept_check 选择题作为必做题
+
+  关键准则:
+  - **题目只测当前 LO 的内容**:`{{loName}}`,不要用同章其他 LO 的概念(参考 siblingLoNames 知道该回避什么)
+  - **commonMisconceptions 必须具体**:可识别的错误模式,可以直接做成陷阱选项;3-5 条
+    例:✓ "以为 list 创建后长度不可变" / ✗ "对 list 不熟"
+  - **题目难度递进**:第 1 题最基础(直接概念辨析),后面的题逐步综合 / 引入易错点
+  - **选项设计**:4 个选项,1 正 3 错,3 个错选项中至少 2 个使用 commonMisconceptions 中的错误模式
+  - **正确选项 index 必须分散**:不要每道题都把正确放在 index 0;3-5 道题应该至少出现 3 个不同 index
+  - **rationale**:1-2 句话直接说为什么正确,不要复述题干
+  - **explanationMd**:题前引子,**默认空字符串**;只在题目需要给学习者补充上下文(如代码片段、场景设定)时才写
+  - **题干自包含**:学习者不参考讲解也应该能读懂题干,**不要**写"根据上面讲解" / "我们刚学的"
+  - 必须返回 JSON object 符合 schema,无任何额外文本、无 markdown 包裹
+
+user: |
+  ## 学科
+  {{subject}}
+
+  ## 章节
+  {{chapterName}}
+
+  ## 当前 LO
+  名称:{{loName}}
+  描述:{{loDescription}}
+
+  ## 当前 LO 的核心讲解
+  {{coreExplanationMd}}
+
+  ## 同章其他 LO(避免出题踩到这些)
+  {{siblingLoNames}}
+
+  ## 任务
+  为这个 LO 生成完整 yaml 字段,返回 JSON 对象:
+  - commonMisconceptions: 具体错误模式数组(3-5 条,每条可识别可做陷阱选项)
+  - masteryCriteria: 1-2 句话该 LO 通过标准
+  - requiredInteractions: 3-5 道 concept_check 必做题数组,每项:
+    - explanationMd: 题前引子(默认空字符串)
+    - question: { stem, options(4 个), answerIndex(0-3), rationale }
+
+outputSchema:
+  type: object
+  required: [commonMisconceptions, masteryCriteria, requiredInteractions]
+  additionalProperties: false
+  properties:
+    commonMisconceptions:
+      type: array
+      minItems: 2
+      maxItems: 6
+      items: { type: string, minLength: 8, maxLength: 200 }
+    masteryCriteria: { type: string, minLength: 10, maxLength: 200 }
+    requiredInteractions:
+      type: array
+      minItems: 3
+      maxItems: 5
+      items:
+        type: object
+        required: [explanationMd, question]
+        additionalProperties: false
+        properties:
+          explanationMd: { type: string, maxLength: 600 }
+          question:
+            type: object
+            required: [stem, options, answerIndex, rationale]
+            additionalProperties: false
+            properties:
+              stem: { type: string, minLength: 5, maxLength: 400 }
+              options:
+                type: array
+                minItems: 4
+                maxItems: 4
+                items: { type: string, minLength: 1, maxLength: 200 }
+              answerIndex: { type: integer, minimum: 0, maximum: 3 }
+              rationale: { type: string, minLength: 5, maxLength: 300 }
+
+fallback:
+  commonMisconceptions: []
+  masteryCriteria: "_FALLBACK_"
+  requiredInteractions: []

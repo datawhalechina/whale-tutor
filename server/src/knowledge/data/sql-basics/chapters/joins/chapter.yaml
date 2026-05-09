@@ -1,0 +1,6 @@
+id: ch.joins
+name: 表连接(INNER JOIN)
+description: { $ref: ./description.md }
+learningObjectives:
+  - { $ref: ./los/inner_join/lo.yaml }
+assessment: { $ref: ./assessment/assessment.yaml }

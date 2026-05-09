@@ -1,0 +1,59 @@
+id: lo.sql.where_filtering
+name: WHERE 子句过滤行
+description: 比较运算符 / IN / LIKE / IS NULL / AND OR NOT / 子句固定顺序
+prerequisites:
+  - lo.sql.select_clauses
+estimatedDurationMin: 25
+difficultyBand: beginner
+coreExplanation: { $ref: ./core-explanation.md }
+commonMisconceptions:
+  - "SQL 用 == 表示等于(实际单个 =)"
+  - "判 NULL 用 = NULL(实际必须 IS NULL,因 NULL 不等于任何东西包括自己)"
+  - "AND 优先级低于 OR(实际 NOT > AND > OR)"
+  - "WHERE 可以放在 ORDER BY 后面(实际子句顺序固定 SELECT/FROM/WHERE/ORDER BY/LIMIT)"
+  - "字符串 LIKE 匹配总是大小写敏感(实际依赖数据库:MySQL 默认不敏感,Postgres 敏感)"
+masteryCriteria: 能用 = / IN / LIKE / IS NULL / BETWEEN 写过滤条件;懂 NULL 判断特殊性;能用括号正确组合 AND/OR
+requiredInteractions:
+  - id: ri.sql.where_filtering.1
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-1.explanation.md }
+      question:
+        stem: "下列 SQL 表达 'name 是 Alice 的所有用户' 的**最准确**写法是?"
+        options:
+          - "SELECT * FROM users WHERE name == 'Alice'"
+          - "SELECT * FROM users WHERE name = 'Alice'"
+          - "SELECT * FROM users WHERE name === 'Alice'"
+          - "SELECT * FROM users IF name = 'Alice'"
+        answerIndex: 1
+        rationale: { $ref: ./ri-1.rationale.md }
+    hints:
+      - "SQL 跟 Python / JavaScript 的等号写法不同。回想 SQL 里 = 在 UPDATE 是赋值,在 WHERE 是比较 — 是同一个符号"
+      - "试试在脑子里数:`==` 在 SQL 是合法语法吗?(答:不是,会报语法错)"
+  - id: ri.sql.where_filtering.2
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-2.explanation.md }
+      question:
+        stem: "下列哪条 SQL **正确**地查 「phone 列没填(为 NULL)的所有用户」?"
+        options:
+          - "SELECT * FROM users WHERE phone = NULL"
+          - "SELECT * FROM users WHERE phone == NULL"
+          - "SELECT * FROM users WHERE phone IS NULL"
+          - "SELECT * FROM users WHERE phone != ''"
+        answerIndex: 2
+        rationale: { $ref: ./ri-2.rationale.md }
+  - id: ri.sql.where_filtering.3
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-3.explanation.md }
+      question:
+        stem: "要找 **'VIP 用户'**,**或者** **'中国 + 成年用户'** 的查询。下列 WHERE 写法哪个**最不容易出错且符合社区惯例**?"
+        options:
+          - "WHERE vip = 1 OR country = 'CN' AND age >= 18"
+          - "WHERE vip = 1 OR (country = 'CN' AND age >= 18)"
+          - "WHERE (vip = 1 OR country = 'CN') AND age >= 18"
+          - "WHERE vip = 1 AND OR country = 'CN' age >= 18"
+        answerIndex: 1
+        rationale: { $ref: ./ri-3.rationale.md }
+adaptivePatterns: [concept_check, free_recall]

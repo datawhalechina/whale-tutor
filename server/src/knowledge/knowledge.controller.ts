@@ -2,13 +2,20 @@ import { Controller, Get, Param } from '@nestjs/common';
 import type {
   GetCourseResponse,
   GetLearningObjectiveResponse,
+  ListCoursesResponse,
 } from '@whale-tutor/tutor-types';
 import { KnowledgeService } from './knowledge.service';
 
-// 注意:vite proxy 把前端 /api/* 重写为 /*,所以这里不加 'api' 前缀。
+// server 已设 globalPrefix('api'),controller 里不重复加。
 @Controller()
 export class KnowledgeController {
   constructor(private readonly knowledge: KnowledgeService) {}
+
+  // HomeView 课程选择器:列所有已加载的课程(摘要)
+  @Get('courses')
+  listCourses(): ListCoursesResponse {
+    return { courses: this.knowledge.listCourseSummaries() };
+  }
 
   @Get('courses/:id')
   getCourse(@Param('id') id: string): GetCourseResponse {

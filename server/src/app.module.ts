@@ -19,7 +19,7 @@ import { UsersModule } from './users/users.module';
 //   dist/app.module.js → ../../.env = monorepo/.env
 const ROOT_ENV = path.resolve(__dirname, '..', '..', '.env');
 
-// pip 包模式下 Python CLI 通过 WHALE_TUTOR_WEB_DIR 传 web/dist 路径,server 兼任静态文件分发;
+// CLI 模式下 `whale-tutor` 通过 WHALE_TUTOR_WEB_DIR 传 web/dist 路径,server 兼任静态文件分发;
 // monorepo dev 模式不设此环境变量,vite dev server 自己处理静态 + /api 反代到这里。
 const WEB_DIR = process.env.WHALE_TUTOR_WEB_DIR;
 const staticImports: DynamicModule[] = WEB_DIR

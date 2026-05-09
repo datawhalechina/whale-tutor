@@ -1,0 +1,53 @@
+id: lo.sql.inner_join
+name: INNER JOIN 关联两表
+description: 用 INNER JOIN + ON 关联两张表;表别名;列名歧义消除;ON vs WHERE 的角色
+prerequisites:
+  - lo.sql.where_filtering
+estimatedDurationMin: 30
+difficultyBand: beginner
+coreExplanation: { $ref: ./core-explanation.md }
+commonMisconceptions:
+  - "INNER JOIN 不需要 ON 子句,数据库会自己关联同名列(实际必须显式 ON,缺 ON 是笛卡尔积)"
+  - "INNER JOIN 会保留两表所有行(实际只保留两边都有匹配的行,不匹配的丢弃)"
+  - "JOIN 默认是 OUTER(实际默认是 INNER,LEFT/RIGHT/FULL OUTER 都要显式写)"
+  - "ON 和 WHERE 完全等价(对 INNER JOIN 结果一样,但语义不同;LEFT/RIGHT JOIN 时差异显著)"
+masteryCriteria: 能写带 ON 的 INNER JOIN;能用别名;懂 INNER 是"两边都匹配才保留"
+requiredInteractions:
+  - id: ri.sql.inner_join.1
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-1.explanation.md }
+      question:
+        stem: "下列 INNER JOIN 写法**最完整且最规范**的是?"
+        options:
+          - "SELECT * FROM orders INNER JOIN users"
+          - "SELECT * FROM orders INNER JOIN users ON orders.user_id = users.id"
+          - "SELECT * FROM orders, users WHERE orders.user_id = users.id"
+          - "SELECT * FROM orders INNER JOIN users USING (id)"
+        answerIndex: 1
+        rationale: { $ref: ./ri-1.rationale.md }
+    hints:
+      - "INNER JOIN 必须告诉数据库**两表怎么关联** — 缺了这个数据库不知道哪行配哪行"
+      - "想想 'orders 的 user_id 等于 users 的 id' 这个关系怎么用 SQL 表达?哪个关键字引出连接条件?"
+  - id: ri.sql.inner_join.2
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-2.explanation.md }
+      question:
+        stem: "users 表 5 行,orders 表 12 行。其中 1 个订单的 user_id 在 users 表里找不到匹配的 id。执行 `SELECT * FROM orders INNER JOIN users ON orders.user_id = users.id`,**结果集行数最可能是**?"
+        options:
+          - "60(笛卡尔积 5 × 12)"
+          - "12(orders 全保留,匹配不上的 users 列填 NULL)"
+          - "11(只保留两边都匹配的订单,有 1 个订单的 user_id 找不到匹配被丢弃)"
+          - "5(users 全保留,每行配它的订单)"
+        answerIndex: 2
+        rationale: { $ref: ./ri-2.rationale.md }
+  - id: ri.sql.inner_join.3
+    patternId: free_recall
+    prompt:
+      promptMd: { $ref: ./ri-3.prompt.md }
+      rubricKeyPoints:
+        - "完整 SQL:`SELECT o.amount, u.name FROM orders o INNER JOIN users u ON o.user_id = u.id WHERE o.amount > 100`(允许 INNER 省略、AS 加不加)"
+        - "ON 子句负责**两表怎么连接**(o.user_id = u.id),WHERE 子句负责**结果留哪些行**(amount > 100)"
+        - "用 `o.id` 是为了消除歧义 — orders 和 users 都有 id 列,直接写 id 数据库不知道指哪个,会报歧义错"
+adaptivePatterns: [concept_check, free_recall]

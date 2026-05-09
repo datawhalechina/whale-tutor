@@ -1,0 +1,16 @@
+id: ca.ch.joins
+name: "INNER JOIN:综合检验"
+requiredInteractions:
+  - id: ca.joins.1
+    patternId: concept_check
+    prompt:
+      explanationMd: ""
+      question:
+        stem: "已知 `customers(id, name, country)` 和 `orders(id, customer_id, amount, created_at)` 两张表。**找出所有中国客户的订单总数(GROUP BY 之类不要求)** — 下列 SQL 哪个**正确**?"
+        options:
+          - "SELECT * FROM customers WHERE country = 'CN' INNER JOIN orders"
+          - "SELECT o.* FROM orders o INNER JOIN customers c ON o.customer_id = c.id WHERE c.country = 'CN'"
+          - "SELECT o.* FROM orders o, customers c WHERE country = 'CN'"
+          - "SELECT o.* FROM orders o INNER JOIN customers c WHERE o.customer_id = c.id AND c.country = 'CN'"
+        answerIndex: 1
+        rationale: "正确写法 = (a) `INNER JOIN ... ON ...` 显式连接条件;(b) `WHERE` 在 JOIN 后,过滤已连接的结果。选项 A 语法乱(JOIN 在 WHERE 之后);C 用旧风格隐式 join 但没 join 条件还会出歧义错;D 把 ON 错放到 WHERE,缺 ON 数据库会拒绝。"

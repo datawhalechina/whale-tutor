@@ -176,6 +176,35 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   /**
+   * v0.2 多 chapter:从 sidebar 点其他章节,server 把 session.current_lo_id 切到该章首 LO,
+   * 重算 decideNext + 服务下一题。不影响 mastery / mandatory 状态。
+   */
+  async function switchChapter(chapterId: string): Promise<void> {
+    if (!sessionId.value) return;
+    loading.value = true;
+    error.value = null;
+    try {
+      const data = await sessionApi.switchChapter(sessionId.value, { chapterId });
+      currentInteraction.value = data.interaction;
+      currentDecision.value = data.decision;
+      pendingNextInteraction.value = null;
+      lastEvaluation.value = null;
+      showFeedback.value = false;
+      currentHintLevel.value = 0;
+      // 切到不同 LO → 默认显示 LO intro(让学习者看清新章节内容)
+      acknowledgedLoIds.value = new Set();
+      applyReviewLoFromDecision(data.decision);
+      await refreshLoIntroFlag();
+      void refreshProgress();
+    } catch (e) {
+      error.value = (e as Error).message;
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /**
    * v0.2:从 LO recap 兜底回来 → 调 server 清 retry 状态,服务端再 decideNext + 服务下一题。
    * 通常会得到原 RI 的 static 题。失败的话 server 仍可能再返 review_lo,前端继续展示。
    */
@@ -249,6 +278,7 @@ export const useSessionStore = defineStore('session', () => {
     continueToNext,
     acknowledgeCurrentLo,
     acknowledgeReviewLo,
+    switchChapter,
     refreshProgress,
     ensureLoMeta,
     end,

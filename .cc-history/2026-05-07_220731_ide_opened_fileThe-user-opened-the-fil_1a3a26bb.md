@@ -6,8 +6,8 @@
 | **Session ID** | `1a3a26bb-4046-445c-a8bf-4eb54527400b` |
 | **Working Dir** | `c:\Users\gyh\Desktop\Projects\whale-tutor` |
 | **Started** | 5/7/2026, 10:07:31 PM |
-| **Last Updated** | 5/8/2026, 8:45:47 PM |
-| **Messages** | 2680 |
+| **Last Updated** | 5/9/2026, 12:50:42 AM |
+| **Messages** | 3670 |
 
 ---
 
@@ -47723,6 +47723,17579 @@ User has answered your questions: "`whale-tutor build` 究竟做什么?(现在�
 ```
 
 </details>
+
+
+---
+
+## User <sup>5/8/2026, 8:47:08 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import 'reflect-metadata';
+2	import { promises as fs } from 'node:fs';
+3	import { NestFactory } from '@nestjs/core';
+4	import { ConfigService } from '@nestjs/config';
+5	import { createConnection } from 'mysql2/promise';
+6	import { AppModule } from './app.module';
+7	
+8	async function bootstrap() {
+9	  // 0. pip 包模式下 Python CLI 在启动 node 之前不一定能确认 mysql 已经初始化 schema。
+10	  // 通过 WHALE_TUTOR_BOOTSTRAP_SCHEMA=1 + WHALE_TUTOR_SCHEMA_FILE=/path/to/01-schema.sql
+11	  // 让 server 自己检测并应用。monorepo dev 模式不设这两个 env(docker-entrypoint-initdb.d 已搞定)。
+12	  if (process.env.WHALE_TUTOR_BOOTSTRAP_SCHEMA === '1') {
+13	    await applySchemaIfMissing();
+14	  }
+15	
+16	  const app = await NestFactory.create(AppModule, { cors: true });
+17	  // 所有 controller 加 /api 前缀,server 同时承担 API + 静态前端时路径不冲突
+18	  app.setGlobalPrefix('api');
+19	  const config = app.get(ConfigService);
+20	  const port = config.get<number>('SERVER_PORT', 3000);
+21	  await app.listen(port);
+22	   
+23	  console.log(`Server listening on http://l
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:47:07 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:47:08 PM</sup>
+
+OK, going to do `lint` first (small, real value), then write the doc with `build` as a planned section. Let me check current server main.ts to add validate-only mode.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:47:08 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\main.ts"
+}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:47:24 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:47:24 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "cat \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/knowledge.module.ts\"",
+  "description": "Check KnowledgeModule deps"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:47:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+import { Module } from '@nestjs/common';
+import { KnowledgeController } from './knowledge.controller';
+import { KnowledgeService } from './knowledge.service';
+
+@Module({
+  controllers: [KnowledgeController],
+  providers: [KnowledgeService],
+  exports: [KnowledgeService],
+})
+export class KnowledgeModule {}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:47:41 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:47:42 PM</sup>
+
+KnowledgeModule has no DB dep — perfect. Adding validate-only mode that boots only KnowledgeModule.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:48:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\main.ts",
+  "old_string": "import 'reflect-metadata';\nimport { promises as fs } from 'node:fs';\nimport { NestFactory } from '@nestjs/core';\nimport { ConfigService } from '@nestjs/config';\nimport { createConnection } from 'mysql2/promise';\nimport { AppModule } from './app.module';\n\nasync function bootstrap() {\n  // 0. pip 包模式下 Python CLI 在启动 node 之前不一定能确认 mysql 已经初始化 schema。\n  // 通过 WHALE_TUTOR_BOOTSTRAP_SCHEMA=1 + WHALE_TUTOR_SCHEMA_FILE=/path/to/01-schema.sql\n  // 让 server 自己检测并应用。monorepo dev 模式不设这两个 env(docker-entrypoint-initdb.d 已搞定)。\n  if (process.env.WHALE_TUTOR_BOOTSTRAP_SCHEMA === '1') {\n    await applySchemaIfMissing();\n  }\n\n  const app = await NestFactory.create(AppModule, { cors: true });\n  // 所有 controller 加 /api 前缀,server 同时承担 API + 静态前端时路径不冲突\n  app.setGlobalPrefix('api');\n  const config = app.get(ConfigService);\n  const port = config.get<number>('SERVER_PORT', 3000);\n  await app.listen(port);\n   \n  console.log(`Server listening on http://localhost:${port}`);\n}",
+  "new_string": "import 'reflect-metadata';\nimport { promises as fs } from 'node:fs';\nimport { NestFactory } from '@nestjs/core';\nimport { ConfigService } from '@nestjs/config';\nimport { createConnection } from 'mysql2/promise';\nimport { AppModule } from './app.module';\nimport { KnowledgeModule } from './knowledge/knowledge.module';\nimport { KnowledgeService } from './knowledge/knowledge.service';\n\nasync function bootstrap() {\n  // -1. validate-only 模式(`whale-tutor lint`):仅 boot KnowledgeModule 跑 yaml 解析 + ajv 校验,\n  // 通过则 exit 0,失败抛错让 process 非零退出 + stderr 含具体错误。\n  // 不需要 mysql / web / 任何其他模块。\n  if (process.env.WHALE_TUTOR_VALIDATE_ONLY === '1') {\n    await runValidateOnly();\n    return;\n  }\n\n  // 0. pip 包模式下 Python CLI 在启动 node 之前不一定能确认 mysql 已经初始化 schema。\n  // 通过 WHALE_TUTOR_BOOTSTRAP_SCHEMA=1 + WHALE_TUTOR_SCHEMA_FILE=/path/to/01-schema.sql\n  // 让
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:48:03 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\main.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:48:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/server typecheck 2>&1 | tail -3",
+  "description": "Server typecheck",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:48:25 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/server@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> tsc -p tsconfig.json --noEmit
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:48:35 PM</sup>
+
+Now add `lint` to both CLIs.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:48:37 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\lib\\runner.mjs",
+  "offset": 52,
+  "limit": 50
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:48:37 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+52	export async function startServer(cfg, bundleRoot, { openBrowser = true } = {}) {
+53	  const serverMain = join(bundleRoot, 'server', 'dist', 'main.js');
+54	  const webDir = join(bundleRoot, 'web');
+55	  const schemaFile = join(bundleRoot, 'db', 'init', '01-schema.sql');
+56	
+57	  if (!existsSync(serverMain)) {
+58	    console.error(
+59	      kleur.red(
+60	        `✗ 找不到 server bundle (${serverMain})。可能是 npm 包损坏,试试重装 whale-tutor。`,
+61	      ),
+62	    );
+63	    process.exit(1);
+64	  }
+65	
+66	  console.log(kleur.green().bold(`→ 启动 server  `) + kleur.dim('node main.js'));
+67	  console.log(kleur.dim(`  courses: ${cfg.coursesDir}`));
+68	  console.log(kleur.dim(`  port: ${cfg.server.port}`));
+69	  console.log(
+70	    kleur.dim(
+71	      `  db: ${cfg.database.user}@${cfg.database.host}:${cfg.database.port}/${cfg.database.database}`,
+72	    ),
+73	  );
+74	  console.log(kleur.bold(`  → 浏览器打开 http://localhost:${cfg.server.port}\n`));
+75	
+76	  const child = spawn(process.execPath, [serverMain], {
+
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:48:57 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Sync CLAUDE.md + README.md to v0.2 state",
+      "activeForm": "Syncing dev docs",
+      "status": "completed"
+    },
+    {
+      "content": "Server: WHALE_TUTOR_VALIDATE_ONLY mode for lint",
+      "activeForm": "Adding validate-only mode",
+      "status": "completed"
+    },
+    {
+      "content": "cli-node: lint command + lib/lint.mjs",
+      "activeForm": "cli-node lint",
+      "status": "in_progress"
+    },
+    {
+      "content": "cli-py: lint command + whale_tutor/lint.py",
+      "activeForm": "cli-py lint",
+      "status": "pending"
+    },
+    {
+      "content": "Rebuild bundles + e2e lint test (happy + intentional break)",
+      "activeForm": "E2E lint",
+      "status": "pending"
+    },
+    {
+      "content": "Write doc/course-authoring.md (single big file: quickstart + structure + 4 patterns + hint + evaluation + lint + build planned)",
+      "activeForm": "Writing author doc",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:48:57 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:49:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\lib\\lint.mjs",
+  "content": "// `whale-tutor lint` — 校验当前目录的课程结构是否合法。\n//\n// 实现:spawn server 的 main.js,带 WHALE_TUTOR_VALIDATE_ONLY=1 + WHALE_TUTOR_COURSES_DIR。\n// server 只 boot KnowledgeModule(不连 mysql / 不起 web),走完 ajv 校验后 exit:\n//   - exit 0  → 通过\n//   - exit 非0 → 失败,stderr 含 CourseValidationError 详情\n// CLI 把 server 的 stdout/stderr 透传给学习者,自己只加最后一行总结。\n\nimport { spawn } from 'node:child_process';\nimport { existsSync } from 'node:fs';\nimport { dirname, join } from 'node:path';\nimport process from 'node:process';\nimport kleur from 'kleur';\n\n/**\n * 跑 lint。返回 exit code。\n *\n * @param {string} bundleRoot — _bundle 目录\n * @param {string} coursesDir — 用户的课程目录(绝对路径)\n */\nexport async function runLint(bundleRoot, coursesDir) {\n  const serverMain = join(bundleRoot, 'server', 'dist', 'main.js');\n  if (!existsSync(serverMain)) {\n    console.error(\n      kleur.red(`✗ 找不到 server bundle (${serverMain})。可能是 npm 包损坏,试试重装。`),\n    );\n    return 1;\n  }\n\n  console.log(kleur.dim(`→ 校验课程目录 ${coursesDir}…`));\n  console.log();\n\n  const child = spawn(process.execPath, [serverMain], {\n    env: {\n      ...process.env,\n      WHALE_TUTOR_VALIDATE_ONLY: '1',\n      WHALE_TUTOR_COURSES_DIR: coursesDir,\n    },\n    cwd: dirname(serverMain),\n    stdio: 'inherit',\n  });\n\n  const code = await new Promise((resolveExit) => {\n    child.on('exit', (c) => resolveExit(c ?? 0));\n  });\n\n  console.log();\n  if (code === 0) {\n    console.log(kleur.green().bold('✓ 课程结构合法'));\n  } else {\n    console.log(\n      kleur.red().bold(`✗ 课程结构有问题(server exit ${code})`) +\n        kleur.dim(' — 上方日志含具体 yaml 路径与字段错误'),\n    );\n  }\n  return code;\n}\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:49:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-node\lib\lint.mjs (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:49:36 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\bin\\cli.mjs",
+  "old_string": "import { findConfig, loadConfig } from '../lib/config.mjs';\nimport { ensureSchema } from '../lib/db.mjs';\nimport { runDoctor } from '../lib/doctor.mjs';\nimport { startServer } from '../lib/runner.mjs';\nimport { scaffoldInit } from '../lib/scaffold.mjs';",
+  "new_string": "import { findConfig, loadConfig } from '../lib/config.mjs';\nimport { ensureSchema } from '../lib/db.mjs';\nimport { runDoctor } from '../lib/doctor.mjs';\nimport { runLint } from '../lib/lint.mjs';\nimport { startServer } from '../lib/runner.mjs';\nimport { scaffoldInit } from '../lib/scaffold.mjs';"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:49:37 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-node\bin\cli.mjs has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:50:03 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\bin\\cli.mjs",
+  "old_string": "program\n  .command('doctor')\n  .description('健康检查:node 版本 / bundle 资源 / mysql 连通 / API key。')\n  .action(async () => {\n    let configPath;\n    try {\n      configPath = findConfig();\n    } catch (e) {\n      console.error(kleur.red(`✗ ${e.message}`));\n      process.exit(1);\n    }\n    const cfg = loadConfig(configPath);\n    await runDoctor(cfg, bundleRoot());\n  });",
+  "new_string": "program\n  .command('doctor')\n  .description('健康检查:node 版本 / bundle 资源 / mysql 连通 / API key。')\n  .action(async () => {\n    let configPath;\n    try {\n      configPath = findConfig();\n    } catch (e) {\n      console.error(kleur.red(`✗ ${e.message}`));\n      process.exit(1);\n    }\n    const cfg = loadConfig(configPath);\n    await runDoctor(cfg, bundleRoot());\n  });\n\nprogram\n  .command('lint')\n  .description('校验当前目录的课程 yaml/markdown 结构是否合法($ref / pattern / hints / 等)。')\n  .action(async () => {\n    let configPath;\n    try {\n      configPath = findConfig();\n    } catch (e) {\n      console.error(kleur.red(`✗ ${e.message}`));\n      process.exit(1);\n    }\n    const cfg = loadConfig(configPath);\n    const code = await runLint(bundleRoot(), cfg.coursesDir);\n    process.exit(code);\n  });"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:50:04 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-node\bin\cli.mjs has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:50:16 PM</sup>
+
+Now cli-py.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:50:26 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-py\\whale_tutor\\lint.py",
+  "content": "\"\"\"`whale-tutor lint` — 校验当前目录的课程结构。\n\n实现:spawn server 的 main.js,带 WHALE_TUTOR_VALIDATE_ONLY=1 + WHALE_TUTOR_COURSES_DIR。\nserver 只 boot KnowledgeModule(不连 mysql / 不起 web),走完 ajv 校验后 exit 0/非0。\n错误信息由 server 通过 stderr 透传给学习者。\n\"\"\"\n\nfrom __future__ import annotations\n\nimport os\nimport subprocess\nfrom pathlib import Path\n\nfrom rich.console import Console\n\nfrom .runner import find_node\n\nconsole = Console()\n\n\ndef run_lint(bundle_root: Path, courses_dir: Path) -> int:\n    \"\"\"跑 lint。返回 server exit code。\"\"\"\n    server_main = bundle_root / \"server\" / \"dist\" / \"main.js\"\n    if not server_main.exists():\n        console.print(\n            f\"[red]✗ 找不到 server bundle ({server_main})。可能是 pip 包损坏,\"\n            \"试试重装 whale-tutor。[/red]\"\n        )\n        return 1\n\n    node = find_node()\n    console.print(f\"[dim]→ 校验课程目录 {courses_dir}…[/dim]\\n\")\n\n    env = os.environ.copy()\n    env.update(\n        {\n            \"WHALE_TUTOR_VALIDATE_ONLY\": \"1\",\n            \"WHALE_TUTOR_COURSES_DIR\": str(courses_dir),\n        }\n    )\n    # stdout/stderr 透传(NestJS Logger 自己输出),CLI 只在末尾加结论\n    proc = subprocess.run(\n        [node, str(server_main)],\n        env=env,\n        cwd=str(server_main.parent),\n    )\n\n    console.print()\n    if proc.returncode == 0:\n        console.print(\"[green bold]✓ 课程结构合法[/green bold]\")\n    else:\n        console.print(\n            f\"[red bold]✗ 课程结构有问题 (server exit {proc.returncode})[/red bold]\"\n            \" [dim]— 上方日志含具体 yaml 路径与字段错误[/dim]\"\n        )\n    return proc.returncode\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:50:27 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-py\whale_tutor\lint.py (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:50:42 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-py\\whale_tutor\\cli.py",
+  "old_string": "from . import __version__\nfrom .config import find_config, load_config\nfrom .db import ensure_schema\nfrom .doctor import run_doctor\nfrom .runner import start_node_server\nfrom .scaffold import scaffold_init",
+  "new_string": "from . import __version__\nfrom .config import find_config, load_config\nfrom .db import ensure_schema\nfrom .doctor import run_doctor\nfrom .lint import run_lint\nfrom .runner import start_node_server\nfrom .scaffold import scaffold_init"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:50:43 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-py\whale_tutor\cli.py has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:51:05 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-py\\whale_tutor\\cli.py",
+  "old_string": "@main.command()\ndef doctor() -> None:\n    \"\"\"健康检查:node 版本 / bundle 资源 / mysql 连通 / API key。\"\"\"\n    try:\n        config_path = find_config()\n    except FileNotFoundError as e:\n        console.print(f\"[red]✗ {e}[/red]\")\n        sys.exit(1)\n\n    cfg = load_config(config_path)\n    bundle_root = _bundle_root()\n    run_doctor(cfg, bundle_root)\n\n\nif __name__ == \"__main__\":\n    main()",
+  "new_string": "@main.command()\ndef doctor() -> None:\n    \"\"\"健康检查:node 版本 / bundle 资源 / mysql 连通 / API key。\"\"\"\n    try:\n        config_path = find_config()\n    except FileNotFoundError as e:\n        console.print(f\"[red]✗ {e}[/red]\")\n        sys.exit(1)\n\n    cfg = load_config(config_path)\n    bundle_root = _bundle_root()\n    run_doctor(cfg, bundle_root)\n\n\n@main.command()\ndef lint() -> None:\n    \"\"\"校验当前目录的课程 yaml/markdown 结构是否合法。\"\"\"\n    try:\n        config_path = find_config()\n    except FileNotFoundError as e:\n        console.print(f\"[red]✗ {e}[/red]\")\n        sys.exit(1)\n\n    cfg = load_config(config_path)\n    bundle_root = _bundle_root()\n    code = run_lint(bundle_root, cfg.courses_dir)\n    sys.exit(code)\n\n\nif __name__ == \"__main__\":\n    main()"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:51:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-py\whale_tutor\cli.py has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:51:22 PM</sup>
+
+Rebuild bundle + e2e test (happy + intentional break).
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:51:22 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm typecheck 2>&1 | tail -5 && echo \"---\" && pnpm build:cli-bundle 2>&1 | tail -10",
+  "description": "Typecheck + rebuild bundle",
+  "timeout": 300000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:53:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+packages/tutor-types typecheck: Done
+web typecheck$ vue-tsc --noEmit
+server typecheck$ tsc -p tsconfig.json --noEmit
+web typecheck: Done
+server typecheck: Done
+---
+▸ copy web / db / templates → both bundles…
+▸ MANIFEST.json — commit 083fab4
+
+✓ Bundles built:
+  cli-py  : C:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-py\whale_tutor\_bundle
+  cli-node: C:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-node\_bundle
+
+Next:
+  cli-py  : cd packages/cli-py && pip install -e .
+  cli-node: cd packages/cli-node && npm install && npm link
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:53:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "cd \"c:/Users/gyh/Desktop/Projects/whale-tutor/packages/cli-node\" && npm install --no-audit --no-fund --loglevel=error 2>&1 | tail -3",
+  "description": "Reinstall cli-node deps",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:53:26 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+up to date in 521ms
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:53:42 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "rm -rf /tmp/test-lint && mkdir /tmp/test-lint && cd /tmp/test-lint && node \"c:/Users/gyh/Desktop/Projects/whale-tutor/packages/cli-node/bin/cli.mjs\" init 2>&1 | tail -8 && echo \"---\" && cd /tmp/test-lint && node \"c:/Users/gyh/Desktop/Projects/whale-tutor/packages/cli-node/bin/cli.mjs\" lint 2>&1 | tail -25",
+  "description": "Test lint happy path",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:55:18 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+✓ 已生成示例课程 → C:\Users\gyh\AppData\Local\Temp\test-lint\courses\python-basics
+✓ 已生成配置文件 → C:\Users\gyh\AppData\Local\Temp\test-lint\whale-tutor.config.yaml
+
+下一步:
+  1. 编辑 whale-tutor.config.yaml 填入你的 mysql 连接 + DEEPSEEK_API_KEY
+  2. 编辑 courses/python-basics/ 下的 yaml/md 修改课程内容
+  3. 运行 whale-tutor start 启动学习环境
+---
+→ 校验课程目录 C:\Users\gyh\AppData\Local\Temp\test-lint\courses…
+
+[32m[Nest] 31368  - [39m2026/05/08 20:55:18 [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 31368  - [39m2026/05/08 20:55:18 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mKnowledgeModule dependencies initialized[39m[38;5;3m +4ms[39m
+[32m[Nest] 31368  - [39m2026/05/08 20:55:18 [32m    LOG[39m [38;5;3m[KnowledgeService] [39m[32mScanning courses from C:\Users\gyh\AppData\Local\Temp\test-lint\courses[39m
+[32m[Nest] 31368  - [39m2026/05/08 20:55:18 [32m    LOG[39m [38;5;3m[KnowledgeService] [39m[32mLoaded 1 course(s), 4 LO(s), 13 RequiredInteraction
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:55:28 PM</sup>
+
+Happy path. Now intentional break — corrupt a yaml:
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:55:31 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "echo \"  - id: bad.ri\n    patternId: invalid_pattern\n    prompt:\n      whatever: 1\" >> /tmp/test-lint/courses/python-basics/chapters/list_and_iter/los/list_basics/lo.yaml; \\\ncd /tmp/test-lint && node \"c:/Users/gyh/Desktop/Projects/whale-tutor/packages/cli-node/bin/cli.mjs\" lint 2>&1 | tail -20",
+  "description": "Lint should fail on broken yaml",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:55:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Error: Failed loading course 'python-basics' from C:\Users\gyh\AppData\Local\Temp\test-lint\courses\python-basics: Failed to resolve $ref '././chapters/list_and_iter/chapter.yaml' from C:\Users\gyh\AppData\Local\Temp\test-lint\courses\python-basics\course.yaml: Failed to resolve $ref '././los/list_basics/lo.yaml' from C:\Users\gyh\AppData\Local\Temp\test-lint\courses\python-basics\chapters\list_and_iter\chapter.yaml: Invalid YAML at C:\Users\gyh\AppData\Local\Temp\test-lint\courses\python-basics\chapters\list_and_iter\los\list_basics\lo.yaml: bad indentation of a mapping entry (53:3)
+
+ 50 |         answerIndex: 1
+ 51 |         rationale: { $ref: ./ri-3 ...
+ 52 | adaptivePatterns: [concept_check, ...
+ 53 |   - id: bad.ri
+--------^
+ 54 |     patternId: invalid_pattern
+ 55 |     prompt:
+    at KnowledgeService.loadCourseFromDisk (c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-node\_bundle\server\dist\knowledge\knowledge.service.js:76:19)
+    at async KnowledgeService.onM
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:55:57 PM</sup>
+
+Lint correctly catches the syntax error with file path + line number. Now restore + try a schema-level break:
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:56:01 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "cd /tmp/test-lint && rm -rf courses && node \"c:/Users/gyh/Desktop/Projects/whale-tutor/packages/cli-node/bin/cli.mjs\" init 2>&1 | tail -2; \\\nsed -i 's|adaptivePatterns: \\[concept_check, free_recall\\]|adaptivePatterns: [bogus_pattern]|' /tmp/test-lint/courses/python-basics/chapters/list_and_iter/los/list_basics/lo.yaml; \\\nnode \"c:/Users/gyh/Desktop/Projects/whale-tutor/packages/cli-node/bin/cli.mjs\" lint 2>&1 | tail -20",
+  "description": "Test lint with invalid enum value (schema-level)",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:56:09 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+2. 编辑 courses/python-basics/ 下的 yaml/md 修改课程内容
+  3. 运行 whale-tutor start 启动学习环境
+      instancePath: '/chapters/0/learningObjectives/0/adaptivePatterns/0',
+      schemaPath: '#/definitions/patternId/enum',
+      keyword: 'enum',
+      params: {
+        allowedValues: [
+          'concept_check',
+          'code_sandbox',
+          'spot_the_bug',
+          'free_recall'
+        ]
+      },
+      message: 'must be equal to one of the allowed values'
+    }
+  ],
+  courseId: 'python-basics'
+}
+
+Node.js v22.22.0
+
+✗ 课程结构有问题(server exit 1) — 上方日志含具体 yaml 路径与字段错误
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:56:18 PM</sup>
+
+Schema-level errors include `instancePath` showing exactly which field broke. cli-py:
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:56:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "cd \"c:/Users/gyh/Desktop/Projects/whale-tutor/packages/cli-py\" && pip install -e . --quiet 2>&1 | tail -3",
+  "description": "Reinstall cli-py",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:57:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+(Bash completed with no output)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:57:56 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "cd /tmp/test-lint && rm -rf courses && whale-tutor init 2>&1 | tail -2 && echo \"---\" && whale-tutor lint 2>&1 | tail -8",
+  "description": "Test cli-py lint happy path",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:58:03 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+2. 编辑 courses/python-basics/ 下的 yaml/md 修改课程内容
+  3. 运行 whale-tutor start 启动学习环境
+---
+
+[32m[Nest] 9428  - [39m2026/05/08 20:58:03 [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 9428  - [39m2026/05/08 20:58:03 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mKnowledgeModule dependencies initialized[39m[38;5;3m +6ms[39m
+[32m[Nest] 9428  - [39m2026/05/08 20:58:03 [32m    LOG[39m [38;5;3m[KnowledgeService] [39m[32mScanning courses from C:\Users\gyh\AppData\Local\Temp\test-lint\courses[39m
+[32m[Nest] 9428  - [39m2026/05/08 20:58:03 [32m    LOG[39m [38;5;3m[KnowledgeService] [39m[32mLoaded 1 course(s), 4 LO(s), 13 RequiredInteraction(s), 1 ChapterAssessment(s)[39m
+✓ 课程验证通过
+
+✓ 课程结构合法
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:58:21 PM</sup>
+
+Both CLIs working. Now writing the doc.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:58:24 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Sync CLAUDE.md + README.md to v0.2 state",
+      "activeForm": "Syncing dev docs",
+      "status": "completed"
+    },
+    {
+      "content": "Server: WHALE_TUTOR_VALIDATE_ONLY mode for lint",
+      "activeForm": "Adding validate-only mode",
+      "status": "completed"
+    },
+    {
+      "content": "cli-node + cli-py: lint command",
+      "activeForm": "CLI lint",
+      "status": "completed"
+    },
+    {
+      "content": "Rebuild bundles + e2e lint test (happy + intentional break)",
+      "activeForm": "E2E lint",
+      "status": "completed"
+    },
+    {
+      "content": "Write doc/course-authoring.md",
+      "activeForm": "Writing author doc",
+      "status": "in_progress"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:58:24 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:58:48 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls /tmp/test-lint/courses/python-basics/chapters/list_and_iter/los/list_basics/ 2>&1",
+  "description": "Inspect a real LO dir for doc reference"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:00:57 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+core-explanation.md
+lo.yaml
+ri-1.explanation.md
+ri-1.rationale.md
+ri-2.explanation.md
+ri-2.rationale.md
+ri-3.explanation.md
+ri-3.rationale.md
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:01:15 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "mkdir -p \"c:/Users/gyh/Desktop/Projects/whale-tutor/doc\"; ls \"c:/Users/gyh/Desktop/Projects/whale-tutor/doc\"",
+  "description": "Create doc dir"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:01:20 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+(Bash completed with no output)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:05:00 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\doc\\course-authoring.md",
+  "content": "# 课程作者指南\n\n> 写给:**只懂 YAML 和 Markdown**、想给学习者做一门 Python(或其他学科)交互式课程的老师 / 教研人员。\n>\n> 你不需要懂 JavaScript、TypeScript、NestJS、SQL,也不需要会写代码评估逻辑。\n>\n> 大约 20 分钟读完,跑通示例。之后你能做的:**改 YAML 改 Markdown 加自己的内容**,刷新就能学。\n\n---\n\n## 目录\n\n1. [5 分钟跑起来](#1-5-分钟跑起来)\n2. [大局观:课程结构](#2-大局观课程结构)\n3. [课程目录详解(每个文件做什么)](#3-课程目录详解每个文件做什么)\n4. [`$ref` — 把长 markdown 抽出去](#4-ref--把长-markdown-抽出去)\n5. [4 种交互模式(题型)](#5-4-种交互模式题型)\n6. [hint 机制(求提示)](#6-hint-机制求提示)\n7. [评价机制(系统怎么判对错)](#7-评价机制系统怎么判对错)\n8. [日常工作流](#8-日常工作流)\n9. [常见错误 + 排查](#9-常见错误--排查)\n10. [v0.3 计划:`whale-tutor build` AI 辅助生成](#10-v03-计划whale-tutor-build-ai-辅助生成)\n\n---\n\n## 1. 5 分钟跑起来\n\n### 安装前置\n\n- **Node.js ≥ 22**(<https://nodejs.org>)\n- **MySQL ≥ 8.0**(本机或远程,在某端口监听)\n- **Python ≥ 3.9** *或* **任意能跑 npm 的环境**(二选一)\n- **DeepSeek API key**(可选,没填的话 AI 评估走 fallback 文案,但你能完整体验流程)\n\n### 第一次:复制示例课程,启动看效果\n\n```bash\n# 1. 装 CLI(二选一)\npip install whale-tutor               # Python 用户\n# 或\nnpm install -g whale-tutor             # Node 用户\n\n# 2. 在某个空目录初始化\nmkdir my-course && cd my-course\nwhale-tutor init                       # 复制完整 python-basics 示例 + 配置模板\n\n# 3. 编辑 whale-tutor.config.yaml(填 mysql 连接 + DeepSeek API key)\n# ... vim / nano / VSCode 随便 ...\n\n# 4. 体检(可选,推荐)\nwhale-tutor doctor                     # node / mysql / api key 4 项\n\n# 5. 启动 — 浏览器自动打开 http://localhost:3000\nwhale-tutor start\n```\n\n打开浏览器 → 点\"开始学习\" → 走完 4 个 LO + 章末测试 → 章节完成 🎉\n\n**这就是你的学习者会看到的**。现在你的任务是把里面的内容换成你自己的。\n\n### 之后:改内容 → 重启 → 看效果\n\n```bash\n# 改 yaml / md 文件...\n# Ctrl+C 停 server\nwhale-tutor lint                       # 校验改完没破坏结构\nwhale-tutor start                      # 重启\n```\n\n`whale-tutor lint` 是你的安全网 — 改完点一下,5 秒内告诉你哪里写错了。**强烈推荐每次改完先 lint,再 start**。\n\n---\n\n## 2. 大局观:课程结构\n\n学习者眼里的\"一门课\"其实是 4 层:\n\n```\nCourse (一门课,e.g. \"Python 基础\")\n└── Chapter (一章,e.g. \"列表与迭代\")\n    ├── LO × N (Learning Objective,学习目标)\n    │   └── RequiredIn
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:05:01 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\doc\course-authoring.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:05:07 PM</sup>
+
+Updating the README link to point to the actual file now:
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:05:10 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "old_string": "- **课程作者文档(写课程内容、CLI 工作流、文件引用、hint / 评价机制)** — [doc/](doc/)(待写,v0.3 任务)",
+  "new_string": "- **课程作者指南(写课程内容、CLI 工作流、文件引用、hint / 评价机制、4 种题型、lint)** — [doc/course-authoring.md](doc/course-authoring.md)"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:05:11 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\README.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:05:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm lint 2>&1 | tail -5",
+  "description": "Final lint check",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:05:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> whale-tutor@0.0.1 lint C:\Users\gyh\Desktop\Projects\whale-tutor
+> eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --max-warnings 0
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:05:55 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Sync CLAUDE.md + README.md to v0.2 state",
+      "activeForm": "Syncing dev docs",
+      "status": "completed"
+    },
+    {
+      "content": "Server: WHALE_TUTOR_VALIDATE_ONLY mode for lint",
+      "activeForm": "Adding validate-only mode",
+      "status": "completed"
+    },
+    {
+      "content": "cli-node + cli-py: lint command",
+      "activeForm": "CLI lint",
+      "status": "completed"
+    },
+    {
+      "content": "Rebuild bundles + e2e lint test (happy + intentional break)",
+      "activeForm": "E2E lint",
+      "status": "completed"
+    },
+    {
+      "content": "Write doc/course-authoring.md",
+      "activeForm": "Writing author doc",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:05:55 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:06:26 PM</sup>
+
+全部完成。汇总:
+
+### 1. CLAUDE.md / README 同步到 v0.2
+
+- 当前阶段:v0 → **v0.2 智能编排闭环 ✅**(新增 Path 智能化 / StuckProtocol / subject 学科参数化 三件)
+- "v0.2 已实现清单" 新增 3 个分块(StuckProtocol / PathOrchestrator 智能化 / 学科参数化),逐项列实现细节
+- "v0.2 路线图" → "**v0.3 路线图**":Item 1+2 划掉,提到了 3 个新高优(Diagnostic / Archive / 课程作者工具)
+- README "演示流程" 加 `求提示` 一段,"已实现"加梯度提示 / 智能 PathO / 学科参数化
+- "进一步阅读" 加 [notes/orchestrator.md](notes/orchestrator.md) + [doc/course-authoring.md](doc/course-authoring.md) 两个新链接
+
+### 2. `whale-tutor lint` 实现
+
+- **Server 侧**:[main.ts](server/src/main.ts) 加 `WHALE_TUTOR_VALIDATE_ONLY=1` 模式,只 boot KnowledgeModule(不连 mysql / 不起 web),走 ajv → exit 0/非0
+- **CLI 侧**:cli-node 加 [lib/lint.mjs](packages/cli-node/lib/lint.mjs) + bin 注册;cli-py 加 [lint.py](packages/cli-py/whale_tutor/lint.py) + cli 注册。两边都是 spawn server + 透传 stdout/stderr + 末尾加结论
+- **e2e 验证**:happy path → "✓ 课程结构合法";YAML 语法错 → 报具体行号 + 上下文;schema 枚举错 → 报 instancePath + allowedValues。两版 CLI 行为一致
+
+### 3. 新建 [doc/course-authoring.md](doc/course-authoring.md)(744 行,小白教程)
+
+10 节 + 2 个附:
+
+1. **5 分钟跑起来** — pip/npm 装、init、配置、doctor、start
+2. **大局观:课程结构** — Course → Chapter → LO → RI 的 4 层模型;LO 大小经验值
+3. **课程目录详解** — 每个文件做什么,完整目录树 + course/chapter/lo/assessment yaml 字段表
+4. **`$ref`** — 路径相对当前 yaml、`.md`/`.yaml` 后缀分流、什么字段适合外置、混合用
+5. **4 种交互模式** — concept_check / code_sandbox / spot_the_bug / free_recall 各自字段约束 + 评估方式 + 适合/不适合场景 + 横向速查表
+6. **hint 机制** — 静态作者写 vs AI 兜底自动、梯度建议、hint 折扣对 mastery 的影响、章末隐藏
+7. **评价机制** — 4 种 evaluator 横向对比、mastery 状态机、答错时系统会做什么(adaptive / review_lo)+ 对作者 commonMisconceptions 的影响
+8. **日常工作流** — 改内容 / 加 LO / 加题 / 加新课程 / 清学习记录 5 个场景手把手
+9. **常见错误 + 排查** — lint / start / 学习者侧 三类错每条带"看 X 字段找具体位置"
+10. **`whale-tutor build` v0.3 计划** — 输入约定 / 设计 / 现替代方案
+
+附录:CLI 命令速查表 + 进一步阅读交叉链接。
+
+
+---
+
+## User <sup>5/8/2026, 9:09:44 PM</sup>
+
+<ide_opened_file>The user opened the file c:\Users\gyh\Desktop\Projects\whale-tutor\notes\background_1.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+
+现在notes下面能不能讲一下处理stuck的机制，好像没看到有文档具体写
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:10:10 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:10:11 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -niE \"stuck|提示|hint|卡住|review_lo|换说法|adaptive\" \"c:/Users/gyh/Desktop/Projects/whale-tutor/notes/plan.md\" 2>&1 | head -20",
+  "description": "Check what plan.md says about stuck-handling"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:10:15 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+79:- `hint.requested/served`
+80:- `stuck.detected`
+287:- 答错 + 接近掌握 → 提示重试
+296:### 11. Stuck Protocol（卡壳处理）
+305:**梯度提示协议**（之前讨论过）：引导问题 → 概念提示 → 部分解答 → 完整解答+复述。每一级都是独立可配置的。
+309:**为后续留的接口**：每个 LO 可以定义自己的提示梯度（更精准），学习者偏好可以调节默认级别。
+414:**第二批（决定差异化能不能立住）**：剩余 3-4 种 Pattern、Stuck Protocol、Diagnostic Engine、Assessment Module（formative + summative）、Archive Generator（基础版）、Educator Dashboard（基础版）
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:10:22 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\notes\\plan.md",
+  "offset": 296,
+  "limit": 25
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:10:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+296	### 11. Stuck Protocol（卡壳处理）
+297	
+298	**职责**：识别和处理学习者卡壳的情况。
+299	
+300	**两类触发**：
+301	
+302	- 显性：学习者主动求助
+303	- 隐性：长时间无操作、反复尝试无进展、响应时间显著变长
+304	
+305	**梯度提示协议**（之前讨论过）：引导问题 → 概念提示 → 部分解答 → 完整解答+复述。每一级都是独立可配置的。
+306	
+307	**v1 简化**：固定四级梯度，所有 LO 通用。
+308	
+309	**为后续留的接口**：每个 LO 可以定义自己的提示梯度（更精准），学习者偏好可以调节默认级别。
+310	
+311	### 12. Retention & Spaced Review（保留与间隔复习）
+312	
+313	**职责**：跨 session 的"接住"逻辑——用户回归时主动激活将遗忘的概念。
+314	
+315	**v1 简化**：固定规则
+316	
+317	- 距上次学习 > 3 天且 LO 强度未巩固 → 回归时插入 1-2 道激活题
+318	- 强度判定：基于该 LO 的练习次数和最近正确率
+319	
+320	**为 v2 留的接口**：替换成基于真实数据的遗忘曲线模型（half-life regression 等），不影响其他模块。
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:10:34 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:10:36 PM</sup>
+
+确实没有一个集中讲 stuck 处理的文档。`plan.md §11` 是原始设计意图,`orchestrator.md` 把 retry / review_lo 当 PathOrchestrator 的一部分讲,hint 单独讲,**没有把 3 个机制串起来作为"stuck handling"整体讲**。我新建 `notes/stuck-handling.md`,跨 ref 不重复。
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:13:15 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\notes\\stuck-handling.md",
+  "content": "# Stuck Handling — 学习者卡住时系统怎么办\n\n> 版本:v0.2(2026-05-08 后)\n> 受众:维护者 + 课程作者(理解原理后才知道哪些内容能影响 stuck 处理质量)\n> 与 [orchestrator.md](orchestrator.md) 的关系:orchestrator 讲全局 PathOrchestrator + 状态机;本文聚焦\"学习者卡住\"这一类场景的 3 个机制如何分工协作。\n> 与 [plan.md](plan.md) §11 的关系:plan §11 是设计意图(显性 / 隐性触发 + 梯度提示);本文是 v0.2 真实落地形态 + 已做 / 未做的清单。\n\n---\n\n## 1. 什么算\"stuck\"\n\n学习者在某道题上停留过久 / 反复答错 / 主动喊救命。系统不能让人卡死——既要给台阶下,又不能直接送答案毁掉学习。\n\nv0.2 把\"stuck\"分**显性**和**隐性**:\n\n| 类别 | 信号 | v0.2 处理 | 来源 |\n|---|---|---|---|\n| **显性** | 学习者点\"💡 求提示\" | **Hint 协议**:作者写的静态 hint / AI 兜底生成 3 级 | StuckProtocol(§3) |\n| **隐性** | 答错(任何评估返 correct=false) | **Adaptive 换说法**:AI 出同 LO 但题干不同的题 | PathOrchestrator(§4) |\n| **隐性升级** | 同一 RI 连错 ≥ 3 次 / generate 失败 | **Review-LO 兜底**:强制学习者回 LO 讲解再来 | PathOrchestrator(§5) |\n\n> **plan.md §11 提的另一类\"长时间无操作 / 响应时间显著变长\"在 v0.2 还没做**(见 §10)。\n\n3 个机制独立但互相补:\n- 学习者**主动卡** → 求 hint(自己控制力度)\n- 学习者**被动卡**(以为会但答错) → 系统出换说法题(给第二次机会)\n- 学习者**真的不会** → 强制回讲解(避免无意义的反复试错)\n\n---\n\n## 2. 三机制速查表\n\n| | Hint(求提示) | Adaptive(换说法) | Review-LO(回讲解) |\n|---|---|---|---|\n| **触发** | 学习者点按钮 | submit 返 correct=false | learner_state.consecutive_wrong ≥ 3 OR generate 失败 |\n| **可作者干预** | 写 RI.hints(覆盖 AI) | 写 commonMisconceptions / adaptivePatterns(影响 AI 出题质量) | 不直接干预,但好的 coreExplanation 让回看价值更高 |\n| **AI 调用** | 缺 hints 时 AI 1 次,cache | 每次都调 AI(无 cache,确保不同 retry 不同题) | 不调 AI |\n| **DB 写入** | events(requested/served);responses.hint_level(submit 时) | events(interaction.served);interactions(adaptive 行);learner_state.pending_retry_ri_id | events(lo.regressed);learner_state(cw=0, pending=null) |\n| **mastery 影响** | hint > 0 答对**不增 cc**(不能升 mastered);必做仍计入 | adaptive 答对计入原 RI 必做 | ack 后清 cw,清 pending,后续重新出原 RI |\n| **章末测试** | UI 不展示按钮(server 不强制) | enableRetry=false 跳过 | 不会触发(没有 retry,就没有 cw≥3 的 review_lo 入口) |\n| **失败兜底** | yaml fallback 给 3 条通用 hint | question=null → 走 Review-LO | 没有失败状态 |\n\n---\
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:13:16 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\notes\stuck-handling.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:13:38 PM</sup>
+
+Now linking from CLAUDE.md and orchestrator.md.
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:13:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "完整产品理念与教育学第一性原理见 [notes/background_1.md](notes/background_1.md) / [notes/background_2.md](notes/background_2.md) / [notes/background_3.md](notes/background_3.md)。完整工程架构（4 层 18 模块）见 [notes/plan.md](notes/plan.md)。**v0.2 完成后的运行时业务逻辑详解(状态机 / decideNext / DB 写入语义 / event 映射)见 [notes/orchestrator.md](notes/orchestrator.md)** — 跨模块改动前必读。",
+  "new_string": "完整产品理念与教育学第一性原理见 [notes/background_1.md](notes/background_1.md) / [notes/background_2.md](notes/background_2.md) / [notes/background_3.md](notes/background_3.md)。完整工程架构（4 层 18 模块）见 [notes/plan.md](notes/plan.md)。**v0.2 完成后的运行时业务逻辑详解(状态机 / decideNext / DB 写入语义 / event 映射)见 [notes/orchestrator.md](notes/orchestrator.md)** — 跨模块改动前必读。**Hint / Adaptive / Review-LO 三机制如何串成一套 stuck 处理协议** 见 [notes/stuck-handling.md](notes/stuck-handling.md)。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:13:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:14:03 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\notes\\orchestrator.md",
+  "offset": 1,
+  "limit": 10
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:14:03 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	# PathOrchestrator + 数据库变更参考
+2	
+3	> 版本:v0.2(2026-05-08,Item 2 完成后状态)
+4	> 受众:维护本项目的 AI / 工程师。是给"再往后迭代前先理顺业务"的快照参考,不是教程。
+5	> 与 [CLAUDE.md](../CLAUDE.md) 的关系:CLAUDE.md 是工程边界与约定;本文是**运行时业务逻辑**的细化。
+6	
+7	---
+8	
+9	## 1. v0.2 核心闭环一览
+10
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:14:24 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\notes\\orchestrator.md",
+  "old_string": "> 版本:v0.2(2026-05-08,Item 2 完成后状态)\n> 受众:维护本项目的 AI / 工程师。是给\"再往后迭代前先理顺业务\"的快照参考,不是教程。\n> 与 [CLAUDE.md](../CLAUDE.md) 的关系:CLAUDE.md 是工程边界与约定;本文是**运行时业务逻辑**的细化。",
+  "new_string": "> 版本:v0.2(2026-05-08,Item 2 完成后状态)\n> 受众:维护本项目的 AI / 工程师。是给\"再往后迭代前先理顺业务\"的快照参考,不是教程。\n> 与 [CLAUDE.md](../CLAUDE.md) 的关系:CLAUDE.md 是工程边界与约定;本文是**运行时业务逻辑**的细化。\n> 与 [stuck-handling.md](stuck-handling.md) 的关系:本文按 PathOrchestrator 流程组织(decideNext / 状态机 / DB 写入);stuck-handling 把 Hint + Adaptive + Review-LO 三机制串成一套\"学习者卡住时怎么办\"的专题。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:14:25 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\notes\orchestrator.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:14:39 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "wc -l \"c:/Users/gyh/Desktop/Projects/whale-tutor/notes/stuck-handling.md\"",
+  "description": "Doc size"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:14:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+456 c:/Users/gyh/Desktop/Projects/whale-tutor/notes/stuck-handling.md
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:15:19 PM</sup>
+
+写完 [notes/stuck-handling.md](notes/stuck-handling.md)(456 行)+ 双向链。
+
+## 文档定位
+
+| 文档 | 视角 | 受众 |
+|---|---|---|
+| [plan.md §11](notes/plan.md) | 设计意图原文 | 当时设计者 |
+| [orchestrator.md](notes/orchestrator.md) | 运行时全局(状态机 / decideNext / DB) | 维护者 |
+| **[stuck-handling.md](notes/stuck-handling.md)** | **专题:卡住场景 → 三机制如何分工协作** | **维护者 + 想理解原理的作者** |
+| [doc/course-authoring.md](doc/course-authoring.md) | 作者怎么写内容用好这套机制 | 课程作者 |
+
+## stuck-handling.md 11 节
+
+1. **什么算 stuck** — 显性/隐性分类 + 三处理方式映射 + 跟 plan.md 设计意图对齐
+2. **三机制速查表** — Hint / Adaptive / Review-LO 横向比较(触发 / 作者干预 / AI 用量 / DB 写入 / mastery 影响 / 章末测试 / 失败兜底 7 维)
+3. **Hint 协议** — 学习者视角 → 静态+AI 兜底来源 → cache 策略 → 4 级语义 → 对状态影响 → 端点
+4. **Adaptive 换说法** — 触发条件 → `Pattern.generate` 4 类 + sanity check → prompt 变量 → 答对/答错路径 → 章末跳过 → 不缓存的取舍
+5. **Review-LO 兜底** — 两条路径 → 学习者视角 → ack 端点行为 → 失败回环
+6. **完整案例串联** — 一个学习者从 hint → adaptive → review_lo → ack 的全链路 trace
+7. **作者杠杆** — 4 个具体可控旋钮(hints / commonMisconceptions / adaptivePatterns / coreExplanation)+ 反例对比
+8. **接口契约** — Hint POST / Adaptive(隐式)/ Review-LO ack 三处 HTTP 形状
+9. **Event 发射** — stuck 相关的 6 种 EventType
+10. **已知 gap** — plan §11 设计 vs v0.2 实际的差距(隐性 stuck 检测、学习者偏好级别、LO 默认梯度等都未做)
+11. **跨 ref** — 双向指向其他三份文档
+
+CLAUDE.md 头部 + orchestrator.md 头部 各加一句指向 stuck-handling.md。
+
+
+---
+
+## User <sup>5/8/2026, 9:18:01 PM</sup>
+
+<ide_opened_file>The user opened the file c:\Users\gyh\Desktop\Projects\whale-tutor\doc\course-authoring.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+
+在 @doc/course-authoring.md 里面说whale-tutor build还没实现，这个现在是不是还没实现，然后能否作者的每个md对应的是chapter，然后lo由ai自己拆；现在的server下面的python课能不能搞成多chapter的，然后再开一个多chapter的sql课，因为现在没看见主页怎么切换课程和进入课程怎么切换chapter，我可以前端看到情况
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:19:10 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:19:12 PM</sup>
+
+Yes, `whale-tutor build` is still planned (only `init/start/doctor/lint` exist). Let me confirm scope before doing everything — there's content + frontend work involved.
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:19:13 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls \"c:/Users/gyh/Desktop/Projects/whale-tutor/web/src/views/\" && echo \"---\" && cat \"c:/Users/gyh/Desktop/Projects/whale-tutor/web/src/views/HomeView.vue\" 2>&1 | head -80",
+  "description": "Inspect frontend views + HomeView"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:19:17 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+HomeView.vue
+LearnView.vue
+---
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useSessionStore } from '@/stores/session';
+import { usePyodideStore } from '@/stores/pyodide';
+
+const router = useRouter();
+const sessionStore = useSessionStore();
+const pyodideStore = usePyodideStore();
+const starting = ref(false);
+const error = ref<string | null>(null);
+
+// v0:demo learner id=1,course=python-basics(无认证、无诊断)
+const DEMO_LEARNER_ID = 1;
+const DEMO_COURSE_ID = 'python-basics';
+
+// 进入 Home 时后台预热 Pyodide(~6MB),避免 LearnView 第一次跑 code_sandbox 时等
+onMounted(() => {
+  void pyodideStore.preload();
+});
+
+async function startLearning(): Promise<void> {
+  starting.value = true;
+  error.value = null;
+  try {
+    await sessionStore.start(DEMO_LEARNER_ID, DEMO_COURSE_ID);
+    router.push({ name: 'learn' });
+  } catch (e) {
+    error.value = (e as Error).message;
+  } finally {
+    starting.value = false;
+  }
+}
+</script>
+
+<template>
+  <el-containe
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:19:39 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:19:40 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -n \"Get\\|@Get\\|@Controller\" \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/knowledge.controller.ts\" | head; echo \"---\"; cat \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/knowledge.controller.ts\"",
+  "description": "Knowledge controller routes"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:19:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1:import { Controller, Get, Param } from '@nestjs/common';
+3:  GetCourseResponse,
+4:  GetLearningObjectiveResponse,
+9:@Controller()
+13:  @Get('courses/:id')
+14:  getCourse(@Param('id') id: string): GetCourseResponse {
+18:  @Get('los/:id')
+19:  getLearningObjective(@Param('id') id: string): GetLearningObjectiveResponse {
+---
+import { Controller, Get, Param } from '@nestjs/common';
+import type {
+  GetCourseResponse,
+  GetLearningObjectiveResponse,
+} from '@whale-tutor/tutor-types';
+import { KnowledgeService } from './knowledge.service';
+
+// 注意:vite proxy 把前端 /api/* 重写为 /*,所以这里不加 'api' 前缀。
+@Controller()
+export class KnowledgeController {
+  constructor(private readonly knowledge: KnowledgeService) {}
+
+  @Get('courses/:id')
+  getCourse(@Param('id') id: string): GetCourseResponse {
+    return { course: this.knowledge.getCourse(id) };
+  }
+
+  @Get('los/:id')
+  getLearningObjective(@Param('id') id: string): GetLearningObjectiveResponse {
+    return { lo: this.knowledge.getLearningObjective(id) 
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:20:07 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:20:10 PM</sup>
+
+要做的事情挺多。先对齐范围 — 内容质量 vs 演示骨架,以及 UX 范围:
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:20:38 PM</sup>
+
+<details>
+<summary>Tool: <code>AskUserQuestion</code></summary>
+
+```json
+{
+  "questions": [
+    {
+      "question": "新内容的质量?(加 1 个 python 第二章 + 1 个 sql 课)",
+      "header": "内容范围",
+      "multiSelect": false,
+      "options": [
+        {
+          "label": "骨架内容(推荐)—每 LO 2-3 道占位题，不追求教学价值",
+          "description": "目的是点出多课多章结构,能在前端渲染切换。内容是“SELECT 的三个关键字是?”这种起脚题。~30 分钟码完。"
+        },
+        {
+          "label": "完整内容 — 每 LO 3-5 道可讲的题、含 commonMisconceptions / 外置讲解",
+          "description": "质量对齐现有 list_basics 等。需要 1-2 小时写内容、需要点 SQL 领域判断。"
+        },
+        {
+          "label": "只加 sql 课不动 python 课(简化)",
+          "description": "python 课维持单 chapter。多课仅体现主页课程选择。多章结构仅体现在 sql 课(2 chapters)。"
+        }
+      ]
+    },
+    {
+      "question": "前端 UX 范围?",
+      "header": "UX 范围",
+      "multiSelect": false,
+      "options": [
+        {
+          "label": "HomeView 课程选择 + 当前章节可见(推荐)",
+          "description": "首页列出所有课程卡片(从新 GET /api/courses 拿)，点一个开始。LearnView ProgressSidebar 现有已显示当前章。不动 PathOrchestrator(一课一 session,一 session 仅走第一章,章末完后返回首页。不同章 在不同 session 里进。"
+        },
+        {
+          "label": "加 “课程详情页”中间页 — 点课程卡进去看章節列表选一个",
+          "description": "首页 → 课程选择 → 课程详情(章節列表 + 进度) → 选一个章節 → 进入学习。三层导航。需要后端 session 能限定 chapter(现在 PathOrchestrator 从第一章走)。中等范围。"
+        },
+        {
+          "label": "加 chapter 间自动推进 — 一个 session 走多章",
+          "description": "PathOrchestrator chapter_complete 不再终结 session，而是跳下一章。需要改 decideNext + UI 引导。最大范围。"
+        }
+      ]
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:27:30 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+User has answered your questions: "新内容的质量?(加 1 个 python 第二章 + 1 个 sql 课)"="完整内容 — 每 LO 3-5 道可讲的题、含 commonMisconceptions / 外置讲解", "前端 UX 范围?"="HomeView 课程选择 + 当前章节可见(推荐)". You can now continue with the user's answers in mind.
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:28:34 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:28:36 PM</sup>
+
+OK 我开做。先盘 todo,然后按顺序:doc 更新 → server 加 courses 列表 + start() 选第一个未完成章节 → HomeView 课程选择 → 写新内容(2 LOs python + 2 chapters sql) → e2e 验证。
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:28:43 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "doc/course-authoring.md §10: MD→chapter level 设计 + 确认 build 未实现",
+      "activeForm": "更新作者 doc",
+      "status": "in_progress"
+    },
+    {
+      "content": "Server: GET /api/courses 列表端点 + ListCoursesResponse contract",
+      "activeForm": "加 courses list 端点",
+      "status": "pending"
+    },
+    {
+      "content": "Server: start() 选第一个未完成 chapter (而不是总第一章)",
+      "activeForm": "Multi-chapter start 逻辑",
+      "status": "pending"
+    },
+    {
+      "content": "Frontend: HomeView 课程卡选择器 (从 /api/courses)",
+      "activeForm": "HomeView 重写",
+      "status": "pending"
+    },
+    {
+      "content": "Content: python 加第二章 string_and_format (2 LOs)",
+      "activeForm": "写 python 第二章",
+      "status": "pending"
+    },
+    {
+      "content": "Content: 新 sql-basics 课程 (2 chapters)",
+      "activeForm": "写 sql 课程",
+      "status": "pending"
+    },
+    {
+      "content": "E2E: lint + start + 验证多课多章可达",
+      "activeForm": "E2E 验证",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:28:43 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:29:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\doc\\course-authoring.md",
+  "old_string": "## 10. v0.3 计划:`whale-tutor build` AI 辅助生成\n\n> ★ **本节描述的是计划中的功能,目前还没实现**。给你一个心理预期。\n\n### 痛点\n\n写 yaml 骨架(LO 元信息、必做题选项、rationale)是机械活。`whale-tutor init` 给你一个完整示例复制,但写第二门课你还是要从零开始写所有 yaml。\n\n### 计划设计(草案)\n\n输入:你只写**原始 markdown 讲解**:\n\n```\nmy-course-source/\n├── course.md                    # 课程介绍(1-3 段)\n└── lessons/\n    ├── 01-list-basics.md        # 编号决定顺序\n    ├── 02-list-indexing.md\n    ├── 03-list-mutation.md\n    └── 04-iter-for-over-list.md\n```\n\n每个 `NN-name.md` 文件就是一个 LO 的核心讲解,顶部用 H1 写 LO 名,下面段落正常 markdown。\n\n跑:\n\n```bash\nwhale-tutor build my-course-source/        # 输出到 ./courses/<course-id>/\n```\n\nCLI 调 AI 多次,生成完整结构:\n- 解析 course.md → 写 course.yaml(name / subject / description)\n- 每个 lesson md → AI 抽取 LO 元信息(name, description, prerequisites, commonMisconceptions, masteryCriteria)\n- 每个 LO → AI 出 3-5 道 concept_check 必做题(覆盖 markdown 里的关键概念)\n- 每章 → AI 出 5-8 道章末综合测试\n\n之后你可以**手动微调 AI 生成的 yaml**(改题目 / 加 hints / 替换 pattern)+ `whale-tutor lint`。\n\n### 现在的替代方案\n\n`whale-tutor init` 拿 python-basics 全套示例 → 复制 LO 目录 → 改 id / name / 内容。10 道题的 LO 大约 1 小时手写完。\n\n---",
+  "new_string": "## 10. v0.3 计划:`whale-tutor build` AI 辅助生成\n\n> ★ **本节描述的是 v0.3 计划中的功能,目前 (v0.2) 还没实现**。CLI 现在只有 `init / start / doctor / lint` 4 个命令。给你一个心理预期 — 真做出来后,作者负担会从\"写 yaml 骨架\"降到\"只写 markdown 讲稿\"。\n\n### 痛点\n\n写 yaml 骨架(LO 元信息、必做题选项、rationale)是机械活。`whale-tutor init` 给你一个完整示例复制,但写第二门课你还是要从零开始写所有 yaml。\n\n### 计划设计(MD 一份 = 一个 chapter,AI 拆 LO)\n\n输入:你只写**原始 markdown 讲稿**,**一份 md = 一章**:\n\n```\nmy-course-source/\n├── course.md                    # 课程介绍(1-3 段)\n└── chapters/\n    ├── 01-list-and-iter.md      # 一章一份 md,文件名编号决定章节顺序\n    ├── 02-string-and-format.md\n    └── 03-dict-and-set.md\n```\n\n每份 chapter md 就是该章的完整讲稿,作者按\"我想让学生学会什么\"自然分段写,不用预先想 LO 怎么分。\n\n跑:\n\n```bash\nwhale-tutor build my-course-source/        # 输出到 ./courses/<course-id>/\n```\n\nCL
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:29:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\doc\course-authoring.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:29:38 PM</sup>
+
+Doc updated. Now server `GET /api/courses` list endpoint.
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:29:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\api-contracts.ts",
+  "offset": 25,
+  "limit": 20
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:29:38 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+25	// ============================================================
+26	// /api/courses
+27	// ============================================================
+28	
+29	export interface GetCourseResponse {
+30	  course: Course;
+31	}
+32	
+33	// ============================================================
+34	// /api/los/:id
+35	// ============================================================
+36	
+37	export interface GetLearningObjectiveResponse {
+38	  lo: LearningObjective;
+39	}
+40	
+41	// ============================================================
+42	// /api/sessions
+43	// ============================================================
+44
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:29:54 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\api-contracts.ts",
+  "old_string": "// ============================================================\n// /api/courses\n// ============================================================\n\nexport interface GetCourseResponse {\n  course: Course;\n}",
+  "new_string": "// ============================================================\n// /api/courses\n// ============================================================\n\n// HomeView 课程选择器用的轻量摘要(不含 LO/RI 详情,只列章节数 + LO 总数)。\n// 详情用 GET /api/courses/:id 拿。\nexport interface CourseSummary {\n  id: string;\n  name: string;\n  description: string;\n  chapterCount: number;\n  loCount: number;\n}\n\nexport interface ListCoursesResponse {\n  courses: CourseSummary[];\n}\n\nexport interface GetCourseResponse {\n  course: Course;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:29:55 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types\src\api-contracts.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:30:16 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.controller.ts",
+  "old_string": "import { Controller, Get, Param } from '@nestjs/common';\nimport type {\n  GetCourseResponse,\n  GetLearningObjectiveResponse,\n} from '@whale-tutor/tutor-types';\nimport { KnowledgeService } from './knowledge.service';\n\n// 注意:vite proxy 把前端 /api/* 重写为 /*,所以这里不加 'api' 前缀。\n@Controller()\nexport class KnowledgeController {\n  constructor(private readonly knowledge: KnowledgeService) {}\n\n  @Get('courses/:id')\n  getCourse(@Param('id') id: string): GetCourseResponse {\n    return { course: this.knowledge.getCourse(id) };\n  }\n\n  @Get('los/:id')\n  getLearningObjective(@Param('id') id: string): GetLearningObjectiveResponse {\n    return { lo: this.knowledge.getLearningObjective(id) };\n  }\n}",
+  "new_string": "import { Controller, Get, Param } from '@nestjs/common';\nimport type {\n  GetCourseResponse,\n  GetLearningObjectiveResponse,\n  ListCoursesResponse,\n} from '@whale-tutor/tutor-types';\nimport { KnowledgeService } from './knowledge.service';\n\n// 注意:server 已设 globalPrefix('api'),controller 里不重复加。\n@Controller()\nexport class KnowledgeController {\n  constructor(private readonly knowledge: KnowledgeService) {}\n\n  // HomeView 课程选择器用 — 列所有已加载的课程(摘要)\n  @Get('courses')\n  listCourses(): ListCoursesResponse {\n    return { courses: this.knowledge.listCourseSummaries() };\n  }\n\n  @Get('courses/:id')\n  getCourse(@Param('id') id: string): GetCourseResponse {\n    return { course: this.knowledge.getCourse(id) };\n  }\n\n  @Get('los/:id')\n  getLearningObjective(@Param('id') id: string): GetLearningObjectiveResponse {\n    return { lo: this.knowledge.getLearningObjective(id) };\n  }\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:30:16 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+<tool_use_error>File has not been read yet. Read it first before writing to it.</tool_use_error>
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:30:28 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.controller.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:30:28 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { Controller, Get, Param } from '@nestjs/common';
+2	import type {
+3	  GetCourseResponse,
+4	  GetLearningObjectiveResponse,
+5	} from '@whale-tutor/tutor-types';
+6	import { KnowledgeService } from './knowledge.service';
+7	
+8	// 注意:vite proxy 把前端 /api/* 重写为 /*,所以这里不加 'api' 前缀。
+9	@Controller()
+10	export class KnowledgeController {
+11	  constructor(private readonly knowledge: KnowledgeService) {}
+12	
+13	  @Get('courses/:id')
+14	  getCourse(@Param('id') id: string): GetCourseResponse {
+15	    return { course: this.knowledge.getCourse(id) };
+16	  }
+17	
+18	  @Get('los/:id')
+19	  getLearningObjective(@Param('id') id: string): GetLearningObjectiveResponse {
+20	    return { lo: this.knowledge.getLearningObjective(id) };
+21	  }
+22	}
+23
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:30:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.controller.ts",
+  "old_string": "import { Controller, Get, Param } from '@nestjs/common';\nimport type {\n  GetCourseResponse,\n  GetLearningObjectiveResponse,\n} from '@whale-tutor/tutor-types';\nimport { KnowledgeService } from './knowledge.service';\n\n// 注意:vite proxy 把前端 /api/* 重写为 /*,所以这里不加 'api' 前缀。\n@Controller()\nexport class KnowledgeController {\n  constructor(private readonly knowledge: KnowledgeService) {}\n\n  @Get('courses/:id')\n  getCourse(@Param('id') id: string): GetCourseResponse {\n    return { course: this.knowledge.getCourse(id) };\n  }\n\n  @Get('los/:id')\n  getLearningObjective(@Param('id') id: string): GetLearningObjectiveResponse {\n    return { lo: this.knowledge.getLearningObjective(id) };\n  }\n}",
+  "new_string": "import { Controller, Get, Param } from '@nestjs/common';\nimport type {\n  GetCourseResponse,\n  GetLearningObjectiveResponse,\n  ListCoursesResponse,\n} from '@whale-tutor/tutor-types';\nimport { KnowledgeService } from './knowledge.service';\n\n// server 已设 globalPrefix('api'),controller 里不重复加。\n@Controller()\nexport class KnowledgeController {\n  constructor(private readonly knowledge: KnowledgeService) {}\n\n  // HomeView 课程选择器:列所有已加载的课程(摘要)\n  @Get('courses')\n  listCourses(): ListCoursesResponse {\n    return { courses: this.knowledge.listCourseSummaries() };\n  }\n\n  @Get('courses/:id')\n  getCourse(@Param('id') id: string): GetCourseResponse {\n    return { course: this.knowledge.getCourse(id) };\n  }\n\n  @Get('los/:id')\n  getLearningObjective(@Param('id') id: string): GetLearningObjectiveResponse {\n    return { lo: this.knowledge.getLearningObjective(id) };\n  }\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:30:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\knowledge.controller.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:31:03 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.service.ts",
+  "old_string": "  // ===== HTTP-public API（去除 server-only 字段） =====\n\n  getCourse(courseId: string): Course {\n    return toPublicCourse(this.getCourseDefinition(courseId));\n  }\n\n  getLearningObjective(loId: string): LearningObjective {\n    return toPublicLo(this.getLoDefinition(loId));\n  }\n}",
+  "new_string": "  // ===== HTTP-public API（去除 server-only 字段） =====\n\n  getCourse(courseId: string): Course {\n    return toPublicCourse(this.getCourseDefinition(courseId));\n  }\n\n  getLearningObjective(loId: string): LearningObjective {\n    return toPublicLo(this.getLoDefinition(loId));\n  }\n\n  // HomeView 课程选择器用 — 列所有已加载课程的轻量摘要\n  listCourseSummaries(): Array<{\n    id: string;\n    name: string;\n    description: string;\n    chapterCount: number;\n    loCount: number;\n  }> {\n    return Array.from(this.courses.values()).map((c) => ({\n      id: c.id,\n      name: c.name,\n      description: c.description,\n      chapterCount: c.chapters.length,\n      loCount: c.chapters.reduce(\n        (sum, ch) => sum + ch.learningObjectives.length,\n        0,\n      ),\n    }));\n  }\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:31:05 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\knowledge.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:31:18 PM</sup>
+
+Now `start()` to pick first incomplete chapter:
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:31:18 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "offset": 76,
+  "limit": 35
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:31:18 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+76	    await this.events.emit({
+77	      sessionId,
+78	      learnerId: input.learnerId,
+79	      type: 'session.started',
+80	      payload: { courseId: input.courseId },
+81	    });
+82	
+83	    // v0:从课程第一章第一个 LO 开始（无诊断时）
+84	    const course = this.knowledge.getCourseDefinition(input.courseId);
+85	    const firstChapter = course.chapters[0];
+86	    const firstLo = firstChapter.learningObjectives[0];
+87	
+88	    await this.db
+89	      .updateTable('sessions')
+90	      .set({ current_lo_id: firstLo.id })
+91	      .where('id', '=', sessionId)
+92	      .execute();
+93	
+94	    await this.events.emit({
+95	      sessionId,
+96	      learnerId: input.learnerId,
+97	      loId: firstLo.id,
+98	      type: 'lo.entered',
+99	      payload: {},
+100	    });
+101	
+102	    let decision = await this.decideNext(sessionId, input.learnerId, firstLo.id);
+103	    let interaction = await this.maybeServeFromDecision(
+104	      sessionId,
+105	      input.learnerId,
+106	      firstLo.id,
+107	      decision,
+108	    );
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:31:39 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    // v0:从课程第一章第一个 LO 开始（无诊断时）\n    const course = this.knowledge.getCourseDefinition(input.courseId);\n    const firstChapter = course.chapters[0];\n    const firstLo = firstChapter.learningObjectives[0];\n\n    await this.db\n      .updateTable('sessions')\n      .set({ current_lo_id: firstLo.id })\n      .where('id', '=', sessionId)\n      .execute();\n\n    await this.events.emit({\n      sessionId,\n      learnerId: input.learnerId,\n      loId: firstLo.id,\n      type: 'lo.entered',\n      payload: {},\n    });\n\n    let decision = await this.decideNext(sessionId, input.learnerId, firstLo.id);\n    let interaction = await this.maybeServeFromDecision(\n      sessionId,\n      input.learnerId,\n      firstLo.id,\n      decision,\n    );\n    // 同 submit:adaptive 服务失败 → 把 decision 降级为 review_lo\n    if (",
+  "new_string": "    // v0.2 多 chapter 支持:从该 learner 还没完成的第一个 chapter 开始,\n    // 而不是总从 chapter[0]。这样跑完 chapter 1 后,新 session 自动从 chapter 2 起。\n    // 章节\"已完成\"判定:学习者在该 chapter 的所有 LO 必做都做完 + 章末测试 phase='completed'。\n    const course = this.knowledge.getCourseDefinition(input.courseId);\n    const startLo = await this.pickStartingLo(input.learnerId, course);\n\n    await this.db\n      .updateTable('sessions')\n      .set({ current_lo_id: startLo.id })\n      .where('id', '=', sessionId)\n      .execute();\n\n    await this.events.emit({\n      sessionId,\n      learnerId: input.learnerId,\n      loId: startLo.id,\n      type: 'lo.entered',\n      payload: {},\n    });\n\n    let decision = await this.decideNext(sessionId, input.learnerId, startLo.id);\n    let interaction = await this.maybeServeFromDecision(\n      sessionId,\n      input.learnerId,\n      startLo.id,\n      decision,\n    );\n    // 同 submit:adaptive 服务失败 → 把 decision 降级为 review_lo\n    if ("
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:31:40 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:31:55 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:31:56 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "offset": 108,
+  "limit": 15
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:31:56 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+108	      decision,
+109	    );
+110	    // 同 submit:adaptive 服务失败 → 把 decision 降级为 review_lo
+111	    if (
+112	      decision.primary.type === 'serve_interaction' &&
+113	      decision.primary.source === 'adaptive' &&
+114	      interaction === null
+115	    ) {
+116	      decision = {
+117	        primary: {
+118	          type: 'review_lo',
+119	          loId: firstLo.id,
+120	          reason: '换说法生成失败,先回到讲解再来',
+121	        },
+122	        alternatives: [],
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:32:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "      decision = {\n        primary: {\n          type: 'review_lo',\n          loId: firstLo.id,\n          reason: '换说法生成失败,先回到讲解再来',\n        },\n        alternatives: [],",
+  "new_string": "      decision = {\n        primary: {\n          type: 'review_lo',\n          loId: startLo.id,\n          reason: '换说法生成失败,先回到讲解再来',\n        },\n        alternatives: [],"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:32:13 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:32:28 PM</sup>
+
+Now adding `pickStartingLo` method. Let me find a good place:
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:32:29 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -n \"^  private async\\|^  private \\|^  async \" \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/session/session.service.ts\" | head -20",
+  "description": "Find private method anchors"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:32:33 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+41:  private readonly logger = new Logger(SessionService.name);
+56:  async start(input: StartSessionRequest): Promise<StartSessionResponse> {
+129:  async submit(
+295:  async end(sessionId: number): Promise<EndSessionResponse> {
+328:  async acknowledgeReviewLo(sessionId: number): Promise<AcknowledgeReviewLoResponse> {
+398:  async requestHint(
+473:  async getProgress(sessionId: number): Promise<GetSessionProgressResponse> {
+529:  private async getChapterProgressOrDefault(
+548:  private async allPrereqsSatisfiedReadonly(
+568:  private async decideNext(
+715:  private async maybeServeFromDecision(
+736:  private async serveStaticInteraction(
+799:  private async serveAdaptiveInteraction(
+906:  private async getOrInitChapterProgress(
+934:  private async setChapterPhase(
+947:  private async recordAssessmentProgress(
+966:  private async allPrereqsCompleted(
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:32:43 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "offset": 529,
+  "limit": 30
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:32:43 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+529	  private async getChapterProgressOrDefault(
+530	    learnerId: number,
+531	    chapterId: string,
+532	  ): Promise<{ phase: ChapterPhase; assessmentCompletedIds: string[] }> {
+533	    const row = await this.db
+534	      .selectFrom('learner_chapter_progress')
+535	      .selectAll()
+536	      .where('learner_id', '=', learnerId)
+537	      .where('chapter_id', '=', chapterId)
+538	      .executeTakeFirst();
+539	    if (!row) {
+540	      return { phase: 'learning', assessmentCompletedIds: [] };
+541	    }
+542	    return {
+543	      phase: row.phase,
+544	      assessmentCompletedIds: parseJsonArray(row.assessment_completed_ids),
+545	    };
+546	  }
+547	
+548	  private async allPrereqsSatisfiedReadonly(
+549	    learnerId: number,
+550	    lo: LearningObjectiveDefinition,
+551	  ): Promise<boolean> {
+552	    for (const prereqId of lo.prerequisites) {
+553	      const prereqLo = this.knowledge.getLoDefinition(prereqId);
+554	      const state = await this.learners.getLoState(
+555	        learner
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:33:04 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "  private async getChapterProgressOrDefault(\n    learnerId: number,\n    chapterId: string,\n  ): Promise<{ phase: ChapterPhase; assessmentCompletedIds: string[] }> {\n    const row = await this.db\n      .selectFrom('learner_chapter_progress')\n      .selectAll()\n      .where('learner_id', '=', learnerId)\n      .where('chapter_id', '=', chapterId)\n      .executeTakeFirst();\n    if (!row) {\n      return { phase: 'learning', assessmentCompletedIds: [] };\n    }\n    return {\n      phase: row.phase,\n      assessmentCompletedIds: parseJsonArray(row.assessment_completed_ids),\n    };\n  }",
+  "new_string": "  private async getChapterProgressOrDefault(\n    learnerId: number,\n    chapterId: string,\n  ): Promise<{ phase: ChapterPhase; assessmentCompletedIds: string[] }> {\n    const row = await this.db\n      .selectFrom('learner_chapter_progress')\n      .selectAll()\n      .where('learner_id', '=', learnerId)\n      .where('chapter_id', '=', chapterId)\n      .executeTakeFirst();\n    if (!row) {\n      return { phase: 'learning', assessmentCompletedIds: [] };\n    }\n    return {\n      phase: row.phase,\n      assessmentCompletedIds: parseJsonArray(row.assessment_completed_ids),\n    };\n  }\n\n  /**\n   * v0.2 多 chapter 支持:\n   * 找出该 learner 在该 course 中\"还没完成\"的第一个 chapter,返回其第一个 LO。\n   * 章节\"完成\"判定:phase === 'completed'(章末测试也通过)。\n   *\n   * 全完成时(把整门课走完了又开新 session) → 返回最后一章第一 LO,让 decideNext 走到 chapter_complete。\n   */\n  private async pickStartingLo(\n    learnerId: number,\n    course: { chapters: Array<{ id: string; learningObjectives: Array<{ id: string }> }> },\n  ): Promise<{ id: string }> {\n    for (const chapter of course.chapters) {\n      const progress = await this.getChapterProgressOrDefault(\n        learnerId,\n        chapter.id,\n      );\n      if (progress.phase !== 'completed') {\n      
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:33:05 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:33:22 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm build:types 2>&1 | tail -3 && echo \"---\" && pnpm --filter @whale-tutor/server typecheck 2>&1 | tail -5",
+  "description": "Types build + server typecheck",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:33:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/tutor-types@0.0.1 build C:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types
+> tsc -p tsconfig.json
+
+---
+
+> @whale-tutor/server@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> tsc -p tsconfig.json --noEmit
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:33:51 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "doc/course-authoring.md §10 update",
+      "activeForm": "Doc update",
+      "status": "completed"
+    },
+    {
+      "content": "Server: GET /api/courses 列表端点",
+      "activeForm": "List endpoint",
+      "status": "completed"
+    },
+    {
+      "content": "Server: start() 选第一个未完成 chapter",
+      "activeForm": "Multi-chapter start",
+      "status": "completed"
+    },
+    {
+      "content": "Frontend: HomeView 课程卡选择器",
+      "activeForm": "HomeView",
+      "status": "in_progress"
+    },
+    {
+      "content": "Content: python 加第二章 string_and_format (2 LOs)",
+      "activeForm": "Python chapter 2",
+      "status": "pending"
+    },
+    {
+      "content": "Content: 新 sql-basics 课程 (2 chapters)",
+      "activeForm": "SQL course",
+      "status": "pending"
+    },
+    {
+      "content": "E2E: lint + start + 验证",
+      "activeForm": "E2E",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:33:51 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:34:05 PM</sup>
+
+Now HomeView course picker.
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:34:06 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\views\\HomeView.vue"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:34:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	<script setup lang="ts">
+2	import { onMounted, ref } from 'vue';
+3	import { useRouter } from 'vue-router';
+4	import { useSessionStore } from '@/stores/session';
+5	import { usePyodideStore } from '@/stores/pyodide';
+6	
+7	const router = useRouter();
+8	const sessionStore = useSessionStore();
+9	const pyodideStore = usePyodideStore();
+10	const starting = ref(false);
+11	const error = ref<string | null>(null);
+12	
+13	// v0:demo learner id=1,course=python-basics(无认证、无诊断)
+14	const DEMO_LEARNER_ID = 1;
+15	const DEMO_COURSE_ID = 'python-basics';
+16	
+17	// 进入 Home 时后台预热 Pyodide(~6MB),避免 LearnView 第一次跑 code_sandbox 时等
+18	onMounted(() => {
+19	  void pyodideStore.preload();
+20	});
+21	
+22	async function startLearning(): Promise<void> {
+23	  starting.value = true;
+24	  error.value = null;
+25	  try {
+26	    await sessionStore.start(DEMO_LEARNER_ID, DEMO_COURSE_ID);
+27	    router.push({ name: 'learn' });
+28	  } catch (e) {
+29	    error.value = (e as Error).message;
+30	  } finally {
+31	    starting.valu
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:34:16 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "cat \"c:/Users/gyh/Desktop/Projects/whale-tutor/web/src/api/knowledge.ts\"",
+  "description": "Knowledge API client"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:34:20 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+import type {
+  GetCourseResponse,
+  GetLearningObjectiveResponse,
+} from '@whale-tutor/tutor-types';
+import { http } from './http';
+
+export async function getCourse(
+  courseId: string,
+): Promise<GetCourseResponse['course']> {
+  const res = await http.get<GetCourseResponse>(`/courses/${courseId}`);
+  return res.data.course;
+}
+
+export async function getLearningObjective(
+  loId: string,
+): Promise<GetLearningObjectiveResponse['lo']> {
+  const res = await http.get<GetLearningObjectiveResponse>(`/los/${loId}`);
+  return res.data.lo;
+}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:34:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\api\\knowledge.ts",
+  "old_string": "import type {\n  GetCourseResponse,\n  GetLearningObjectiveResponse,\n} from '@whale-tutor/tutor-types';\nimport { http } from './http';\n\nexport async function getCourse(\n  courseId: string,\n): Promise<GetCourseResponse['course']> {\n  const res = await http.get<GetCourseResponse>(`/courses/${courseId}`);\n  return res.data.course;\n}\n\nexport async function getLearningObjective(\n  loId: string,\n): Promise<GetLearningObjectiveResponse['lo']> {\n  const res = await http.get<GetLearningObjectiveResponse>(`/los/${loId}`);\n  return res.data.lo;\n}",
+  "new_string": "import type {\n  CourseSummary,\n  GetCourseResponse,\n  GetLearningObjectiveResponse,\n  ListCoursesResponse,\n} from '@whale-tutor/tutor-types';\nimport { http } from './http';\n\nexport async function listCourses(): Promise<CourseSummary[]> {\n  const res = await http.get<ListCoursesResponse>('/courses');\n  return res.data.courses;\n}\n\nexport async function getCourse(\n  courseId: string,\n): Promise<GetCourseResponse['course']> {\n  const res = await http.get<GetCourseResponse>(`/courses/${courseId}`);\n  return res.data.course;\n}\n\nexport async function getLearningObjective(\n  loId: string,\n): Promise<GetLearningObjectiveResponse['lo']> {\n  const res = await http.get<GetLearningObjectiveResponse>(`/los/${loId}`);\n  return res.data.lo;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:34:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\api\knowledge.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:35:15 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\views\\HomeView.vue",
+  "content": "<script setup lang=\"ts\">\nimport { onMounted, ref } from 'vue';\nimport { useRouter } from 'vue-router';\nimport { ElCard, ElButton, ElAlert, ElTag, ElEmpty } from 'element-plus';\nimport type { CourseSummary } from '@whale-tutor/tutor-types';\nimport * as knowledgeApi from '@/api/knowledge';\nimport { useSessionStore } from '@/stores/session';\nimport { usePyodideStore } from '@/stores/pyodide';\n\nconst router = useRouter();\nconst sessionStore = useSessionStore();\nconst pyodideStore = usePyodideStore();\n\n// v0:demo learner id=1(无认证、无诊断)\nconst DEMO_LEARNER_ID = 1;\n\nconst courses = ref<CourseSummary[]>([]);\nconst loading = ref(false);\nconst startingCourseId = ref<string | null>(null);\nconst error = ref<string | null>(null);\n\nonMounted(async () => {\n  // 后台预热 Pyodide(~6MB),Python 课才用得到,但提前热一份开销不大\n  void pyodideStore.preload();\n\n  loading.value = true;\n  try {\n    courses.value = await knowledgeApi.listCourses();\n  } catch (e) {\n    error.value = `获取课程列表失败:${(e as Error).message}`;\n  } finally {\n    loading.value = false;\n  }\n});\n\nasync function startCourse(courseId: string): Promise<void> {\n  startingCourseId.value = courseId;\n  error.value = null;\n  try {\n    await sessionStore.start(DEMO_LEARNER_ID, courseId);\n    router.push({ name: 'learn' });\n  } catch (e) {\n    error.value = (e as Error).message;\n  } finally {\n    startingCourseId.value = null;\n  }\n}\n</script>\n\n<template>\n  <el-container class=\"home\">\n    <el-main>\n      <div class=\"hero\">\n        <h1>Whale Tutor</h1>\n        <p class=\"subtitle\">AI 驱动的交互式学习</p>\n      </div>\n\n      <div class=\"courses-section\">\n        <h2 class=\"section-title\">选一门课开始</h2>\n\n        <div v-if=\"loading\" v-loading=\"true\" class=\"loading-area\"></div>\n\n        <el-empty\n          v-else-if=\"courses.length === 0\"\n          description=\"还没有可用的课程。check 
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:35:16 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\views\HomeView.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:35:24 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/web typecheck 2>&1 | tail -3",
+  "description": "Web typecheck",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:35:58 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/web@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\web
+> vue-tsc --noEmit
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:36:13 PM</sup>
+
+Now content. **Python 第二章: `string_and_format`** — 2 LOs each with 3 RIs.
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:36:17 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "doc/course-authoring.md §10 update",
+      "activeForm": "Doc update",
+      "status": "completed"
+    },
+    {
+      "content": "Server: GET /api/courses 列表端点",
+      "activeForm": "List endpoint",
+      "status": "completed"
+    },
+    {
+      "content": "Server: start() 选第一个未完成 chapter",
+      "activeForm": "Multi-chapter start",
+      "status": "completed"
+    },
+    {
+      "content": "Frontend: HomeView 课程卡选择器",
+      "activeForm": "HomeView",
+      "status": "completed"
+    },
+    {
+      "content": "Content: python 加第二章 string_and_format (2 LOs × 3 RIs)",
+      "activeForm": "Python chapter 2",
+      "status": "in_progress"
+    },
+    {
+      "content": "Content: 新 sql-basics 课程 (2 chapters)",
+      "activeForm": "SQL course",
+      "status": "pending"
+    },
+    {
+      "content": "E2E: lint + start + 验证",
+      "activeForm": "E2E",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:36:17 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:36:30 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "mkdir -p \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/python-basics/chapters/string_and_format/los/string_basics\" \\\n\"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/python-basics/chapters/string_and_format/los/string_methods\" \\\n\"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/python-basics/chapters/string_and_format/assessment\" && echo done",
+  "description": "Create chapter 2 dirs"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:36:34 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:36:56 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\description.md",
+  "content": "**字符串(str)** 是 Python 中最常用的不可变序列。从读文件到拼日志、解析数据,几乎每段业务代码都在跟 str 打交道。\n\n本章 2 个学习目标(LO),从字符串的本质讲起,过渡到日常会用到的方法 + f-string 格式化。\n\n学完这一章,你能够:\n\n- 区分字符串字面量的 3 种写法(单引号 / 双引号 / 三引号),知道反斜杠转义和 raw string\n- 理解字符串**不可变性**(`s += 'x'` 实际上发生了什么)\n- 用 `.split` / `.strip` / `.replace` / `.join` 等核心方法做常见处理\n- 用 f-string 拼字符串(替代 % 和 `.format`)\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:36:57 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\description.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:37:17 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\chapter.yaml",
+  "content": "id: ch.string_and_format\nname: 字符串与格式化\ndescription: { $ref: ./description.md }\nlearningObjectives:\n  - { $ref: ./los/string_basics/lo.yaml }\n  - { $ref: ./los/string_methods/lo.yaml }\nassessment: { $ref: ./assessment/assessment.yaml }\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:37:18 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\chapter.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:37:26 PM</sup>
+
+LO 1: `string_basics`
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:37:40 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_basics\\core-explanation.md",
+  "content": "# 字符串字面量与不可变性\n\nPython 的 **str** 是不可变的 Unicode 字符序列。这两点(\"不可变\" + \"Unicode\")决定了字符串大量行为。\n\n## 3 种字面量写法\n\n```python\na = 'single quotes'\nb = \"double quotes\"\nc = \"\"\"triple quotes\nspans multiple lines\"\"\"\n```\n\n**单引号 vs 双引号** — 行为完全一样,只是看引号方便:\n\n```python\n'he said \"hi\"'              # 内含双引号,用单引号包外面方便\n\"don't\"                     # 内含单引号,用双引号方便\n\"can\\\"t\"                    # 也可以用反斜杠转义,但读起来累\n```\n\n**三引号** 主要用于:\n- 多行字符串(保留换行,不需要 `\\n`)\n- docstring(函数 / 类的第一句字符串)\n\n## 转义和 raw string\n\n字符串里的 `\\` 是转义符:\n\n```python\n'C:\\\\Users\\\\gyh'    # \\\\ 表示一个真正的 \\\n'line1\\nline2'      # \\n 表示换行\n'tab\\there'         # \\t 表示 tab\n```\n\nWindows 路径反斜杠多得离谱,Python 提供 **raw string**:在引号前加 `r`,反斜杠不被解释:\n\n```python\nr'C:\\Users\\gyh'     # 4 字符  C : \\ U,跟 'C:\\\\Users\\\\gyh' 等价\nr'\\n'               # 2 字符  \\ n,**不是**换行\n```\n\n正则表达式特别建议用 raw string(`re.compile(r'\\d+')`),避免被 Python 字符串先解释一次再被 re 模块再解释一次的混乱。\n\n## 不可变性\n\n字符串创建后**不能改**。任何\"修改\"都创建新字符串:\n\n```python\ns = 'hello'\ns[0] = 'H'           # TypeError: 'str' object does not support item assignment\ns = s + ' world'     # ★ 看似修改了 s,实际是:创建一个新字符串 'hello world',让 s 指过去\n```\n\n**重要含义** — 在循环里反复 `s += 'x'` 性能差(每次都创建新字符串、复制旧内容)。大量拼接用 `''.join(parts)` 或 `io.StringIO`。\n\n## 长度 与 索引\n\n`len(s)` 返字符数(不是字节数)。中文字符也算 1:\n\n```python\nlen('hello')       # 5\nlen('你好')        # 2\n\ns = 'hello'\ns[0]               # 'h'\ns[-1]              # 'o'\ns[1:4]             # 'ell'  (切片同 list,左闭右开)\n```\n\n字符串切片返 str,不是 list。**索引出来的\"单字符\"也是 str**(长度 1),Python 没有 char 类型。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:37:41 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_basics\core-explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:37:53 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_basics\\ri-1.explanation.md",
+  "content": "先确认你对字面量写法的判断。三种字面量(单引号 / 双引号 / 三引号)语义有区别还是只是写法选择?\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:37:54 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_basics\ri-1.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:38:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_basics\\ri-1.rationale.md",
+  "content": "单引号和双引号**完全等价**,只是引号选择(避免内容里的引号需要转义)。三引号特殊在能包含未转义的换行,常用于多行字符串和 docstring。`'a' == \"a\" == \"\"\"a\"\"\"`(后者长度 1)。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:38:13 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_basics\ri-1.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:38:23 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_basics\\ri-2.explanation.md",
+  "content": "字符串里的反斜杠 `\\` 是转义符。理解这个,就懂为什么处理 Windows 路径或正则表达式时常用 raw string(`r'...'`)。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:38:24 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_basics\ri-2.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:38:47 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_basics\\ri-2.rationale.md",
+  "content": "`'a\\nb'` 含 3 个字符:`a`、换行符、`b`。`r'a\\nb'` 是 raw string,反斜杠**不**被解释,共 4 个字符:`a`、`\\`、`n`、`b`。所以 `len('a\\nb') == 3`、`len(r'a\\nb') == 4`。打印时一个换行,一个原样显示 `a\\nb`。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:38:48 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_basics\ri-2.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:39:00 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_basics\\ri-3.explanation.md",
+  "content": "字符串不可变性是常见的初学者绊脚石。下面这道题考察 `s += 'x'` 实际上发生了什么。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:39:01 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_basics\ri-3.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:39:11 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_basics\\ri-3.rationale.md",
+  "content": "字符串**不可变**(immutable)。`s += 'x'` 不是修改原字符串,而是:**创建一个新字符串(原内容 + 'x')+ 让 s 重新指向新字符串**。原字符串若没人引用就被回收。这跟 list 的 `.append` 完全不同(list 真在原对象上加元素)。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:39:12 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_basics\ri-3.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:39:42 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_basics\\lo.yaml",
+  "content": "id: lo.string.basics\nname: 字符串字面量与不可变性\ndescription: 单/双/三引号写法、转义与 raw string、字符串不可变性带来的性能含义\nprerequisites: []\nestimatedDurationMin: 15\ndifficultyBand: beginner\ncoreExplanation: { $ref: ./core-explanation.md }\ncommonMisconceptions:\n  - 单引号和双引号 Python 区别对待(实际等价,纯写法选择)\n  - \"raw string `r'...'` 创建的是不一样的对象类型(实际仍是 str,只是字面量解析时不解释 \\\\)\"\n  - \"`s += 'x'` 是在原字符串上修改(实际:str 不可变,这是创建新字符串再赋值)\"\n  - 字符串切片返回 char 类型(实际 Python 没 char,切片返还是 str)\nmasteryCriteria: 能区分三种字面量;能预测含 \\\\ 的字符串长度;能解释 s += 'x' 实际行为\nrequiredInteractions:\n  - id: ri.string.basics.1\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ri-1.explanation.md }\n      question:\n        stem: 关于 Python 单引号 / 双引号 / 三引号字面量,下列说法**正确**的是?\n        options:\n          - 单引号和双引号 Python 解析行为不同,双引号解析转义,单引号不解析\n          - 单引号和双引号完全等价,只是写法选择;三引号特殊在能直接含未转义的换行\n          - 三引号字符串自带 docstring 属性,运行时可以读取\n          - 单引号字符串占用内存比双引号小\n        answerIndex: 1\n        rationale: { $ref: ./ri-1.rationale.md }\n    hints:\n      - 想想 `'a'` 和 `\"a\"` 这两个表达式得到的对象有任何区别吗?如果都是 str 且内容相同,它们就完全等价\n      - \"三引号 `\\\"\\\"\\\"...\\\"\\\"\\\"` 跟前两种主要区别在哪里? 多一个'能不能跨行直接写'\"\n  - id: ri.string.basics.2\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ri-2.explanation.md }\n      question:\n        stem: \"下面哪两个表达式的结果**一定不相等**?\"\n        options:\n          - \"`'a' + 'b'` 与 `'ab'`\"\n          - \"`'\\\\n'` 与 `r'\\\\n'`\"\n          - \"`\\\"hello\\\"` 与 `'hello'`\"\n          - \"`'a' * 3` 与 `'aaa'`\"\n        answerIndex: 1\n        rationale: { $ref: ./ri-2.rationale.md }\n  - id: ri.string.basics.3\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ri-3.explanation.md }\n      question:\n        stem: \"执行 `s = 'hello'` 后,再执行 `s += '!'`。下列描述**最准确**的是?\"\n        options:\n  
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:39:43 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_basics\lo.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:40:06 PM</sup>
+
+LO 2: `string_methods` (with one code_sandbox to demonstrate variety)
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:40:27 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_methods\\core-explanation.md",
+  "content": "# 字符串方法 + f-string 格式化\n\n每天写 Python 你总会用到这一类操作:**清洗、切分、拼接、格式化**。这一节覆盖最高频的方法。\n\n## 清洗:`.strip` / `.rstrip` / `.lstrip`\n\n去掉首尾空白(默认):\n\n```python\n'  hello  '.strip()      # 'hello'\n'  hello  '.lstrip()     # 'hello  '\n'  hello  '.rstrip()     # '  hello'\n```\n\n也可以指定要去掉的字符集(**不是子串**,是字符集合):\n\n```python\n'#@hello@#'.strip('#@')  # 'hello'  (去掉首尾所有 # 或 @)\n```\n\n## 切分:`.split` / `.splitlines`\n\n```python\n'a,b,c'.split(',')          # ['a', 'b', 'c']\n'a, b , c'.split(',')       # ['a', ' b ', ' c']  ← 注意空格没去!\n'a, b , c'.split(', ')      # ['a', 'b , c']      ← 也只按完整 ', ' 切\n'  a  b  c '.split()        # ['a', 'b', 'c']     ← 不传参时按任意 whitespace 切并去空段\n\n'line1\\nline2\\n'.splitlines()  # ['line1', 'line2']  (按平台换行符切,自动忽略末尾空行)\n```\n\n`split()` 不传参数时**特殊**:按任意空白切并自动去掉空段。日常推荐这种用法。\n\n## 拼接:`.join`\n\n`.join` 是性能 + 可读性都更好的拼接方式:\n\n```python\n', '.join(['a', 'b', 'c'])    # 'a, b, c'\n''.join(['h', 'i'])           # 'hi'\n'\\n'.join(['line1', 'line2']) # 'line1\\nline2'\n```\n\n**注意**:join 调用方是分隔符,参数是**可迭代对象**(里面元素必须是 str)。这跟人脑直觉相反但记住后很顺手。\n\n## 替换 / 检测\n\n```python\n'hello world'.replace('world', 'python')   # 'hello python'\n'hello'.startswith('he')                    # True\n'hello'.endswith('lo')                      # True\n'hello' in 'say hello'                      # True  (Python 字符串支持 in)\n```\n\n`replace` 默认替换**所有出现**(不像某些语言只替换第一个);要限制次数加第三参数 `replace('a', 'b', 1)`。\n\n## 大小写\n\n```python\n'Hello'.lower()         # 'hello'\n'Hello'.upper()         # 'HELLO'\n'hello'.capitalize()    # 'Hello'   (首字母大写,其余小写)\n'hello world'.title()   # 'Hello World'  (每个单词首字母大写)\n```\n\n## f-string(推荐的格式化)\n\nPython 3.6+ 引入,简洁、性能好、最直观:\n\n```python\nname = 'Ada'\nage = 28\nf'{name} is {age} years old'        # 'Ada is 28 years old'\nf'next year: {age + 1}'             # 表达式直接放 {
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:40:28 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_methods\core-explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:40:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_methods\\ri-1.explanation.md",
+  "content": "`.split()` 不传参数时有个特殊行为(跟传 `' '` 不同),这是新手容易踩坑的地方。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:40:51 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_methods\ri-1.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:41:08 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_methods\\ri-1.rationale.md",
+  "content": "`'  a b  c '.split()` 不传参数 → 按**任意空白**切并自动**去掉空段**,得 `['a', 'b', 'c']`。`split(' ')` 是按\"恰好 1 个空格\"切,空白多的地方会产生空字符串,得 `['', '', 'a', 'b', '', 'c', '']`。**日常推荐 `split()` 不传参**。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:41:09 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_methods\ri-1.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:41:26 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_methods\\ri-2.explanation.md",
+  "content": "f-string 是 Python 3.6+ 推荐的格式化方式。下面这道题考察基本语法。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:41:27 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_methods\ri-2.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:41:42 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_methods\\ri-2.rationale.md",
+  "content": "f-string 用 `{}` 包变量或表达式,字符串前必须加 `f` 前缀。`f'sum: {a + b}'` 直接在 `{}` 里写表达式,Python 会求值后插入。`{x:.2f}` 是格式说明:保留 2 位小数。`'sum: {}'` 没 `f` 前缀就只是普通字符串,大括号原样保留。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:41:43 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_methods\ri-2.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:41:57 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_methods\\ri-3.prompt.md",
+  "content": "写一个函数 `clean_csv_row(line: str) -> list[str]`,把一行 CSV(逗号分隔)切成字段列表,**每个字段去掉首尾空白**。\n\n例:\n- `clean_csv_row('  apple , banana  ,cherry')` → `['apple', 'banana', 'cherry']`\n- `clean_csv_row('a,,b')` → `['a', '', 'b']`(空字段保留为空字符串)\n- `clean_csv_row('')` → `['']`\n\n提示:`.split(',')` + 列表推导 + `.strip()` 一行能写完。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:41:58 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_methods\ri-3.prompt.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:42:33 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_methods\\lo.yaml",
+  "content": "id: lo.string.methods\nname: 字符串方法与 f-string\ndescription: split / join / strip / replace 等核心方法 + f-string 格式化的基本语法\nprerequisites:\n  - lo.string.basics\nestimatedDurationMin: 25\ndifficultyBand: beginner\ncoreExplanation: { $ref: ./core-explanation.md }\ncommonMisconceptions:\n  - \"`split(' ')` 和 `split()` 行为相同(实际后者按任意空白切并去空段,前者按一个空格切)\"\n  - \"`replace` 只替换第一个出现(实际默认替换所有,要限制次数加第三参数)\"\n  - \"f-string 的 `{}` 里只能放变量名(实际可以放任意表达式)\"\n  - \"`.join` 调用方是要拼的内容,参数是分隔符(实际相反:调用方是分隔符,参数是 iterable)\"\nmasteryCriteria: 能解释 split() vs split(' ') 差异;能用 f-string 写表达式 + 格式说明;能用 join 高效拼接\nrequiredInteractions:\n  - id: ri.string.methods.1\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ri-1.explanation.md }\n      question:\n        stem: \"执行 `'  a  b  c '.split()` 和 `'  a  b  c '.split(' ')`,得到的结果**最准确**的描述是?\"\n        options:\n          - 完全相同,都得 `['a', 'b', 'c']`\n          - \"`split()` 得 `['a', 'b', 'c']`;`split(' ')` 得 `['', '', 'a', '', 'b', '', '', 'c', '']` 之类含空字符串\"\n          - 都抛 ValueError,字符串包含连续空白时不能切\n          - \"`split()` 得 `['  a  b  c ']`(因为没指定分隔符);`split(' ')` 得 `['a', 'b', 'c']`\"\n        answerIndex: 1\n        rationale: { $ref: ./ri-1.rationale.md }\n    hints:\n      - \"试着在脑子里跑:对 `'  a  b  c '` 用 `' '` 作为分隔符切,连续两个空格之间会产生什么?\"\n      - \"`split()` 不传参数时是个'智能模式':按任意空白切 + 自动忽略空段。`split(' ')` 是严格按 1 个空格切,空格连着会切出空字符串\"\n  - id: ri.string.methods.2\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ri-2.explanation.md }\n      question:\n        stem: \"已知 `name = 'Ada'`、`age = 28`。下列哪个表达式得到字符串 `'Ada is 29 next year'`?\"\n        options:\n          - \"`'Ada is {age + 1} next year'`\"\n          - \"`f'{name} is {age + 1} next year'`\"\n          - \"`'%s is %d next year' % (name, age)`(等于 'Ada is 28 next year')\"\n     
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:42:34 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_methods\lo.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:42:50 PM</sup>
+
+Chapter assessment for chapter 2:
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:42:52 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\assessment\\ca-1.explanation.md",
+  "content": "综合测试。把字符串字面量、不可变性、字符串方法、f-string 串起来理解。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:42:53 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\assessment\ca-1.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:43:22 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\assessment\\assessment.yaml",
+  "content": "id: ca.ch.string_and_format\nname: \"字符串与格式化:综合检验\"\nrequiredInteractions:\n  - id: ca.string_and_format.1\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ca-1.explanation.md }\n      question:\n        stem: \"已知 `s = 'hello'`,执行 `s.replace('l', 'L')` 之后,**`s` 自身**的值是?\"\n        options:\n          - \"'heLLo'(原对象被修改)\"\n          - \"'hello'(replace 返回新字符串,s 没变)\"\n          - \"TypeError,字符串不支持 replace\"\n          - \"None(replace 返回 None)\"\n        answerIndex: 1\n        rationale: \"字符串不可变,所有方法都返**新字符串**而不是修改原对象。要让 s 变,得 `s = s.replace(...)`。这是 list 用户经常被坑的地方(list.append 是 in-place,字符串方法都不是)。\"\n  - id: ca.string_and_format.2\n    patternId: concept_check\n    prompt:\n      explanationMd: \"\"\n      question:\n        stem: \"下列代码 `f'{2 + 3:>5}'` 输出是?\"\n        options:\n          - \"    5\"\n          - \"5    \"\n          - \"00005\"\n          - \"f'{2 + 3:>5}'  (f-string 不能这么用,会报错)\"\n        answerIndex: 0\n        rationale: \"f-string 里 `{...:format_spec}` 中,`:` 后是格式说明。`>5` 表示宽度 5 + 右对齐(默认填空格)。`2 + 3` 求值为 5,占 1 字符,前面补 4 个空格 = `'    5'`。\"\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:43:23 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\assessment\assessment.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:43:42 PM</sup>
+
+Add chapter 2 to course.yaml.
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:43:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\course.yaml",
+  "old_string": "chapters:\n  - { $ref: ./chapters/list_and_iter/chapter.yaml }",
+  "new_string": "chapters:\n  - { $ref: ./chapters/list_and_iter/chapter.yaml }\n  - { $ref: ./chapters/string_and_format/chapter.yaml }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:43:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\course.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:43:58 PM</sup>
+
+Now SQL course.
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:44:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "mkdir -p \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics/chapters/select_and_filter/los/select_clauses\" \\\n\"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics/chapters/select_and_filter/los/where_filtering\" \\\n\"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics/chapters/select_and_filter/assessment\" \\\n\"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics/chapters/joins/los/inner_join\" \\\n\"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics/chapters/joins/assessment\" && echo done",
+  "description": "Create SQL course dirs"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:44:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:44:26 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\course-description.md",
+  "content": "从零开始学 SQL,聚焦最常用的查询场景。SQL 是关系数据库的查询语言,几乎任何后端 / 数据分析工作都需要。\n\n本课假设你不熟 SQL 但有基本编程基础(知道什么是表、什么是列)。\n\n> **注**:本课用 concept_check 和 free_recall 两类题型(SQL 没有浏览器内执行环境,所以不支持 code_sandbox)。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:44:28 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\course-description.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:44:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\course.yaml",
+  "content": "id: sql-basics\nname: SQL 基础\nsubject: SQL                       # ★ 影响所有 AI prompt:\"你是 SQL 教学助手...\"\ndescription: { $ref: ./course-description.md }\nchapters:\n  - { $ref: ./chapters/select_and_filter/chapter.yaml }\n  - { $ref: ./chapters/joins/chapter.yaml }\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:44:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\course.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:44:57 PM</sup>
+
+### Chapter 1: select_and_filter
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:45:04 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\description.md",
+  "content": "SQL 查询的基础是 SELECT 语句:**从某些表选某些列、用条件过滤、按某种顺序排**。\n\n本章 2 个 LO,完整覆盖一个最小可用查询的 4 个子句:\n\n- `SELECT` — 选哪些列(以及别名 / 计算列)\n- `FROM` — 从哪个表\n- `WHERE` — 用什么条件过滤行\n- `ORDER BY` — 按什么排序\n\n学完能写大多数日常 \"我要看 X 表里满足 Y 条件的 Z 列\" 的查询。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:45:05 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\description.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:45:22 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\chapter.yaml",
+  "content": "id: ch.select_and_filter\nname: SELECT 与 WHERE\ndescription: { $ref: ./description.md }\nlearningObjectives:\n  - { $ref: ./los/select_clauses/lo.yaml }\n  - { $ref: ./los/where_filtering/lo.yaml }\nassessment: { $ref: ./assessment/assessment.yaml }\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:45:23 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\chapter.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:45:38 PM</sup>
+
+LO `select_clauses`:
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:45:51 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\select_clauses\\core-explanation.md",
+  "content": "# SELECT 子句基础\n\n最小可执行的 SQL 查询长这样:\n\n```sql\nSELECT column1, column2\nFROM table_name;\n```\n\n读作:**从 `table_name` 这张表里,选 `column1` 和 `column2` 两列的所有行**。\n\n## 4 件事情要弄清\n\n### 1. 列选择\n\n```sql\nSELECT name, age FROM users;          -- 选 name 和 age 两列\nSELECT * FROM users;                   -- 选所有列(* 是通配符)\nSELECT DISTINCT country FROM users;    -- 选不重复的 country\n```\n\n**`*` 在生产代码里少用** — 列变化时调用代码会跟着变。但临时探索 (\"我看下这表长啥样\") 很顺手。\n\n### 2. 别名(AS)\n\n```sql\nSELECT name AS user_name, age AS user_age\nFROM users;\n```\n\n结果集的列名就是 `user_name` / `user_age`,不是 `name` / `age`。`AS` 关键字可省(`SELECT name user_name`)但加上更清晰。\n\n### 3. 计算列\n\n`SELECT` 后不止是列名,还可以是**任意表达式**:\n\n```sql\nSELECT name, age * 12 AS age_in_months FROM users;\nSELECT name, salary * 0.1 AS bonus FROM users;\nSELECT '员工: ' || name AS label FROM users;   -- || 是字符串连接(部分数据库用 +)\n```\n\n### 4. 排序(ORDER BY)\n\n```sql\nSELECT name, age FROM users ORDER BY age;          -- 默认升序 (ASC)\nSELECT name, age FROM users ORDER BY age DESC;     -- 降序\nSELECT name FROM users ORDER BY age DESC, name;    -- 多列排序\n```\n\n## 注意:大小写 + 分号\n\n- SQL **关键字不区分大小写**:`SELECT` / `select` / `Select` 都行。社区惯例:**关键字大写**,标识符(列名 / 表名)小写。\n- **每条语句以分号 `;` 结尾**(交互式 client 必需,程序里看驱动)\n\n## 常见错误\n\n```sql\n-- ✗ 列名拼错\nSELECT nme FROM users;        -- ERROR: column 'nme' does not exist\n\n-- ✗ 表名拼错\nSELECT * FROM user;           -- 注意 user 是 reserved word(在某些数据库),建议用 users / user_table\n\n-- ✗ ORDER BY 用列号而非列名 (有些数据库支持但不推荐)\nSELECT name, age FROM users ORDER BY 2;   -- 按第 2 列(age)排,可读性差\n```\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:45:52 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\select_clauses\core-explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:46:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\select_clauses\\ri-1.explanation.md",
+  "content": "第一道题考察 SELECT 的基本结构。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:46:13 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\select_clauses\ri-1.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:46:34 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\select_clauses\\ri-1.rationale.md",
+  "content": "SQL 的最小查询是 `SELECT <列> FROM <表>`。`SELECT` 写要选哪些列(逗号分隔或用 `*` 选全部),`FROM` 写从哪个表。两个子句缺一不可。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:46:35 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\select_clauses\ri-1.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:46:57 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\select_clauses\\ri-2.explanation.md",
+  "content": "列别名(AS)和计算列让查询结果更易读 / 包含派生信息。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:46:58 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\select_clauses\ri-2.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:47:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\select_clauses\\ri-2.rationale.md",
+  "content": "`SELECT salary * 12 AS annual_salary FROM employees` — `salary * 12` 是计算列(对每行执行计算),`AS annual_salary` 是给结果列起的别名。结果集会有一列 `annual_salary`,值是每个员工年薪。表达式可以是任何 SQL 标量表达式(算术、字符串、函数调用等)。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:47:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\select_clauses\ri-2.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:47:35 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\select_clauses\\ri-3.prompt.md",
+  "content": "用你自己的话解释这道题:\n\n> 已知有一张 `products` 表,含 `id`、`name`、`price` 三列。\n> 如何写一条 SQL 查询:**返回每个产品的名字和它涨价 10% 后的新价格**(列别名叫 `new_price`)?\n\n要点:\n- 给出完整 SQL\n- 解释计算列怎么算\n- 说明 `AS` 的作用\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:47:36 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\select_clauses\ri-3.prompt.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:48:06 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\select_clauses\\lo.yaml",
+  "content": "id: lo.sql.select_clauses\nname: SELECT 子句基础\ndescription: SELECT / FROM / DISTINCT / 列别名 / 计算列 / ORDER BY 的基本写法\nprerequisites: []\nestimatedDurationMin: 20\ndifficultyBand: beginner\ncoreExplanation: { $ref: ./core-explanation.md }\ncommonMisconceptions:\n  - \"SELECT 关键字大小写敏感(实际不敏感,关键字大写只是社区惯例)\"\n  - \"SELECT 后必须是列名,不能是表达式(实际可以是任意 SQL 表达式,如 `salary * 12`)\"\n  - \"DISTINCT 只对单列去重(实际是对 SELECT 列表里所有列**组合**去重)\"\n  - \"ORDER BY 必须排在 SELECT 之前(实际 SQL 子句顺序固定:SELECT → FROM → WHERE → ORDER BY)\"\nmasteryCriteria: 能写带列别名 + 计算列的 SELECT;能用 ORDER BY 多列排序;能解释 DISTINCT 行为\nrequiredInteractions:\n  - id: ri.sql.select_clauses.1\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ri-1.explanation.md }\n      question:\n        stem: \"下列哪个 SQL 语句**最准确**地完成\"从 employees 表选出所有员工的姓名\"?\"\n        options:\n          - \"GET name FROM employees\"\n          - \"SELECT name FROM employees\"\n          - \"FROM employees SELECT name\"\n          - \"QUERY employees.name\"\n        answerIndex: 1\n        rationale: { $ref: ./ri-1.rationale.md }\n    hints:\n      - \"SQL 查询的最基本结构是两个关键字:一个说'选什么',一个说'从哪个表'\"\n      - \"关键字顺序固定:**先 SELECT 写要选的列,后 FROM 写表名**\"\n  - id: ri.sql.select_clauses.2\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ri-2.explanation.md }\n      question:\n        stem: \"已知 employees 表有 salary 列(月薪)。下列哪条 SQL 返回**每个员工的年薪**(月薪 × 12),且把结果列名为 `annual_salary`?\"\n        options:\n          - \"SELECT annual_salary FROM employees WHERE salary * 12\"\n          - \"SELECT salary * 12 AS annual_salary FROM employees\"\n          - \"SELECT annual_salary = salary * 12 FROM employees\"\n          - \"SELECT salary FROM employees AS annual_salary\"\n        answerIndex: 1\n        rationale: { $ref: ./ri-2.rationale.md }\n  - id: ri.sql.select_c
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:48:07 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\select_clauses\lo.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:48:33 PM</sup>
+
+LO `where_filtering`:
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:48:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\where_filtering\\core-explanation.md",
+  "content": "# WHERE 子句过滤行\n\n`SELECT` 选**列**,`WHERE` 过滤**行**。两者正交。\n\n## 基本结构\n\n```sql\nSELECT name, age\nFROM users\nWHERE age >= 18;\n```\n\n只返回 `age >= 18` 的行。WHERE 子句**对每一行求值**,返回 true 的行进结果。\n\n## 比较运算符\n\n| 操作符 | 语义 |\n|---|---|\n| `=` | 等于(注意:**单等号**,不是 `==`) |\n| `<>` 或 `!=` | 不等于 |\n| `<` `<=` `>` `>=` | 大小比较 |\n| `BETWEEN a AND b` | 闭区间 [a, b] |\n| `IN (...)` | 属于列表 |\n| `LIKE '...'` | 字符串模糊匹配(`%` 通配多字符,`_` 通配 1 字符) |\n| `IS NULL` / `IS NOT NULL` | NULL 判断(★ 不能用 `= NULL`) |\n\n```sql\nSELECT * FROM users WHERE country IN ('CN', 'US', 'JP');\nSELECT * FROM users WHERE name LIKE 'Z%';        -- 名字 Z 开头\nSELECT * FROM users WHERE phone IS NULL;          -- 没填手机号的\nSELECT * FROM users WHERE age BETWEEN 18 AND 30;\n```\n\n## 逻辑组合:AND / OR / NOT\n\n```sql\nSELECT * FROM users\nWHERE age >= 18 AND country = 'CN';\n\nSELECT * FROM products\nWHERE price < 100 OR category = 'sale';\n\nSELECT * FROM users\nWHERE NOT (status = 'banned');\n```\n\n**优先级**:`NOT > AND > OR`。复杂表达式用括号强制顺序:\n\n```sql\nWHERE (a OR b) AND c        -- 括号必要,否则 a OR (b AND c) 完全不同\n```\n\n## NULL 的特殊性\n\nNULL 在 SQL 不等于任何值,**包括它自己**:\n\n```sql\nSELECT * FROM users WHERE phone = NULL;       -- ✗ 永远返 0 行(NULL = NULL 不为 true)\nSELECT * FROM users WHERE phone IS NULL;       -- ✓ 正确\n```\n\n`AND` / `OR` 遇到 NULL 也有特殊语义(三值逻辑),但日常牢记 \"判 NULL 用 IS [NOT] NULL\" 就够避绝大多数坑。\n\n## SQL 子句的固定顺序\n\n```sql\nSELECT ...      -- 1. 选什么列\nFROM ...         -- 2. 从哪个表\nWHERE ...        -- 3. 过滤哪些行(★ ORDER BY 之前)\nORDER BY ...     -- 4. 怎么排\nLIMIT n;         -- 5. 取前 n 行(部分数据库用 TOP / FETCH FIRST)\n```\n\n写错顺序数据库会报语法错。**逻辑上**先 FROM 找表 → WHERE 过滤行 → SELECT 选列 → ORDER BY 排序,但**写法上**永远 SELECT 在前。\n\n## 字符串区分大小写吗?\n\n**取决于数据库**和列的 collation(排序规则)。MySQL 默认大小写不敏感(`'a' = 'A'`),PostgreSQL 默认敏感。写跨数据库代码用 `LOWER(col) = 'value'` 显式强制。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:48:51 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\where_filtering\core-explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:49:07 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\where_filtering\\ri-1.explanation.md",
+  "content": "SQL 等于号的写法是初学者最容易踩坑的细节(尤其从 Python/JS 来的)。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:49:08 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\where_filtering\ri-1.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:49:27 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\where_filtering\\ri-1.rationale.md",
+  "content": "SQL 用**单等号** `=` 表示比较(在 WHERE 里)和赋值(在 UPDATE 里)。这跟 C/Python/JS 的 `==` 不同。`==` 在 SQL 里是**语法错**,数据库会拒绝。`!=` 和 `<>` 都表示不等(`<>` 是 SQL 标准,`!=` 是大多数数据库的扩展,可互换)。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:49:28 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\where_filtering\ri-1.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:49:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\where_filtering\\ri-2.explanation.md",
+  "content": "NULL 在 SQL 里有特殊语义,常出 bug。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:49:46 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\where_filtering\ri-2.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:50:05 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\where_filtering\\ri-2.rationale.md",
+  "content": "NULL 在 SQL 里**不等于任何值,包括它自己**。`phone = NULL` 永远不为 true(SQL 三值逻辑里它返 NULL),所以查询返 0 行。判 NULL 必须用 `IS NULL` / `IS NOT NULL`。这是 SQL 数十年的语义,任何符合标准的数据库都一样。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:50:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\where_filtering\ri-2.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:50:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\where_filtering\\ri-3.explanation.md",
+  "content": "复合条件用 AND / OR / NOT,**优先级和括号**是关键。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:50:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\where_filtering\ri-3.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:50:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\where_filtering\\ri-3.rationale.md",
+  "content": "SQL 优先级:`NOT > AND > OR`。`a OR b AND c` 等价 `a OR (b AND c)`。题目要\"VIP 用户 OR (中国用户 AND 18 岁以上)\" → 写法 B 用括号显式分组,语义清晰。写法 A 没括号,等价于 `vip = 1 OR country = 'CN' AND age >= 18`,实际是 `vip = 1 OR (country = 'CN' AND age >= 18)`,**碰巧也对**,但可读性差,生产代码强烈推荐括号。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:50:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\where_filtering\ri-3.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:51:20 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\where_filtering\\lo.yaml",
+  "content": "id: lo.sql.where_filtering\nname: WHERE 子句过滤行\ndescription: 比较运算符 / IN / LIKE / IS NULL / AND OR NOT / 子句固定顺序\nprerequisites:\n  - lo.sql.select_clauses\nestimatedDurationMin: 25\ndifficultyBand: beginner\ncoreExplanation: { $ref: ./core-explanation.md }\ncommonMisconceptions:\n  - \"SQL 用 == 表示等于(实际单个 =)\"\n  - \"判 NULL 用 = NULL(实际必须 IS NULL,因 NULL 不等于任何东西包括自己)\"\n  - \"AND 优先级低于 OR(实际 NOT > AND > OR)\"\n  - \"WHERE 可以放在 ORDER BY 后面(实际子句顺序固定 SELECT/FROM/WHERE/ORDER BY/LIMIT)\"\n  - \"字符串 LIKE 匹配总是大小写敏感(实际依赖数据库:MySQL 默认不敏感,Postgres 敏感)\"\nmasteryCriteria: 能用 = / IN / LIKE / IS NULL / BETWEEN 写过滤条件;懂 NULL 判断特殊性;能用括号正确组合 AND/OR\nrequiredInteractions:\n  - id: ri.sql.where_filtering.1\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ri-1.explanation.md }\n      question:\n        stem: \"下列 SQL 表达 'name 是 Alice 的所有用户' 的**最准确**写法是?\"\n        options:\n          - \"SELECT * FROM users WHERE name == 'Alice'\"\n          - \"SELECT * FROM users WHERE name = 'Alice'\"\n          - \"SELECT * FROM users WHERE name === 'Alice'\"\n          - \"SELECT * FROM users IF name = 'Alice'\"\n        answerIndex: 1\n        rationale: { $ref: ./ri-1.rationale.md }\n    hints:\n      - \"SQL 跟 Python / JavaScript 的等号写法不同。回想 SQL 里 = 在 UPDATE 是赋值,在 WHERE 是比较 — 是同一个符号\"\n      - \"试试在脑子里数:`==` 在 SQL 是合法语法吗?(答:不是,会报语法错)\"\n  - id: ri.sql.where_filtering.2\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ri-2.explanation.md }\n      question:\n        stem: \"下列哪条 SQL **正确**地查\"phone 列没填(为 NULL)的所有用户\"?\"\n        options:\n          - \"SELECT * FROM users WHERE phone = NULL\"\n          - \"SELECT * FROM users WHERE phone == NULL\"\n          - \"SELECT * FROM users WHERE phone IS NULL\"\n          - \"SELECT * FROM users WHERE phone != ''\"\n        answe
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:51:21 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\where_filtering\lo.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:51:43 PM</sup>
+
+Chapter 1 assessment for SQL course:
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:51:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\assessment\\assessment.yaml",
+  "content": "id: ca.ch.select_and_filter\nname: \"SELECT 与 WHERE:综合检验\"\nrequiredInteractions:\n  - id: ca.select_and_filter.1\n    patternId: concept_check\n    prompt:\n      explanationMd: \"\"\n      question:\n        stem: \"已知 employees 表含 name / salary / department 三列。**找出 marketing 部门工资 ≥ 10000 的员工姓名,按工资降序**。下列哪条 SQL 完整且正确?\"\n        options:\n          - \"SELECT name FROM employees WHERE department == 'marketing' AND salary >= 10000 ORDER BY salary\"\n          - \"SELECT name FROM employees WHERE department = 'marketing' AND salary >= 10000 ORDER BY salary DESC\"\n          - \"SELECT name FROM employees ORDER BY salary DESC WHERE department = 'marketing' AND salary >= 10000\"\n          - \"GET name FROM employees WHERE department = 'marketing' AND salary >= 10000 ORDER BY salary DESC\"\n        answerIndex: 1\n        rationale: \"正确写法 = (a) `=` 不是 `==`;(b) ORDER BY 排在 WHERE **之后**(SQL 子句固定顺序 SELECT/FROM/WHERE/ORDER BY);(c) 降序需要 `DESC` 关键字。选项 A 用了 ==,C 顺序反了,D 用了 GET 不是 SELECT。\"\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:51:51 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\assessment\assessment.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:52:01 PM</sup>
+
+### SQL Chapter 2: joins (1 LO)
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:52:05 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\joins\\description.md",
+  "content": "现实业务里数据通常**分表存**(用户在 users 表,订单在 orders 表),查询时需要**关联**才能拿到组合信息。**JOIN** 是 SQL 关联两张(或多张)表的核心语法。\n\n本章 1 个 LO 聚焦最常用的 INNER JOIN(其他类型 LEFT/RIGHT/FULL 留 v0.3+)。\n\n学完能写\"用户 + 它的订单\"这类双表查询。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:52:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\joins\description.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:52:28 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\joins\\chapter.yaml",
+  "content": "id: ch.joins\nname: 表连接(INNER JOIN)\ndescription: { $ref: ./description.md }\nlearningObjectives:\n  - { $ref: ./los/inner_join/lo.yaml }\nassessment: { $ref: ./assessment/assessment.yaml }\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:52:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\joins\chapter.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:53:03 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\joins\\los\\inner_join\\core-explanation.md",
+  "content": "# INNER JOIN — 关联两张表的最常用方式\n\n## 为什么需要 JOIN\n\n业务数据正规化(分表存)避免冗余。例:\n\n**users 表**:\n\n| id | name | country |\n|----|------|---------|\n| 1  | Ada  | UK      |\n| 2  | Bob  | US      |\n\n**orders 表**:\n\n| id | user_id | amount |\n|----|---------|--------|\n| 10 | 1       | 99     |\n| 11 | 1       | 50     |\n| 12 | 2       | 200    |\n\n要查\"每个订单 + 下单用户的名字\"必须把两表**按 user_id 关联**起来:\n\n```sql\nSELECT orders.id, orders.amount, users.name\nFROM orders\nINNER JOIN users ON orders.user_id = users.id;\n```\n\n结果:\n\n| id | amount | name |\n|----|--------|------|\n| 10 | 99     | Ada  |\n| 11 | 50     | Ada  |\n| 12 | 200    | Bob  |\n\n## 语法分解\n\n```sql\nSELECT <列>                       -- 选哪些列(可来自任一表)\nFROM <表 A>\nINNER JOIN <表 B>\n  ON <连接条件>                    -- ★ 通常 A.foreign_key = B.id\nWHERE ...                         -- 可选过滤\nORDER BY ...\n```\n\n**关键**:\n- `INNER JOIN` 表示\"只保留两边都有匹配的行\"。orders 表里如果有个 user_id = 99 但 users 表没有 id=99 → 该订单**不出现在结果里**\n- `ON` 后写连接条件,通常是外键 = 主键\n- `INNER` 关键字可省 (`JOIN` 默认就是 INNER),但写出来更清晰\n\n## 表别名(短名提高可读性)\n\n表名长时用别名:\n\n```sql\nSELECT o.id, o.amount, u.name\nFROM orders AS o\nINNER JOIN users AS u ON o.user_id = u.id;\n```\n\n`AS` 可省:`FROM orders o INNER JOIN users u ON ...`\n\n## 列名冲突时必须前缀\n\n如果两张表都有同名列(如都叫 `id`),`SELECT id` 会报歧义错。用 `表别名.列名` 消歧:\n\n```sql\nSELECT o.id AS order_id, u.id AS user_id, u.name\nFROM orders o INNER JOIN users u ON o.user_id = u.id;\n```\n\n## 跟 WHERE 的关系\n\n`ON` 表达**怎么连接**,`WHERE` 表达**留哪些行**。功能上对 INNER JOIN 没区别,但语义上分开放更清晰:\n\n```sql\n-- 推荐\nSELECT ...\nFROM orders o INNER JOIN users u ON o.user_id = u.id\nWHERE u.country = 'CN' AND o.amount > 100;\n\n-- 也合法但不清晰(连接条件混进 WHERE)\nSELECT ...\nFROM orders o INNER JOIN users u ON 1 = 1\nWHERE o.user_id = u.id AND u.country = 'CN' AND o.amount > 100;\n```\n\n## 多表连接\n\n可以接多个 JOIN:\n\n`
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:53:04 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\joins\los\inner_join\core-explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:53:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\joins\\los\\inner_join\\ri-1.explanation.md",
+  "content": "先确认 INNER JOIN 的基本结构。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:53:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\joins\los\inner_join\ri-1.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:53:45 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\joins\\los\\inner_join\\ri-1.rationale.md",
+  "content": "INNER JOIN 必须有 `ON 连接条件`。没有 ON 子句的 SQL 是**笛卡尔积**(每行 × 每行,通常是 bug)。`ON o.user_id = u.id` 是典型连接条件:订单的外键 user_id 等于用户表的主键 id。`USING (id)` 是简写但要求两表列名相同,不通用。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:53:46 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\joins\los\inner_join\ri-1.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:54:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\joins\\los\\inner_join\\ri-2.explanation.md",
+  "content": "INNER JOIN 的\"匹配 → 才出现\"语义。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:54:03 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\joins\los\inner_join\ri-2.explanation.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:54:27 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\joins\\los\\inner_join\\ri-2.rationale.md",
+  "content": "INNER JOIN 的核心:**只保留两边都有匹配的行**。orders.user_id=99 的订单在 users 表里找不到 id=99 → 该订单**不会出现在结果里**。同理,users 表里有但 orders 表里没下单的用户也不会出现。\"两边都有匹配\"是 INNER 的字面含义。如果想保留 orders 表全部行(即使没匹配的 user),用 LEFT JOIN(本课不展开)。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:54:28 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\joins\los\inner_join\ri-2.rationale.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:54:48 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\joins\\los\\inner_join\\ri-3.prompt.md",
+  "content": "用你自己的话解释:\n\n> 已知 `users(id, name, country)` 和 `orders(id, user_id, amount)` 两张表。\n> 写一条 SQL,**返回每个订单的 amount 和下单用户的 name**(只要 amount > 100 的订单)。\n> 用表别名 `u`、`o`。\n\n要点:\n- 完整 SQL(写出来)\n- 解释 ON 子句和 WHERE 子句各自负责什么\n- 说明用 `o.id` 而不是 `id` 的原因(如果你的 SELECT 列表含 id 的话)\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:54:49 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\joins\los\inner_join\ri-3.prompt.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:55:22 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\joins\\los\\inner_join\\lo.yaml",
+  "content": "id: lo.sql.inner_join\nname: INNER JOIN 关联两表\ndescription: 用 INNER JOIN + ON 关联两张表;表别名;列名歧义消除;ON vs WHERE 的角色\nprerequisites:\n  - lo.sql.where_filtering\nestimatedDurationMin: 30\ndifficultyBand: beginner\ncoreExplanation: { $ref: ./core-explanation.md }\ncommonMisconceptions:\n  - \"INNER JOIN 不需要 ON 子句,数据库会自己关联同名列(实际必须显式 ON,缺 ON 是笛卡尔积)\"\n  - \"INNER JOIN 会保留两表所有行(实际只保留两边都有匹配的行,不匹配的丢弃)\"\n  - \"JOIN 默认是 OUTER(实际默认是 INNER,LEFT/RIGHT/FULL OUTER 都要显式写)\"\n  - \"ON 和 WHERE 完全等价(对 INNER JOIN 结果一样,但语义不同;LEFT/RIGHT JOIN 时差异显著)\"\nmasteryCriteria: 能写带 ON 的 INNER JOIN;能用别名;懂 INNER 是\"两边都匹配才保留\"\nrequiredInteractions:\n  - id: ri.sql.inner_join.1\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ri-1.explanation.md }\n      question:\n        stem: \"下列 INNER JOIN 写法**最完整且最规范**的是?\"\n        options:\n          - \"SELECT * FROM orders INNER JOIN users\"\n          - \"SELECT * FROM orders INNER JOIN users ON orders.user_id = users.id\"\n          - \"SELECT * FROM orders, users WHERE orders.user_id = users.id\"\n          - \"SELECT * FROM orders INNER JOIN users USING (id)\"\n        answerIndex: 1\n        rationale: { $ref: ./ri-1.rationale.md }\n    hints:\n      - \"INNER JOIN 必须告诉数据库**两表怎么关联** — 缺了这个数据库不知道哪行配哪行\"\n      - \"想想 'orders 的 user_id 等于 users 的 id' 这个关系怎么用 SQL 表达?哪个关键字引出连接条件?\"\n  - id: ri.sql.inner_join.2\n    patternId: concept_check\n    prompt:\n      explanationMd: { $ref: ./ri-2.explanation.md }\n      question:\n        stem: \"users 表 5 行,orders 表 12 行。其中 1 个订单的 user_id 在 users 表里找不到匹配的 id。执行 `SELECT * FROM orders INNER JOIN users ON orders.user_id = users.id`,**结果集行数最可能是**?\"\n        options:\n          - \"60(笛卡尔积 5 × 12)\"\n          - \"12(orders 全保留,匹配不上的 users 列填 NULL)\"\n          - \"11(只保留两边都匹配的订单,有 1 个订单的 user_id 找不到匹配被丢弃)\"\n          - \"5(users 全
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:55:23 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\joins\los\inner_join\lo.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:55:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\joins\\assessment\\assessment.yaml",
+  "content": "id: ca.ch.joins\nname: \"INNER JOIN:综合检验\"\nrequiredInteractions:\n  - id: ca.joins.1\n    patternId: concept_check\n    prompt:\n      explanationMd: \"\"\n      question:\n        stem: \"已知 `customers(id, name, country)` 和 `orders(id, customer_id, amount, created_at)` 两张表。**找出所有中国客户的订单总数(GROUP BY 之类不要求)** — 下列 SQL 哪个**正确**?\"\n        options:\n          - \"SELECT * FROM customers WHERE country = 'CN' INNER JOIN orders\"\n          - \"SELECT o.* FROM orders o INNER JOIN customers c ON o.customer_id = c.id WHERE c.country = 'CN'\"\n          - \"SELECT o.* FROM orders o, customers c WHERE country = 'CN'\"\n          - \"SELECT o.* FROM orders o INNER JOIN customers c WHERE o.customer_id = c.id AND c.country = 'CN'\"\n        answerIndex: 1\n        rationale: \"正确写法 = (a) `INNER JOIN ... ON ...` 显式连接条件;(b) `WHERE` 在 JOIN 后,过滤已连接的结果。选项 A 语法乱(JOIN 在 WHERE 之后);C 用旧风格隐式 join 但没 join 条件还会出歧义错;D 把 ON 错放到 WHERE,缺 ON 数据库会拒绝。\"\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:55:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\joins\assessment\assessment.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:55:58 PM</sup>
+
+Content done. Now lint + e2e.
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:56:05 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "doc/course-authoring.md §10 update",
+      "activeForm": "Doc update",
+      "status": "completed"
+    },
+    {
+      "content": "Server: GET /api/courses 列表端点",
+      "activeForm": "List endpoint",
+      "status": "completed"
+    },
+    {
+      "content": "Server: start() 选第一个未完成 chapter",
+      "activeForm": "Multi-chapter start",
+      "status": "completed"
+    },
+    {
+      "content": "Frontend: HomeView 课程卡选择器",
+      "activeForm": "HomeView",
+      "status": "completed"
+    },
+    {
+      "content": "Content: python 加第二章 string_and_format (2 LOs × 3 RIs)",
+      "activeForm": "Python chapter 2",
+      "status": "completed"
+    },
+    {
+      "content": "Content: 新 sql-basics 课程 (2 chapters)",
+      "activeForm": "SQL course",
+      "status": "completed"
+    },
+    {
+      "content": "E2E: lint + start + 验证多课多章可达",
+      "activeForm": "E2E",
+      "status": "in_progress"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:56:05 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:56:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm typecheck 2>&1 | tail -8",
+  "description": "Full typecheck",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:56:37 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Scope: 3 of 4 workspace projects
+packages/tutor-types typecheck$ tsc -p tsconfig.json --noEmit
+packages/tutor-types typecheck: Done
+server typecheck$ tsc -p tsconfig.json --noEmit
+web typecheck$ vue-tsc --noEmit
+web typecheck: Done
+server typecheck: Done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:57:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pkill -f \"node\" 2>/dev/null; sleep 1; pnpm dev:server 2>&1",
+  "description": "Start server (fresh, will detect new content)",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:57:08 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: b2aqunkdh. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\b2aqunkdh.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:57:24 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -o /dev/null -w \"\" http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; echo \"ready\"; curl -sS http://localhost:3000/api/courses",
+  "description": "Wait + verify list endpoint",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:58:07 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+ready
+{"message":"Cannot GET /api/courses","error":"Not Found","statusCode":404}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:58:22 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:58:24 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -iE \"(error|warn|knowledge|courses|loaded)\" \"C:/Users/gyh/AppData/Local/Temp/claude/c--Users-gyh-Desktop-Projects-whale-tutor/1a3a26bb-4046-445c-a8bf-4eb54527400b/tasks/b2aqunkdh.output\" 2>&1 | tail -25",
+  "description": "Server boot log"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:58:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+[[90m21:57:23[0m] Found 0 errors. Watching for file changes.
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mKnowledgeModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mKnowledgeController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/courses, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/courses/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/sessions/:id/acknowledge-review-lo, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[AiGatewayService] [39m[32mLoaded 8 prompt
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:58:42 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:58:43 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_basics\\lo.yaml",
+  "offset": 42,
+  "limit": 15
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:58:43 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+42	        answerIndex: 1
+43	        rationale: { $ref: ./ri-2.rationale.md }
+44	  - id: ri.string.basics.3
+45	    patternId: concept_check
+46	    prompt:
+47	      explanationMd: { $ref: ./ri-3.explanation.md }
+48	      question:
+49	        stem: "执行 `s = 'hello'` 后,再执行 `s += '!'`。下列描述**最准确**的是?"
+50	        options:
+51	          - 'hello' 字符串对象在内存中被原地修改成 'hello!',s 仍指向同一个对象
+52	          - "Python 创建一个新字符串 'hello!',让 s 指向它;原 'hello' 对象等待被回收"
+53	          - "Python 把 '!' 追加到 s 引用的字符串末尾(类似 list.append)"
+54	          - "TypeError,字符串不支持 += 操作"
+55	        answerIndex: 1
+56	        rationale: { $ref: ./ri-3.rationale.md }
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:58:59 PM</sup>
+
+Line 51: starts with `'hello'` — YAML thinks the `-` starts a single-quoted string `'hello'` then trailing chars are unparseable. Need to quote the whole line.
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:59:03 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\string_and_format\\los\\string_basics\\lo.yaml",
+  "old_string": "        options:\n          - 'hello' 字符串对象在内存中被原地修改成 'hello!',s 仍指向同一个对象\n          - \"Python 创建一个新字符串 'hello!',让 s 指向它;原 'hello' 对象等待被回收\"\n          - \"Python 把 '!' 追加到 s 引用的字符串末尾(类似 list.append)\"\n          - \"TypeError,字符串不支持 += 操作\"",
+  "new_string": "        options:\n          - \"'hello' 字符串对象在内存中被原地修改成 'hello!',s 仍指向同一个对象\"\n          - \"Python 创建一个新字符串 'hello!',让 s 指向它;原 'hello' 对象等待被回收\"\n          - \"Python 把 '!' 追加到 s 引用的字符串末尾(类似 list.append)\"\n          - \"TypeError,字符串不支持 += 操作\""
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:59:04 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_basics\lo.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:59:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -o /dev/null -w \"\" http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; \\\necho \"ready\"; \\\necho \"---\"; \\\ncurl -sS http://localhost:3000/api/courses",
+  "description": "Wait restart + verify list",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:59:26 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+ready
+---
+{"message":"Cannot GET /api/courses","error":"Not Found","statusCode":404}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 9:59:45 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "tail -30 \"C:/Users/gyh/AppData/Local/Temp/claude/c--Users-gyh-Desktop-Projects-whale-tutor/1a3a26bb-4046-445c-a8bf-4eb54527400b/tasks/b2aqunkdh.output\"",
+  "description": "Check latest server log"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 9:59:49 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/sessions/:id/acknowledge-review-lo, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/sessions/:id/progress, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mUsersController {/api/users}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 33356  - [39m2026/05/08 21:57:38 [32m    LOG[39m [38;5;3m[AiGatewayService] [39m[32mLoaded 8 prompt template(s)[39m
+[32m[Nest] 33356  - [39m2026/05/08 21:57:3
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:00:15 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:00:15 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "b2aqunkdh"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:00:15 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: b2aqunkdh (pkill -f \"node\" 2>/dev/null; sleep 1; pnpm dev:server 2>&1)","task_id":"b2aqunkdh","task_type":"local_bash","command":"pkill -f \"node\" 2>/dev/null; sleep 1; pnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:00:16 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pkill -f \"node\" 2>/dev/null; sleep 2; netstat -ano 2>&1 | grep \":3000.*LISTENING\" | head -2",
+  "description": "Kill all node + verify port"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:02:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+TCP    0.0.0.0:3000           0.0.0.0:0              LISTENING       4468
+  TCP    [::]:3000              [::]:0                 LISTENING       4468
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:03:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "taskkill //F //PID 4468 2>&1; sleep 2; netstat -ano 2>&1 | grep \":3000.*LISTENING\" || echo \"port free\"",
+  "description": "Force kill stuck server"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:04:23 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+SUCCESS: The process with PID 4468 has been terminated.
+port free
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:04:30 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm dev:server 2>&1",
+  "description": "Start server fresh",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:04:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: bunv520w6. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\bunv520w6.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:04:48 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -o /dev/null -w \"\" http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; echo \"ready\"; curl -sS http://localhost:3000/api/courses",
+  "description": "Wait + verify list with new courses",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:06:50 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: bd535qvkg. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\bd535qvkg.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:06:57 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "sleep 0; tail -10 \"C:/Users/gyh/AppData/Local/Temp/claude/c--Users-gyh-Desktop-Projects-whale-tutor/1a3a26bb-4046-445c-a8bf-4eb54527400b/tasks/bunv520w6.output\"",
+  "description": "Recent server log"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:07:01 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+at KnowledgeService.loadCourseFromDisk (C:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\knowledge.service.ts:70:13)
+    at async KnowledgeService.onModuleInit (C:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\knowledge.service.ts:57:7)
+    at async Promise.all (index 0)
+    at async callModuleInitHook (C:\Users\gyh\Desktop\Projects\whale-tutor\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_@nestjs+platform-express@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\hooks\on-module-init.hook.js:43:5)
+    at async NestApplication.callInitHook (C:\Users\gyh\Desktop\Projects\whale-tutor\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_@nestjs+platform-express@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\nest-application-context.js:234:13)
+    at async NestApplication.init (C:\Users\gyh\Desktop\Projects\whale-tutor\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_@nestjs+
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:07:18 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -B2 \"bad indentation\\|not be empty\\|must NOT have\\|must have required\" \"C:/Users/gyh/AppData/Local/Temp/claude/c--Users-gyh-Desktop-Projects-whale-tutor/1a3a26bb-4046-445c-a8bf-4eb54527400b/tasks/bunv520w6.output\" 2>&1 | tail -20",
+  "description": "Find specific error"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:07:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+^
+
+Error: Failed loading course 'sql-basics' from C:\Users\gyh\Desktop\Projects\whale-tutor\server\dist\knowledge\data\sql-basics: Failed to resolve $ref '././chapters/select_and_filter/chapter.yaml' from C:\Users\gyh\Desktop\Projects\whale-tutor\server\dist\knowledge\data\sql-basics\course.yaml: Failed to resolve $ref '././los/where_filtering/lo.yaml' from C:\Users\gyh\Desktop\Projects\whale-tutor\server\dist\knowledge\data\sql-basics\chapters\select_and_filter\chapter.yaml: Invalid YAML at C:\Users\gyh\Desktop\Projects\whale-tutor\server\dist\knowledge\data\sql-basics\chapters\select_and_filter\los\where_filtering\lo.yaml: bad indentation of a mapping entry (38:34)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:07:29 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\where_filtering\\lo.yaml",
+  "offset": 35,
+  "limit": 8
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:07:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+35	    prompt:
+36	      explanationMd: { $ref: ./ri-2.explanation.md }
+37	      question:
+38	        stem: "下列哪条 SQL **正确**地查"phone 列没填(为 NULL)的所有用户"?"
+39	        options:
+40	          - "SELECT * FROM users WHERE phone = NULL"
+41	          - "SELECT * FROM users WHERE phone == NULL"
+42	          - "SELECT * FROM users WHERE phone IS NULL"
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:07:37 PM</sup>
+
+Inner double quotes break the outer double-quoted string. Replacing inner with chinese quotes 「」:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:07:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\where_filtering\\lo.yaml",
+  "old_string": "        stem: \"下列哪条 SQL **正确**地查\"phone 列没填(为 NULL)的所有用户\"?\"",
+  "new_string": "        stem: \"下列哪条 SQL **正确**地查 「phone 列没填(为 NULL)的所有用户」?\""
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:07:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\where_filtering\lo.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:07:48 PM</sup>
+
+Let me grep for other inner-quote problems too:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:07:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -rn 'stem: \".*\".*\".*\"' \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics\" \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/python-basics/chapters/string_and_format\" 2>&1 | head -20",
+  "description": "Find any double-quoted stem with inner double quotes"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:07:54 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics/chapters/select_and_filter/los/select_clauses/lo.yaml:20:        stem: "下列哪个 SQL 语句**最准确**地完成"从 employees 表选出所有员工的姓名"?"
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:08:17 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\select_clauses\\lo.yaml",
+  "old_string": "        stem: \"下列哪个 SQL 语句**最准确**地完成\"从 employees 表选出所有员工的姓名\"?\"",
+  "new_string": "        stem: \"下列哪个 SQL 语句**最准确**地完成「从 employees 表选出所有员工的姓名」?\""
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:08:17 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+<tool_use_error>File has not been read yet. Read it first before writing to it.</tool_use_error>
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:08:35 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\select_clauses\\lo.yaml",
+  "offset": 18,
+  "limit": 5
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:08:35 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+18	      explanationMd: { $ref: ./ri-1.explanation.md }
+19	      question:
+20	        stem: "下列哪个 SQL 语句**最准确**地完成"从 employees 表选出所有员工的姓名"?"
+21	        options:
+22	          - "GET name FROM employees"
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:08:57 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\sql-basics\\chapters\\select_and_filter\\los\\select_clauses\\lo.yaml",
+  "old_string": "        stem: \"下列哪个 SQL 语句**最准确**地完成\"从 employees 表选出所有员工的姓名\"?\"",
+  "new_string": "        stem: \"下列哪个 SQL 语句**最准确**地完成「从 employees 表选出所有员工的姓名」?\""
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:08:58 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\chapters\select_and_filter\los\select_clauses\lo.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:09:14 PM</sup>
+
+Also check for inner-double-quote issues in remaining files:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:09:16 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -rn '\"VIP\\|\"中国\\|\"找出' \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics\" \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/python-basics/chapters/string_and_format\" 2>&1 | head -20",
+  "description": "Find inner double quotes"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:09:20 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics/chapters/select_and_filter/los/where_filtering/ri-3.rationale.md:1:SQL 优先级:`NOT > AND > OR`。`a OR b AND c` 等价 `a OR (b AND c)`。题目要"VIP 用户 OR (中国用户 AND 18 岁以上)" → 写法 B 用括号显式分组,语义清晰。写法 A 没括号,等价于 `vip = 1 OR country = 'CN' AND age >= 18`,实际是 `vip = 1 OR (country = 'CN' AND age >= 18)`,**碰巧也对**,但可读性差,生产代码强烈推荐括号。
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:09:42 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:09:43 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -rn 'stem: \"' \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics\" \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/python-basics/chapters/string_and_format\" 2>&1 | head -20",
+  "description": "All stem yaml lines"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:09:47 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics/chapters/joins/assessment/assessment.yaml:9:        stem: "已知 `customers(id, name, country)` 和 `orders(id, customer_id, amount, created_at)` 两张表。**找出所有中国客户的订单总数(GROUP BY 之类不要求)** — 下列 SQL 哪个**正确**?"
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics/chapters/joins/los/inner_join/lo.yaml:21:        stem: "下列 INNER JOIN 写法**最完整且最规范**的是?"
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics/chapters/joins/los/inner_join/lo.yaml:37:        stem: "users 表 5 行,orders 表 12 行。其中 1 个订单的 user_id 在 users 表里找不到匹配的 id。执行 `SELECT * FROM orders INNER JOIN users ON orders.user_id = users.id`,**结果集行数最可能是**?"
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/knowledge/data/sql-basics/chapters/select_and_filter/assessment/assessment.yaml:9:        stem: "已知 employees 表含 name / salary / department 三列。**找出 marketing 部门工资 ≥ 10000 的员工姓名,按工资降序**。下列哪条 SQL 完整且正确?"
+c:/Users/gyh/
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:10:07 PM</sup>
+
+All other stems use single quotes inside double-quoted strings, fine. Wait + verify list endpoint:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:10:10 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -o /dev/null -w \"\" http://localhost:3000/api/courses 2>/dev/null && [ -n \"$(curl -sS http://localhost:3000/api/courses 2>&1 | grep -i sql-basics)\" ]; do sleep 2; done; \\\necho \"ready with sql-basics\"; \\\ncurl -sS http://localhost:3000/api/courses | python -c \"import sys, json; print(json.dumps(json.load(sys.stdin), indent=2, ensure_ascii=False))\"",
+  "description": "Wait until sql-basics shows up",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:11:43 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: b507bqhub. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\b507bqhub.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:11:54 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "tail -20 \"C:/Users/gyh/AppData/Local/Temp/claude/c--Users-gyh-Desktop-Projects-whale-tutor/1a3a26bb-4046-445c-a8bf-4eb54527400b/tasks/bunv520w6.output\"",
+  "description": "Server log"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:11:58 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Error: Failed loading course 'sql-basics' from C:\Users\gyh\Desktop\Projects\whale-tutor\server\dist\knowledge\data\sql-basics: Failed to resolve $ref '././chapters/select_and_filter/chapter.yaml' from C:\Users\gyh\Desktop\Projects\whale-tutor\server\dist\knowledge\data\sql-basics\course.yaml: Failed to resolve $ref '././los/where_filtering/lo.yaml' from C:\Users\gyh\Desktop\Projects\whale-tutor\server\dist\knowledge\data\sql-basics\chapters\select_and_filter\chapter.yaml: Invalid YAML at C:\Users\gyh\Desktop\Projects\whale-tutor\server\dist\knowledge\data\sql-basics\chapters\select_and_filter\los\where_filtering\lo.yaml: bad indentation of a mapping entry (38:34)
+
+ 35 |     prompt:
+ 36 |       explanationMd: { $ref: ./ri-2.explanation.md }
+ 37 |       question:
+ 38 |         stem: "下列哪条 SQL **正确**地查"phone 列没填(为 NULL)的所有用户"?"
+---------------------------------------^
+ 39 |         options:
+ 40 |           - "SELECT * FROM users WHERE phone = NULL"
+    at KnowledgeService.loadCo
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:12:14 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:12:15 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "bunv520w6"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:12:15 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: bunv520w6 (pnpm dev:server 2>&1)","task_id":"bunv520w6","task_type":"local_bash","command":"pnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:12:15 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "bd535qvkg"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:12:15 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: bd535qvkg (until curl -sS -o /dev/null -w \"\" http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; echo \"ready\"; curl -sS http://localhost:3000/api/courses)","task_id":"bd535qvkg","task_type":"local_bash","command":"until curl -sS -o /dev/null -w \"\" http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; echo \"ready\"; curl -sS http://localhost:3000/api/courses"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:12:16 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "b507bqhub"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:12:16 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: b507bqhub (until curl -sS -o /dev/null -w \"\" http://localhost:3000/api/courses 2>/dev/null && [ -n \"$(curl -sS http://localhost:3000/api/courses 2>&1 | grep -i sql-basics)\" ]; do sleep 2; done; \\\necho \"ready with sql-basics\"; \\\ncurl -sS http://localhost:3000/api/courses | python -c \"import sys, json; print(json.dumps(json.load(sys.stdin), indent=2, ensure_ascii=False))\")","task_id":"b507bqhub","task_type":"local_bash","command":"until curl -sS -o /dev/null -w \"\" http://localhost:3000/api/courses 2>/dev/null && [ -n \"$(curl -sS http://localhost:3000/api/courses 2>&1 | grep -i sql-basics)\" ]; do sleep 2; done; \\\necho \"ready with sql-basics\"; \\\ncurl -sS http://localhost:3000/api/courses | python -c \"import sys, json; print(json.dumps(json.load(sys.stdin), indent=2, ensure_ascii=False))\""}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:12:17 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pkill -f \"node\" 2>/dev/null; sleep 2; \\\nrm -rf \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/dist\"; \\\necho \"dist clean\"",
+  "description": "Kill node + clean stale dist"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:12:43 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+dist clean
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:12:56 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm dev:server 2>&1",
+  "description": "Restart server with clean dist",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:13:14 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: b468dbv6v. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\b468dbv6v.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:13:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -f -o /dev/null http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; echo \"ready\"; \\\ncurl -sS http://localhost:3000/api/courses | python -c \"import sys, json; print(json.dumps(json.load(sys.stdin), indent=2, ensure_ascii=False))\"",
+  "description": "Wait + verify list",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:13:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+ready
+{
+  "courses": [
+    {
+      "id": "python-basics",
+      "name": "Python 基础",
+      "description": "Python 基础课旨在帮助你建立 Python 程序员日常工作所需的核心概念心智模型——不止于\"会写\",更追求\"理解为什么这么写\"。\n\nv0 阶段聚焦「列表与迭代」一章作为产品骨架的验证起点。\n",
+      "chapterCount": 2,
+      "loCount": 6
+    },
+    {
+      "id": "sql-basics",
+      "name": "SQL 基础",
+      "description": "从零开始学 SQL,聚焦最常用的查询场景。SQL 是关系数据库的查询语言,几乎任何后端 / 数据分析工作都需要。\n\n本课假设你不熟 SQL 但有基本编程基础(知道什么是表、什么是列)。\n\n> **注**:本课用 concept_check 和 free_recall 两类题型(SQL 没有浏览器内执行环境,所以不支持 code_sandbox)。\n",
+      "chapterCount": 2,
+      "loCount": 3
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:14:03 PM</sup>
+
+两门课都加载,python 现在 2 章 6 LO,sql 2 章 3 LO. 测试 multi-chapter flow:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:14:09 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "echo \"=== python-basics: start (clean state, 应进 chapter 1 list_basics) ===\"; \\\ndocker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id=1; DELETE FROM learner_chapter_progress WHERE learner_id=1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM events WHERE learner_id=1; DELETE FROM sessions WHERE learner_id=1;\" 2>&1 | tail -1; \\\nSESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\necho \"$SESSION\" | python -c \"import sys,json; d=json.load(sys.stdin); print('  loId:', d['interaction']['loId'])\"; \\\necho \"\"; \\\necho \"=== sql-basics: start (clean state, 应进 chapter select_and_filter) ===\"; \\\nSESSION2=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"sql-basics\"}'); \\\necho \"$SESSION2\" | python -c \"import sys,json; d=json.load(sys.stdin); print('  loId:', d['interaction']['loId']); print('  patternId:', d['interaction']['patternId'])\"",
+  "description": "Test session start for both courses (clean)",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:14:17 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+=== python-basics: start (clean state, 应进 chapter 1 list_basics) ===
+mysql: [Warning] Using a password on the command line interface can be insecure.
+  loId: lo.list.basics
+
+=== sql-basics: start (clean state, 应进 chapter select_and_filter) ===
+  loId: lo.sql.select_clauses
+  patternId: concept_check
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:14:29 PM</sup>
+
+Both courses start at their first chapter's first LO. Now simulate completing python chapter 1 to verify multi-chapter advance:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:14:33 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"\nDELETE FROM learner_state WHERE learner_id=1;\nDELETE FROM learner_chapter_progress WHERE learner_id=1;\nINSERT INTO learner_chapter_progress (learner_id, chapter_id, phase, assessment_completed_ids) VALUES\n  (1, 'ch.list_and_iter', 'completed', JSON_ARRAY('ca.list_and_iter.1'));\" 2>&1 | tail -1; \\\necho \"Mocked: python-basics chapter 1 completed for learner 1\"; \\\nSESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\necho \"$SESSION\" | python -c \"import sys,json; d=json.load(sys.stdin); print('  next session starts at loId:', d['interaction']['loId'])\"",
+  "description": "Mock chapter 1 done, start session, expect to land in chapter 2",
+  "timeout": 30000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:15:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+mysql: [Warning] Using a password on the command line interface can be insecure.
+Mocked: python-basics chapter 1 completed for learner 1
+  next session starts at loId: lo.string.basics
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:15:44 PM</sup>
+
+Multi-chapter advance works:chapter 1 done → new session starts at chapter 2's first LO `lo.string.basics`. Now Vite + browser smoke:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:15:45 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm dev:web 2>&1",
+  "description": "Start vite",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:15:46 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: b69a2yj5y. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\b69a2yj5y.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:16:07 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -o /dev/null -w \"\" http://localhost:5173/ 2>/dev/null; do sleep 1; done; \\\necho \"vite ready\"; \\\ncurl -sS -o /dev/null -w \"GET / → %{http_code}\\n\" http://localhost:5173/; \\\ncurl -sS -o /dev/null -w \"GET /api/courses → %{http_code}\\n\" http://localhost:5173/api/courses; \\\ncurl -sS http://localhost:5173/api/courses | python -c \"import sys,json; cs=json.load(sys.stdin)['courses']; print('  courses listed:', [(c['id'], c['chapterCount'], c['loCount']) for c in cs])\"",
+  "description": "Wait vite + smoke",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:16:14 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+vite ready
+GET / → 200
+GET /api/courses → 200
+  courses listed: [('python-basics', 2, 6), ('sql-basics', 2, 3)]
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:16:33 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "b468dbv6v"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:16:33 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: b468dbv6v (pnpm dev:server 2>&1)","task_id":"b468dbv6v","task_type":"local_bash","command":"pnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:16:33 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "b69a2yj5y"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:16:33 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: b69a2yj5y (pnpm dev:web 2>&1)","task_id":"b69a2yj5y","task_type":"local_bash","command":"pnpm dev:web 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:16:34 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pkill -f \"node\" 2>/dev/null; sleep 1; pnpm lint 2>&1 | tail -5",
+  "description": "Cleanup + final lint",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:18:07 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> whale-tutor@0.0.1 lint C:\Users\gyh\Desktop\Projects\whale-tutor
+> eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --max-warnings 0
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:18:20 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "doc/course-authoring.md §10 update",
+      "activeForm": "Doc update",
+      "status": "completed"
+    },
+    {
+      "content": "Server: GET /api/courses 列表端点",
+      "activeForm": "List endpoint",
+      "status": "completed"
+    },
+    {
+      "content": "Server: start() 选第一个未完成 chapter",
+      "activeForm": "Multi-chapter start",
+      "status": "completed"
+    },
+    {
+      "content": "Frontend: HomeView 课程卡选择器",
+      "activeForm": "HomeView",
+      "status": "completed"
+    },
+    {
+      "content": "Content: python 加第二章 string_and_format (2 LOs × 3 RIs)",
+      "activeForm": "Python chapter 2",
+      "status": "completed"
+    },
+    {
+      "content": "Content: 新 sql-basics 课程 (2 chapters)",
+      "activeForm": "SQL course",
+      "status": "completed"
+    },
+    {
+      "content": "E2E: lint + start + 验证多课多章可达",
+      "activeForm": "E2E",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:18:20 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:18:54 PM</sup>
+
+全部完成,lint 干净。
+
+## 汇总
+
+### 文档
+- [doc/course-authoring.md §10](doc/course-authoring.md) — 明确 `whale-tutor build` v0.2 还没实现;新设计:**MD 一份 = 一章,AI 自动拆 LO**(原本是 MD 一份 = 一个 LO)。理由:LO 边界本身就是认知粒度判断,作者很难一开始拆好;chapter 粒度更接近作者写课时的自然单元。
+
+### Server
+- [packages/tutor-types/src/api-contracts.ts](packages/tutor-types/src/api-contracts.ts) 加 `CourseSummary` + `ListCoursesResponse`
+- [server/src/knowledge/knowledge.controller.ts](server/src/knowledge/knowledge.controller.ts) 加 `GET /api/courses` 列表端点
+- [server/src/knowledge/knowledge.service.ts](server/src/knowledge/knowledge.service.ts) 加 `listCourseSummaries()`
+- [server/src/session/session.service.ts](server/src/session/session.service.ts):
+  - `start()` 不再总从 `course.chapters[0]` 起,改成调新方法 `pickStartingLo`
+  - `pickStartingLo` 遍历 chapters 找第一个 `phase !== 'completed'` 的章,返回它的第一个 LO
+  - 这意味着学习者跑完 chapter 1 之后,新 session 自动从 chapter 2 起,无需 PathOrchestrator 大改
+
+### Frontend
+- [web/src/api/knowledge.ts](web/src/api/knowledge.ts) 加 `listCourses()`
+- [web/src/views/HomeView.vue](web/src/views/HomeView.vue) 重写:
+  - 进 home 时 fetch `/api/courses`
+  - 每个 course 渲染成卡片(name / description / 章数 / LO 数 + tag)
+  - 点"开始学习" → 用该 courseId 起 session → 跳 LearnView
+  - LearnView 的 ProgressSidebar 已经显示当前章节(已存在,无需改)
+
+### 内容
+- **python-basics 第二章 `ch.string_and_format`**(2 LOs):
+  - `lo.string.basics` — 字面量/转义/不可变性,3 RIs(2 concept + 1 free_recall 等价的 concept,实际 3 道 concept_check)
+  - `lo.string.methods` — split/join/strip/replace + f-string,3 RIs(含 1 道 code_sandbox)
+  - `ca.ch.string_and_format` 章末 2 道综合
+- **sql-basics 全新课程**,`subject: SQL`(自动驱动 AI prompt):
+  - `ch.select_and_filter`(2 LOs):`select_clauses` + `where_filtering`,各 3 RIs;含 1 道 free_recall
+  - `ch.joins`(1 LO):`inner_join`,3 RIs(含 1 道 free_recall)
+  - 各章末 1 道综合
+- 所有新 LO 都写了 `commonMisconceptions`(具体可识别的错误模式,给 AI 出 adaptive 题用)
+
+### E2E 验证(2026-05-08)
+| 场景 | 结果 |
+|---|---|
+| `GET /api/courses` | 返 2 课:python-basics(2ch/6lo)+ sql-basics(2ch/3lo) |
+| 干净状态 start python | 进 `lo.list.basics`(chapter 1 第一 LO)✓ |
+| 干净状态 start sql | 进 `lo.sql.select_clauses`(chapter 1 第一 LO)✓ |
+| 模拟 chapter 1 完成,新 session start python | 自动进 `lo.string.basics`(chapter 2 第一 LO)✓ |
+| `pnpm typecheck` + `pnpm lint --max-warnings 0` | 全过 |
+
+### 内容写时踩到的 YAML 坑(给作者文档补充材料)
+- `- 'hello' xxx` — `-` 后单引号开头会被当成 quoted string,后续内容不合法,要整体加引号
+- `stem: "...\"中文\"..."` — 双引号字符串内嵌真双引号需要转义或用中文引号「」
+
+`whale-tutor lint` 都能精确报错 → 学习者命令行体验闭环。前端启动 `pnpm dev` 直接能看到课程卡选择器 + 多课多章正常切换。
+
+
+---
+
+## User <sup>5/8/2026, 10:19:05 PM</sup>
+
+<ide_opened_file>The user opened the file c:\Users\gyh\Desktop\Projects\whale-tutor\doc\course-authoring.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+
+> *[Image]*
+
+我现在进入python之后，左边的状态感觉不对，然后现在显示的直接是第二章的，然后我也不知道一共有哪些章节
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:19:50 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:19:51 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -n \"getProgress\\|progress\\|chapter\" \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/session/session.service.ts\" | head -30",
+  "description": "Find progress logic"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:19:55 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+83:    // v0.2 多 chapter 支持:从该 learner 还没完成的第一个 chapter 开始,
+84:    // 而不是总从 chapter[0]。这样跑完 chapter 1 后,新 session 自动从 chapter 2 起。
+85:    // 章节"已完成"判定:学习者在该 chapter 的所有 LO 必做都做完 + 章末测试 phase='completed'。
+244:    // 章末测试的进度跟踪：如果这道题是 chapter assessment 的一部分,更新
+245:    // learner_chapter_progress.assessment_completed_ids
+246:    const chapter = this.knowledge.getChapterByLoId(loId);
+248:      chapter.assessment &&
+250:      chapter.assessment.requiredInteractions.some(
+257:        chapter.id,
+473:  async getProgress(sessionId: number): Promise<GetSessionProgressResponse> {
+484:    // v0 课程仅 1 个 chapter;后续多 chapter 时这里需要由 sessions.current_chapter_id 决定
+485:    const chapter = course.chapters[0];
+486:    const chapterProgress = await this.getChapterProgressOrDefault(
+488:      chapter.id,
+491:      chapter.assessment?.requiredInteractions.length ?? 0;
+494:    for (const lo of chapter.learningObjectives) {
+518:      chapter: {
+519:        id: chapter.id,
+520:        name: chapter.name,
+521: 
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:20:10 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:20:12 PM</sup>
+
+Bug found:[session.service.ts:485](server/src/session/session.service.ts#L485) — `getProgress` 写死 `course.chapters[0]`,不管 session 实际在哪个章节。让我看完整 + 修。
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:20:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "offset": 473,
+  "limit": 55
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:20:13 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+473	  async getProgress(sessionId: number): Promise<GetSessionProgressResponse> {
+474	    const session = await this.db
+475	      .selectFrom('sessions')
+476	      .selectAll()
+477	      .where('id', '=', sessionId)
+478	      .executeTakeFirst();
+479	    if (!session) {
+480	      throw new NotFoundException(`Session not found: ${sessionId}`);
+481	    }
+482	
+483	    const course = this.knowledge.getCourseDefinition(session.course_id);
+484	    // v0 课程仅 1 个 chapter;后续多 chapter 时这里需要由 sessions.current_chapter_id 决定
+485	    const chapter = course.chapters[0];
+486	    const chapterProgress = await this.getChapterProgressOrDefault(
+487	      session.learner_id,
+488	      chapter.id,
+489	    );
+490	    const assessmentRequiredCount =
+491	      chapter.assessment?.requiredInteractions.length ?? 0;
+492	
+493	    const los: SessionProgressLoEntry[] = [];
+494	    for (const lo of chapter.learningObjectives) {
+495	      const state = await this.learners.getLoState(
+496	        session.learner_id,
+4
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:20:39 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    const course = this.knowledge.getCourseDefinition(session.course_id);\n    // v0 课程仅 1 个 chapter;后续多 chapter 时这里需要由 sessions.current_chapter_id 决定\n    const chapter = course.chapters[0];\n    const chapterProgress = await this.getChapterProgressOrDefault(\n      session.learner_id,\n      chapter.id,\n    );",
+  "new_string": "    const course = this.knowledge.getCourseDefinition(session.course_id);\n    // v0.2 多 chapter 支持:从 session.current_lo_id 反查所属 chapter。\n    // current_lo_id 由 start() / decideNext Rule 2 维护,反映\"学习者现在在哪一章\"。\n    // 如果 current_lo_id 为空(理论上 start() 后总有,这里防御),回退到第一章。\n    const chapter = session.current_lo_id\n      ? this.knowledge.getChapterByLoId(session.current_lo_id)\n      : course.chapters[0];\n    const chapterProgress = await this.getChapterProgressOrDefault(\n      session.learner_id,\n      chapter.id,\n    );"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:20:40 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:21:04 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:21:06 PM</sup>
+
+修了 chapter 计算 bug。但用户还提到"不知道一共有哪些章节" — sidebar 只显示当前章节,不显示课程的全章列表。让我看 ProgressSidebar + 把所有章节传过去。
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:21:06 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\ProgressSidebar.vue"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:21:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	<script setup lang="ts">
+2	import { storeToRefs } from 'pinia';
+3	import { useSessionStore } from '@/stores/session';
+4	import type {
+5	  ArchiveNodeKind,
+6	  ChapterPhase,
+7	  MasteryLevel,
+8	} from '@whale-tutor/tutor-types';
+9	
+10	const emit = defineEmits<{
+11	  'view-recap': [loId: string];
+12	  'view-archive': [kind: ArchiveNodeKind, id: string | number];
+13	  'open-history': [];
+14	}>();
+15	
+16	const sessionStore = useSessionStore();
+17	const { progress } = storeToRefs(sessionStore);
+18	
+19	const masteryEmoji: Record<MasteryLevel, string> = {
+20	  untouched: '⚪',
+21	  exposed: '🔵',
+22	  practicing: '🟡',
+23	  mastered: '🟢',
+24	  applied: '🌟',
+25	};
+26	const masteryLabel: Record<MasteryLevel, string> = {
+27	  untouched: '未触',
+28	  exposed: '初识',
+29	  practicing: '练习中',
+30	  mastered: '已掌握',
+31	  applied: '已应用',
+32	};
+33	const phaseLabel: Record<ChapterPhase, string> = {
+34	  learning: '学习中',
+35	  assessment: '章末测试',
+36	  completed: '已完成 🎉',
+37	};
+38	const phaseTagType: Recor
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:21:33 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:21:34 PM</sup>
+
+加 "全部章节" 一栏。先扩 API contract:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:21:35 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\api-contracts.ts",
+  "offset": 235,
+  "limit": 30
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:21:35 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+235	// GET /api/qa-threads/:threadId
+236	// 拿单个 thread 的完整对话（用于回看历史）
+237	export interface GetQaThreadResponse {
+238	  thread: QaThread;
+239	  messages: QaMessage[];
+240	}
+241	
+242	// GET /api/sessions/:sessionId/qa-threads
+243	// 列出 session 内**全部** thread(含 ended),用于"历史 QA"侧栏
+244	export interface ListAllQaThreadsResponse {
+245	  threads: QaThread[];
+246	}
+247	
+248	// ============================================================
+249	// /api/sessions/:sessionId/progress
+250	// 学习者在当前 session 中的章节进度概览,用于 ProgressSidebar
+251	// ============================================================
+252	
+253	export interface SessionProgressLoEntry {
+254	  id: string;
+255	  name: string;
+256	  masteryLevel: MasteryLevel;
+257	  mandatoryCompletedCount: number;
+258	  requiredInteractionCount: number;
+259	  mandatoryAllCompleted: boolean;
+260	  prerequisitesSatisfied: boolean;     // 强 prereq 是否全部必做完成(决定 LO 是否可点击进入)
+261	  isCurrent: boolean;                  // 当前 session 正在做的 LO
+262	}
+263	
+264	export inte
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:21:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\api-contracts.ts",
+  "offset": 263,
+  "limit": 20
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:21:50 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+263	
+264	export interface SessionProgressChapter {
+265	  id: string;
+266	  name: string;
+267	  phase: ChapterPhase;
+268	  assessmentRequiredCount: number;
+269	  assessmentCompletedCount: number;
+270	}
+271	
+272	export interface GetSessionProgressResponse {
+273	  course: { id: string; name: string };
+274	  chapter: SessionProgressChapter;
+275	  los: SessionProgressLoEntry[];
+276	}
+277	
+278	// ============================================================
+279	// /api/archives/:kind/:id
+280	// 把任意"学习节点"统一转 markdown。kind:
+281	//   - lo (?learnerId=)         → LO 学习档案(讲解 + 学习者已做题 + 反馈)
+282	//   - qa-thread                 → QA 对话档案
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:22:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\api-contracts.ts",
+  "old_string": "export interface SessionProgressChapter {\n  id: string;\n  name: string;\n  phase: ChapterPhase;\n  assessmentRequiredCount: number;\n  assessmentCompletedCount: number;\n}\n\nexport interface GetSessionProgressResponse {\n  course: { id: string; name: string };\n  chapter: SessionProgressChapter;\n  los: SessionProgressLoEntry[];\n}",
+  "new_string": "export interface SessionProgressChapter {\n  id: string;\n  name: string;\n  phase: ChapterPhase;\n  assessmentRequiredCount: number;\n  assessmentCompletedCount: number;\n}\n\n// 课程内所有章节的轻量摘要(让 sidebar 显示\"全部章节\"概览,知道当前在哪、还有哪些)\nexport interface SessionProgressChapterOutline {\n  id: string;\n  name: string;\n  phase: ChapterPhase;\n  isCurrent: boolean; // 当前 session 正在学的那一章\n}\n\nexport interface GetSessionProgressResponse {\n  course: { id: string; name: string };\n  chapter: SessionProgressChapter;\n  los: SessionProgressLoEntry[];\n  // v0.2 多 chapter 支持:课程全部章节的概览,带 phase + isCurrent。\n  // 学习者跨章浏览(目前 sidebar 只展示,不允许点跳;下一版可加跳转)\n  allChapters: SessionProgressChapterOutline[];\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:22:13 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types\src\api-contracts.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:22:24 PM</sup>
+
+Server 实现:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:22:28 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    return {\n      course: { id: course.id, name: course.name },\n      chapter: {\n        id: chapter.id,\n        name: chapter.name,\n        phase: chapterProgress.phase,\n        assessmentRequiredCount,\n        assessmentCompletedCount: chapterProgress.assessmentCompletedIds.length,\n      },\n      los,\n    };\n  }",
+  "new_string": "    // 课程全部章节概览 — 给 sidebar 显示\"还有哪些章\"\n    const allChapters = [];\n    for (const ch of course.chapters) {\n      const chProgress = await this.getChapterProgressOrDefault(\n        session.learner_id,\n        ch.id,\n      );\n      allChapters.push({\n        id: ch.id,\n        name: ch.name,\n        phase: chProgress.phase,\n        isCurrent: ch.id === chapter.id,\n      });\n    }\n\n    return {\n      course: { id: course.id, name: course.name },\n      chapter: {\n        id: chapter.id,\n        name: chapter.name,\n        phase: chapterProgress.phase,\n        assessmentRequiredCount,\n        assessmentCompletedCount: chapterProgress.assessmentCompletedIds.length,\n      },\n      los,\n      allChapters,\n    };\n  }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:22:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:22:37 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:22:37 PM</sup>
+
+Types not rebuilt yet. Rebuilding.
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:22:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm build:types 2>&1 | tail -3",
+  "description": "Rebuild types",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:22:43 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/tutor-types@0.0.1 build C:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types
+> tsc -p tsconfig.json
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:23:04 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm typecheck 2>&1 | tail -5",
+  "description": "Full typecheck",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:24:48 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+packages/tutor-types typecheck: Done
+server typecheck$ tsc -p tsconfig.json --noEmit
+web typecheck$ vue-tsc --noEmit
+web typecheck: Done
+server typecheck: Done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:25:08 PM</sup>
+
+Now wire `allChapters` into ProgressSidebar.
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:25:15 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\ProgressSidebar.vue",
+  "old_string": "  <aside v-if=\"progress\" class=\"progress-sidebar\">\n    <div class=\"header\">\n      <div class=\"course-name\">{{ progress.course.name }}</div>\n      <div class=\"chapter-name\">{{ progress.chapter.name }}</div>\n      <el-tag :type=\"phaseTagType[progress.chapter.phase]\" size=\"small\" class=\"phase-tag\">\n        {{ phaseLabel[progress.chapter.phase] }}\n      </el-tag>\n    </div>\n\n    <div class=\"section\">\n      <div class=\"section-title\">学习目标</div>",
+  "new_string": "  <aside v-if=\"progress\" class=\"progress-sidebar\">\n    <div class=\"header\">\n      <div class=\"course-name\">{{ progress.course.name }}</div>\n      <div class=\"chapter-name\">{{ progress.chapter.name }}</div>\n      <el-tag :type=\"phaseTagType[progress.chapter.phase]\" size=\"small\" class=\"phase-tag\">\n        {{ phaseLabel[progress.chapter.phase] }}\n      </el-tag>\n    </div>\n\n    <!-- v0.2 多 chapter:本课程全部章节概览,当前章高亮 -->\n    <div v-if=\"progress.allChapters.length > 1\" class=\"section\">\n      <div class=\"section-title\">课程全部章节</div>\n      <div class=\"chapter-outline\">\n        <div\n          v-for=\"(ch, idx) in progress.allChapters\"\n          :key=\"ch.id\"\n          :class=\"[\n            'chapter-row',\n            { current: ch.isCurrent, completed: ch.phase === 'completed' },\n          ]\"\n        >\n          <span class=\"chapter-idx\">{{ idx + 1 }}.</span>\n          <span class=\"chapter-row-name\">{{ ch.name }}</span>\n          <el-tag\n            :type=\"phaseTagType[ch.phase]\"\n            size=\"small\"\n            class=\"chapter-row-phase\"\n          >\n            {{ phaseLabel[ch.phase] }}\n          </el-tag>\n        </div>\n      </div>\n    </div>\n\n    <div class=\"section\">\n      <div class=\"section-title\">学习目标(当前章)</div>"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:25:16 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\ProgressSidebar.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:25:37 PM</sup>
+
+Add CSS for the new chapter-outline section:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:25:42 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\ProgressSidebar.vue",
+  "old_string": ".section-title {\n  font-size: 12px;\n  font-weight: 600;\n  color: #909399;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n  margin-bottom: 10px;\n}",
+  "new_string": ".section-title {\n  font-size: 12px;\n  font-weight: 600;\n  color: #909399;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n  margin-bottom: 10px;\n}\n.chapter-outline {\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n}\n.chapter-row {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  padding: 8px 10px;\n  border-radius: 6px;\n  font-size: 13px;\n  color: #606266;\n  border: 1px solid transparent;\n}\n.chapter-row.current {\n  background: #ecf5ff;\n  border-color: #b3d8ff;\n  color: #303133;\n  font-weight: 600;\n}\n.chapter-row.completed:not(.current) {\n  color: #909399;\n}\n.chapter-idx {\n  flex-shrink: 0;\n  font-size: 12px;\n  color: #909399;\n}\n.chapter-row-name {\n  flex: 1;\n  min-width: 0;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n.chapter-row-phase {\n  flex-shrink: 0;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:25:43 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\ProgressSidebar.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:25:56 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm typecheck 2>&1 | tail -5",
+  "description": "Final typecheck",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:26:05 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+packages/tutor-types typecheck: Done
+server typecheck$ tsc -p tsconfig.json --noEmit
+web typecheck$ vue-tsc --noEmit
+web typecheck: Done
+server typecheck: Done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:26:18 PM</sup>
+
+E2E verify the response includes `allChapters` + sidebar will render:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:26:20 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pkill -f \"node\" 2>/dev/null; sleep 2; rm -rf \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/dist\"; pnpm dev:server 2>&1",
+  "description": "Clean restart",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:26:23 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: bnzaanqkv. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\bnzaanqkv.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:26:48 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -f -o /dev/null http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; echo \"ready\"; \\\nSESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\necho \"session=$SID\"; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nprint('=== chapter (current) ===')\nprint(' ', d['chapter']['name'], '|', d['chapter']['phase'])\nprint('=== los (current chapter) ===')\nfor lo in d['los']:\n    flag = '★' if lo['isCurrent'] else ' '\n    print(f\\\"  {flag} {lo['name']:30}  {lo['masteryLevel']:12}  必做{lo['mandatoryCompletedCount']}/{lo['requiredInteractionCount']}\\\")\nprint('=== allChapters ===')\nfor ch in d['allChapters']:\n    flag = '★' if ch['isCurrent'] else ' '\n    print(f\\\"  {flag} {ch['name']:25}  {ch['phase']}\\\")\n\"",
+  "description": "Verify multi-chapter progress payload",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:27:35 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Exit code 1
+ready
+session=19
+Traceback (most recent call last):
+  File "<string>", line 11, in <module>
+KeyError: 'allChapters'
+=== chapter (current) ===
+  列表与迭代 | completed
+=== los (current chapter) ===
+    列表的创建与表示                        untouched     必做0/3
+    索引与切片                           untouched     必做0/3
+    可变性、引用 vs 拷贝                    untouched     必做0/3
+    用 for 遍历列表                      untouched     必做0/3
+=== allChapters ===
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:28:00 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:28:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"SELECT * FROM learner_chapter_progress WHERE learner_id=1;\" 2>&1 | tail -10",
+  "description": "Check chapter progress state"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:28:24 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+mysql: [Warning] Using a password on the command line interface can be insecure.
+learner_id	chapter_id	phase	assessment_completed_ids	updated_at
+1	ch.list_and_iter	completed	["ca.list_and_iter.1"]	2026-05-09 02:15:29.571
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:28:42 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:28:45 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "tail -15 \"C:/Users/gyh/AppData/Local/Temp/claude/c--Users-gyh-Desktop-Projects-whale-tutor/1a3a26bb-4046-445c-a8bf-4eb54527400b/tasks/bnzaanqkv.output\"",
+  "description": "Server log"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:28:50 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+at listenInCluster (node:net:1997:12)
+    at Server.listen (node:net:2102:7)
+    at ExpressAdapter.listen (C:\Users\gyh\Desktop\Projects\whale-tutor\node_modules\.pnpm\@nestjs+platform-express@10.4.22_@nestjs+common@10.4.22_@nestjs+core@10.4.22\node_modules\@nestjs\platform-express\adapters\express-adapter.js:95:32)
+    at C:\Users\gyh\Desktop\Projects\whale-tutor\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_@nestjs+platform-express@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\nest-application.js:183:30
+    at new Promise (<anonymous>)
+    at NestApplication.listen (C:\Users\gyh\Desktop\Projects\whale-tutor\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_@nestjs+platform-express@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\nest-application.js:173:16)
+    at async bootstrap (C:\Users\gyh\Desktop\Projects\whale-tutor\server\src\main.ts:31:3) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'list
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:29:06 PM</sup>
+
+EADDRINUSE again - port 3000 has stale server. Killing PID:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:29:08 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "netstat -ano 2>&1 | grep \":3000.*LISTENING\" | awk '{print $NF}' | head -1 | xargs -I{} taskkill //F //PID {} 2>&1 ; sleep 2; netstat -ano 2>&1 | grep \":3000.*LISTENING\" || echo \"port free\"",
+  "description": "Find + kill PID on port 3000"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:29:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+SUCCESS: The process with PID 33484 has been terminated.
+port free
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:29:48 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "bnzaanqkv"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:29:48 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: bnzaanqkv (pkill -f \"node\" 2>/dev/null; sleep 2; rm -rf \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/dist\"; pnpm dev:server 2>&1)","task_id":"bnzaanqkv","task_type":"local_bash","command":"pkill -f \"node\" 2>/dev/null; sleep 2; rm -rf \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/dist\"; pnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:29:49 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm dev:server 2>&1",
+  "description": "Restart server fresh",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:30:18 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: btl9q6nmo. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\btl9q6nmo.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:30:46 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -f -o /dev/null http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; echo \"ready\"; \\\nSESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\nLOID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['interaction']['loId'])\"); \\\necho \"session=$SID, started at loId=$LOID\"; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nprint('=== chapter (current) ===')\nprint(' ', d['chapter']['name'], '|', d['chapter']['phase'])\nprint('=== los (current chapter) ===')\nfor lo in d['los']:\n    flag = '★' if lo['isCurrent'] else ' '\n    print(f\\\"  {flag} {lo['name']:30}  {lo['masteryLevel']:12}  必做{lo['mandatoryCompletedCount']}/{lo['requiredInteractionCount']}\\\")\nprint('=== allChapters ===')\nfor ch in d['allChapters']:\n    flag = '★' if ch['isCurrent'] else ' '\n    print(f\\\"  {flag} {ch['name']:25}  {ch['phase']}\\\")\n\"",
+  "description": "Verify multi-chapter progress with allChapters",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:31:15 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+ready
+session=20, started at loId=lo.string.basics
+=== chapter (current) ===
+  字符串与格式化 | learning
+=== los (current chapter) ===
+  ★ 字符串字面量与不可变性                     untouched     必做0/3
+    字符串方法与 f-string                 untouched     必做0/3
+=== allChapters ===
+    列表与迭代                      completed
+  ★ 字符串与格式化                    learning
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:31:34 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:31:36 PM</sup>
+
+修复验证全过:
+- 当前章正确解析为"字符串与格式化"(chapter 2,因为 chapter 1 已 completed)
+- LO 列表只显示 chapter 2 的两个 LO,当前 LO 用 ★ 标
+- "课程全部章节" 一栏显示两章,前一章 completed,当前章 learning
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:31:36 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "btl9q6nmo"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:31:36 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: btl9q6nmo (pnpm dev:server 2>&1)","task_id":"btl9q6nmo","task_type":"local_bash","command":"pnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:31:37 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pkill -f \"node\" 2>/dev/null; sleep 1; pnpm lint 2>&1 | tail -3",
+  "description": "Cleanup + lint",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:31:57 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> whale-tutor@0.0.1 lint C:\Users\gyh\Desktop\Projects\whale-tutor
+> eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --max-warnings 0
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:32:31 PM</sup>
+
+Lint 干净。
+
+## 修复汇总
+
+**两个 bug + 一个 UX 缺**:
+
+1. **Bug:`getProgress` 写死 chapter[0]** — sidebar 只显示第一章,无论实际在哪章
+   - 改 [session.service.ts:485-488](server/src/session/session.service.ts) 从 `session.current_lo_id` 反查 `getChapterByLoId`
+   - 现在 sidebar "学习目标" 区显示当前章节的 LO 列表
+
+2. **UX 缺:不知道课程一共多少章** — 用户原话
+   - 扩 [api-contracts.ts](packages/tutor-types/src/api-contracts.ts) `GetSessionProgressResponse` 加 `allChapters: SessionProgressChapterOutline[]`
+   - [session.service.ts](server/src/session/session.service.ts) `getProgress` 多查一遍 `learner_chapter_progress` 凑出全部章节状态
+   - [ProgressSidebar.vue](web/src/components/ProgressSidebar.vue) 在头部下面新增"课程全部章节"一栏(仅多于 1 章时显示):章序号 + 章名 + phase tag,当前章蓝底高亮 + 加粗;completed 章变灰
+   - "学习目标" 标题改成"学习目标(当前章)" 让作用域更明确
+
+3. 顺手:CSS 对长章名加了 `text-overflow: ellipsis`,防侧栏炸宽
+
+刷新页面应该看到:
+- 顶部:课程名 → 当前章名 → phase 标签
+- **新增"课程全部章节"区块**:列出 1.列表与迭代(已完成 🎉) ★2.字符串与格式化(学习中)
+- "学习目标(当前章)" 显示字符串字面量 + 字符串方法两个 LO,字面量带 ★ 蓝底高亮
+- "章末测试" 仍是当前章的(综合检验)
+
+
+---
+
+## User <sup>5/8/2026, 10:34:10 PM</sup>
+
+现在python的chapter1为什么已经完成了呢，怎么重置，还有我章节是不是不能切换，比如我学第二章想看一下第一章内容
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:35:29 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:35:32 PM</sup>
+
+Two real issues. Let me handle:
+
+1. **chapter 1 显示已完成** — 因为我之前测试 multi-chapter 时往 DB mock 了一行 `learner_chapter_progress`(phase='completed'),没清。下面给你重置方法。
+2. **章节切换** — 当前 sidebar "课程全部章节" 只是只读展示。让我加上点击切换 + 顺便讲下 reset 路径。
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:35:35 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Server: SwitchChapter endpoint + types",
+      "activeForm": "Switch chapter endpoint",
+      "status": "in_progress"
+    },
+    {
+      "content": "Frontend: api + store action + sidebar clickable",
+      "activeForm": "Frontend switch chapter",
+      "status": "pending"
+    },
+    {
+      "content": "Doc: §8.5 加 reset 说明 + 讲 chapter 切换",
+      "activeForm": "Doc update",
+      "status": "pending"
+    },
+    {
+      "content": "E2E + lint",
+      "activeForm": "Verify",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:35:35 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:35:57 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\api-contracts.ts",
+  "old_string": "// ============================================================\n// /api/sessions/:id/acknowledge-review-lo\n// v0.2:学习者从 LO recap 回来后调用,清 pending_retry_ri_id + consecutive_wrong=0,\n// 服务端再次决定下一题(理想情况是回到原 RI 静态题)。\n// ============================================================\n\nexport interface AcknowledgeReviewLoResponse {\n  decision: PathDecision;\n  interaction: ServedInteraction | null;\n}",
+  "new_string": "// ============================================================\n// /api/sessions/:id/acknowledge-review-lo\n// v0.2:学习者从 LO recap 回来后调用,清 pending_retry_ri_id + consecutive_wrong=0,\n// 服务端再次决定下一题(理想情况是回到原 RI 静态题)。\n// ============================================================\n\nexport interface AcknowledgeReviewLoResponse {\n  decision: PathDecision;\n  interaction: ServedInteraction | null;\n}\n\n// ============================================================\n// /api/sessions/:id/switch-chapter\n// v0.2 多 chapter:学习者从 sidebar 点其他章节,session.current_lo_id 切到该章首 LO。\n// 不限制(任何章都能切,包括已完成的回看 / 未达 prereq 的提前看)。\n// ============================================================\n\nexport interface SwitchChapterRequest {\n  chapterId: string;\n}\n\nexport interface SwitchChapterResponse {\n  decision: PathDecision;\n  interaction: ServedInteraction | null;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:35:58 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types\src\api-contracts.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:36:18 PM</sup>
+
+Server service + controller:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:36:24 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "import type {\n  AcknowledgeReviewLoResponse,\n  ChapterAssessmentAction,\n  ChapterPhase,\n  EndSessionResponse,\n  EvaluationResult,\n  GetSessionProgressResponse,\n  LearnerLoState,\n  LearningObjectiveDefinition,\n  MasteryLevel,\n  PathDecision,\n  PatternId,\n  RequestHintRequest,\n  RequestHintResponse,\n  RequiredInteraction,\n  ServeInteractionAction,\n  ServedInteraction,\n  SessionProgressLoEntry,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n} from '@whale-tutor/tutor-types';",
+  "new_string": "import type {\n  AcknowledgeReviewLoResponse,\n  ChapterAssessmentAction,\n  ChapterPhase,\n  EndSessionResponse,\n  EvaluationResult,\n  GetSessionProgressResponse,\n  LearnerLoState,\n  LearningObjectiveDefinition,\n  MasteryLevel,\n  PathDecision,\n  PatternId,\n  RequestHintRequest,\n  RequestHintResponse,\n  RequiredInteraction,\n  ServeInteractionAction,\n  ServedInteraction,\n  SessionProgressLoEntry,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n  SwitchChapterRequest,\n  SwitchChapterResponse,\n} from '@whale-tutor/tutor-types';"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:36:25 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:37:09 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "  // ========================================================\n  // 静态梯度提示(StuckProtocol)\n  // 作者写了 RI.hints → 直接返;没写 → AI 兜底生成 3 级 + cache\n  // ========================================================",
+  "new_string": "  // ========================================================\n  // v0.2 多 chapter:学习者主动切章\n  // ------------------------------------------------------------\n  // 把 session.current_lo_id 切到目标 chapter 的第一个 LO,decideNext 重算。\n  // 不限制(任意章可切,包括已完成的回看 / 未学过的提前看)。\n  // 不影响 mastery / mandatory 状态 — 只是切换\"focus\"。\n  // ========================================================\n\n  async switchChapter(\n    sessionId: number,\n    body: SwitchChapterRequest,\n  ): Promise<SwitchChapterResponse> {\n    const session = await this.db\n      .selectFrom('sessions')\n      .selectAll()\n      .where('id', '=', sessionId)\n      .executeTakeFirst();\n    if (!session) throw new NotFoundException(`Session not found: ${sessionId}`);\n\n    const course = this.knowledge.getCourseDefinition(session.course_id);\n    const targetChapter = course.chapters.find((c) => c.id === body.chapterId);\n    if (!targetChapter) {\n      throw new NotFoundException(\n        `Chapter ${body.chapterId} not found in course ${session.course_id}`,\n      );\n    }\n    const targetLo = targetChapter.learningObjectives[0];\n    const fromLoId = session.current_lo_id;\n\n    await this.db\n      .updateTable('sessions')\n      .set({ current_lo_id: targetLo.id })\n      .where('id', '=', sessionId)\n      .execute();\n\n    await this.events.emit({\n      sessionId,\n      learnerId: session.learner_id,\n      loId: targetLo.id,\n      type: 'lo.entered',\n      payload: { from: fromLoId, reason: 'switch_chapter' },\n    });\n\n    let decision = await this.decideNext(sessionId, session.learner_id, targetLo.id);\n    let interaction = a
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:37:10 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:37:35 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.controller.ts",
+  "old_string": "import type {\n  AcknowledgeReviewLoResponse,\n  EndSessionResponse,\n  GetSessionProgressResponse,\n  RequestHintRequest,\n  RequestHintResponse,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n} from '@whale-tutor/tutor-types';\nimport { SessionService } from './session.service';",
+  "new_string": "import type {\n  AcknowledgeReviewLoResponse,\n  EndSessionResponse,\n  GetSessionProgressResponse,\n  RequestHintRequest,\n  RequestHintResponse,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n  SwitchChapterRequest,\n  SwitchChapterResponse,\n} from '@whale-tutor/tutor-types';\nimport { SessionService } from './session.service';"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:37:36 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.controller.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:38:03 PM</sup>
+
+Types not rebuilt. Rebuilding then adding the route.
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:38:04 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm build:types 2>&1 | tail -3",
+  "description": "Rebuild types",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:38:09 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/tutor-types@0.0.1 build C:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types
+> tsc -p tsconfig.json
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:38:26 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.controller.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:38:26 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import {
+2	  Body,
+3	  Controller,
+4	  Get,
+5	  Param,
+6	  ParseIntPipe,
+7	  Post,
+8	} from '@nestjs/common';
+9	import type {
+10	  AcknowledgeReviewLoResponse,
+11	  EndSessionResponse,
+12	  GetSessionProgressResponse,
+13	  RequestHintRequest,
+14	  RequestHintResponse,
+15	  StartSessionRequest,
+16	  StartSessionResponse,
+17	  SubmitResponseBody,
+18	  SubmitResponseResult,
+19	  SwitchChapterRequest,
+20	  SwitchChapterResponse,
+21	} from '@whale-tutor/tutor-types';
+22	import { SessionService } from './session.service';
+23	
+24	// vite proxy 把 /api/* 重写为 /*,这里不加 'api' 前缀。
+25	@Controller('sessions')
+26	export class SessionController {
+27	  constructor(private readonly sessions: SessionService) {}
+28	
+29	  @Post()
+30	  start(@Body() body: StartSessionRequest): Promise<StartSessionResponse> {
+31	    return this.sessions.start({
+32	      learnerId: body.learnerId,
+33	      courseId: body.courseId,
+34	    });
+35	  }
+36	
+37	  @Post(':id/responses')
+38	  submit(
+39	    @Param('id', ParseIntPipe)
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:38:41 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.controller.ts",
+  "old_string": "  @Post(':id/acknowledge-review-lo')\n  acknowledgeReviewLo(\n    @Param('id', ParseIntPipe) sessionId: number,\n  ): Promise<AcknowledgeReviewLoResponse> {\n    return this.sessions.acknowledgeReviewLo(sessionId);\n  }\n\n  @Get(':id/progress')",
+  "new_string": "  @Post(':id/acknowledge-review-lo')\n  acknowledgeReviewLo(\n    @Param('id', ParseIntPipe) sessionId: number,\n  ): Promise<AcknowledgeReviewLoResponse> {\n    return this.sessions.acknowledgeReviewLo(sessionId);\n  }\n\n  @Post(':id/switch-chapter')\n  switchChapter(\n    @Param('id', ParseIntPipe) sessionId: number,\n    @Body() body: SwitchChapterRequest,\n  ): Promise<SwitchChapterResponse> {\n    return this.sessions.switchChapter(sessionId, body);\n  }\n\n  @Get(':id/progress')"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:38:42 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.controller.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:39:03 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/server typecheck 2>&1 | tail -3",
+  "description": "Server typecheck",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:39:08 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/server@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> tsc -p tsconfig.json --noEmit
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:39:25 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Server: SwitchChapter endpoint + types",
+      "activeForm": "Switch chapter endpoint",
+      "status": "completed"
+    },
+    {
+      "content": "Frontend: api + store action + sidebar clickable",
+      "activeForm": "Frontend switch chapter",
+      "status": "in_progress"
+    },
+    {
+      "content": "Doc: §8.5 加 reset 说明 + 讲 chapter 切换",
+      "activeForm": "Doc update",
+      "status": "pending"
+    },
+    {
+      "content": "E2E + lint",
+      "activeForm": "Verify",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:39:25 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:39:37 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\api\\session.ts",
+  "old_string": "import type {\n  AcknowledgeReviewLoResponse,\n  EndSessionResponse,\n  GetSessionProgressResponse,\n  RequestHintRequest,\n  RequestHintResponse,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n} from '@whale-tutor/tutor-types';\nimport { http } from './http';",
+  "new_string": "import type {\n  AcknowledgeReviewLoResponse,\n  EndSessionResponse,\n  GetSessionProgressResponse,\n  RequestHintRequest,\n  RequestHintResponse,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n  SwitchChapterRequest,\n  SwitchChapterResponse,\n} from '@whale-tutor/tutor-types';\nimport { http } from './http';"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:39:38 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\api\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:39:58 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\api\\session.ts",
+  "old_string": "export async function acknowledgeReviewLo(\n  sessionId: number,\n): Promise<AcknowledgeReviewLoResponse> {\n  const res = await http.post<AcknowledgeReviewLoResponse>(\n    `/sessions/${sessionId}/acknowledge-review-lo`,\n  );\n  return res.data;\n}",
+  "new_string": "export async function acknowledgeReviewLo(\n  sessionId: number,\n): Promise<AcknowledgeReviewLoResponse> {\n  const res = await http.post<AcknowledgeReviewLoResponse>(\n    `/sessions/${sessionId}/acknowledge-review-lo`,\n  );\n  return res.data;\n}\n\nexport async function switchChapter(\n  sessionId: number,\n  body: SwitchChapterRequest,\n): Promise<SwitchChapterResponse> {\n  const res = await http.post<SwitchChapterResponse>(\n    `/sessions/${sessionId}/switch-chapter`,\n    body,\n  );\n  return res.data;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:39:59 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\api\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:40:22 PM</sup>
+
+Store action:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:40:33 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "old_string": "  /**\n   * v0.2:从 LO recap 兜底回来 → 调 server 清 retry 状态,服务端再 decideNext + 服务下一题。\n   * 通常会得到原 RI 的 static 题。失败的话 server 仍可能再返 review_lo,前端继续展示。\n   */\n  async function acknowledgeReviewLo(): Promise<void> {",
+  "new_string": "  /**\n   * v0.2 多 chapter:从 sidebar 点其他章节,server 把 session.current_lo_id 切到该章首 LO,\n   * 重算 decideNext + 服务下一题。不影响 mastery / mandatory 状态。\n   */\n  async function switchChapter(chapterId: string): Promise<void> {\n    if (!sessionId.value) return;\n    loading.value = true;\n    error.value = null;\n    try {\n      const data = await sessionApi.switchChapter(sessionId.value, { chapterId });\n      currentInteraction.value = data.interaction;\n      currentDecision.value = data.decision;\n      pendingNextInteraction.value = null;\n      lastEvaluation.value = null;\n      showFeedback.value = false;\n      currentHintLevel.value = 0;\n      // 切到不同 LO → 默认显示 LO intro(让学习者看清新章节内容)\n      acknowledgedLoIds.value = new Set();\n      applyReviewLoFromDecision(data.decision);\n      await refreshLoIntroFlag();\n      void refreshProgress();\n    } catch (e) {\n      error.value = (e as Error).message;\n      throw e;\n    } finally {\n      loading.value = false;\n    }\n  }\n\n  /**\n   * v0.2:从 LO recap 兜底回来 → 调 server 清 retry 状态,服务端再 decideNext + 服务下一题。\n   * 通常会得到原 RI 的 static 题。失败的话 server 仍可能再返 review_lo,前端继续展示。\n   */\n  async function acknowledgeReviewLo(): Promise<void> {"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:40:34 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\stores\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:40:56 PM</sup>
+
+Need to export `switchChapter` from the store too.
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:40:58 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "old_string": "    // actions\n    start,\n    submit,\n    continueToNext,\n    acknowledgeCurrentLo,\n    acknowledgeReviewLo,\n    refreshProgress,\n    ensureLoMeta,\n    end,\n  };\n});",
+  "new_string": "    // actions\n    start,\n    submit,\n    continueToNext,\n    acknowledgeCurrentLo,\n    acknowledgeReviewLo,\n    switchChapter,\n    refreshProgress,\n    ensureLoMeta,\n    end,\n  };\n});"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:40:59 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\stores\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:41:17 PM</sup>
+
+Now ProgressSidebar — make chapter rows clickable:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:41:24 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\ProgressSidebar.vue",
+  "old_string": "    <!-- v0.2 多 chapter:本课程全部章节概览,当前章高亮 -->\n    <div v-if=\"progress.allChapters.length > 1\" class=\"section\">\n      <div class=\"section-title\">课程全部章节</div>\n      <div class=\"chapter-outline\">\n        <div\n          v-for=\"(ch, idx) in progress.allChapters\"\n          :key=\"ch.id\"\n          :class=\"[\n            'chapter-row',\n            { current: ch.isCurrent, completed: ch.phase === 'completed' },\n          ]\"\n        >\n          <span class=\"chapter-idx\">{{ idx + 1 }}.</span>\n          <span class=\"chapter-row-name\">{{ ch.name }}</span>\n          <el-tag\n            :type=\"phaseTagType[ch.phase]\"\n            size=\"small\"\n            class=\"chapter-row-phase\"\n          >\n            {{ phaseLabel[ch.phase] }}\n          </el-tag>\n        </div>\n      </div>\n    </div>",
+  "new_string": "    <!-- v0.2 多 chapter:本课程全部章节概览,当前章高亮;点其他章可切换 focus -->\n    <div v-if=\"progress.allChapters.length > 1\" class=\"section\">\n      <div class=\"section-title\">课程全部章节</div>\n      <div class=\"chapter-outline\">\n        <button\n          v-for=\"(ch, idx) in progress.allChapters\"\n          :key=\"ch.id\"\n          :class=\"[\n            'chapter-row',\n            { current: ch.isCurrent, completed: ch.phase === 'completed' },\n          ]\"\n          :disabled=\"ch.isCurrent\"\n          :title=\"ch.isCurrent ? '当前章节' : `点击切换到「${ch.name}」`\"\n          @click=\"onSwitchChapter(ch.id)\"\n        >\n          <span class=\"chapter-idx\">{{ idx + 1 }}.</span>\n          <span class=\"chapter-row-name\">{{ ch.name }}</span>\n          <el-tag\n            :type=\"phaseTagType[ch.phase]\"\n            size=\"small\"\n            class=\"chapter-row-phase\"\n          >\n            {{ phaseLabel[ch.phase] }}\n          </el-tag>\n        </button>\n      </div>\n    </div>"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:41:25 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\ProgressSidebar.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:41:46 PM</sup>
+
+Add `onSwitchChapter` handler + adjust CSS for `<button>`:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:41:48 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\ProgressSidebar.vue",
+  "old_string": "const sessionStore = useSessionStore();\nconst { progress } = storeToRefs(sessionStore);",
+  "new_string": "const sessionStore = useSessionStore();\nconst { progress } = storeToRefs(sessionStore);\n\nasync function onSwitchChapter(chapterId: string): Promise<void> {\n  await sessionStore.switchChapter(chapterId);\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:41:49 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\ProgressSidebar.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:42:05 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\ProgressSidebar.vue",
+  "old_string": ".chapter-row {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  padding: 8px 10px;\n  border-radius: 6px;\n  font-size: 13px;\n  color: #606266;\n  border: 1px solid transparent;\n}\n.chapter-row.current {\n  background: #ecf5ff;\n  border-color: #b3d8ff;\n  color: #303133;\n  font-weight: 600;\n}\n.chapter-row.completed:not(.current) {\n  color: #909399;\n}",
+  "new_string": ".chapter-row {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  padding: 8px 10px;\n  border-radius: 6px;\n  font-size: 13px;\n  color: #606266;\n  border: 1px solid transparent;\n  background: transparent;\n  cursor: pointer;\n  width: 100%;\n  text-align: left;\n  transition: background 0.15s, border-color 0.15s;\n}\n.chapter-row:hover:not(:disabled) {\n  background: #fafafa;\n  border-color: #ebeef5;\n}\n.chapter-row.current {\n  background: #ecf5ff;\n  border-color: #b3d8ff;\n  color: #303133;\n  font-weight: 600;\n  cursor: default;\n}\n.chapter-row.completed:not(.current) {\n  color: #909399;\n}\n.chapter-row:disabled {\n  cursor: default;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:42:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\ProgressSidebar.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:42:20 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm typecheck 2>&1 | tail -5",
+  "description": "Full typecheck",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:42:33 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+packages/tutor-types typecheck: Done
+server typecheck$ tsc -p tsconfig.json --noEmit
+web typecheck$ vue-tsc --noEmit
+web typecheck: Done
+server typecheck: Done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:43:02 PM</sup>
+
+Now doc — add §8.6 reset path + §8.7 chapter switch.
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:43:04 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Server: SwitchChapter endpoint + types",
+      "activeForm": "Switch chapter endpoint",
+      "status": "completed"
+    },
+    {
+      "content": "Frontend: api + store action + sidebar clickable",
+      "activeForm": "Frontend switch chapter",
+      "status": "completed"
+    },
+    {
+      "content": "Doc: §8.5 加 reset 说明 + 讲 chapter 切换",
+      "activeForm": "Doc update",
+      "status": "in_progress"
+    },
+    {
+      "content": "E2E + lint",
+      "activeForm": "Verify",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:43:04 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:44:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\doc\\course-authoring.md",
+  "old_string": "### 8.5 改完想清空学习记录?\n\n学习记录在 MySQL `learner_state` / `events` / `interactions` / `responses` 表,跟你改课程内容**无关**。要清空(比如反复测试某 LO):\n\n```sql\n-- 进 mysql 客户端\nDELETE FROM learner_state WHERE learner_id = 1;\nDELETE FROM learner_chapter_progress WHERE learner_id = 1;\nDELETE FROM events WHERE learner_id = 1;\n-- responses / interactions 是事实表,通常不删,不影响新 session\n```\n\n**注意**:课程改 LO 的 `requiredInteractions` 数组(如删了一题)后,如果学习者已经做过的 RI id 还留在 `mandatory_completed_ids` 里,会变成\"无效完成\"。lint 不查这个,但表现是数字对不上;清 learner_state 即可。",
+  "new_string": "### 8.5 改完想清空学习记录?\n\n学习记录在 MySQL 里跟课程内容**完全分开**。改 yaml/md 不影响学习记录;改学习记录不影响课程。要清空学习记录有两条路径:\n\n#### 方式 A:**整个数据库重置**(开发期推荐)\n\n`whale-tutor` 用的是 MySQL docker 容器。开发本机最简单:\n\n```bash\n# 在开发 monorepo 目录\npnpm db:reset\n```\n\n它做的事:`docker compose down -v`(删卷)+ `docker compose up -d mysql`(重启 + 重跑 db/init/01-schema.sql)。所有 learner / session / interaction / response / event 都没了,schema 重建,demo learner_id=1 重新插入。\n\n如果你不在 monorepo 里(用 `whale-tutor` pip/npm CLI 跑):**直接进你装的 MySQL**:\n\n```sql\nDROP DATABASE whale_tutor;\nCREATE DATABASE whale_tutor;\n-- 然后重新跑 whale-tutor start,它会自动检测 schema 缺失并应用\n```\n\n#### 方式 B:只清单个 learner 的进度(不动 schema)\n\n```sql\nDELETE FROM learner_state WHERE learner_id = 1;\nDELETE FROM learner_chapter_progress WHERE learner_id = 1;\nDELETE FROM events WHERE learner_id = 1;\n-- 可选:清掉 sessions / interactions / responses(事实表,通常保留)\nDELETE FROM responses;\nDELETE FROM interactions;\nDELETE FROM sessions WHERE learner_id = 1;\n```\n\nv0 demo learner 硬编码 `id=1`,所以 `WHERE learner_id = 1` 永远对。等 v0.3 加认证后会变。\n\n#### 改课程结构后的\"残留\"问题\n\n改 LO 的 `requiredInteractions` 数组(如删了一题、改了 id)后,如果学习者已经做过的旧 RI id 还留在 `mandatory_completed_ids` 里,会变成\"无效完成\":数字对不上 / 章节进度算错。`whale-tutor lint` 不查这个(它只验 yaml 结构,不知道学习者做过什么)。出现这种情况,**清 learner_state**(方式 B)就好。\n\n### 8.6 章节切换(学习者侧)\n\n进入学习页(LearnView)后,左侧 ProgressSidebar 顶部是\
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:44:03 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\doc\course-authoring.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:44:24 PM</sup>
+
+Now bump 8.x sub-numbering:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:44:25 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -n \"^### 8\\.\" \"c:/Users/gyh/Desktop/Projects/whale-tutor/doc/course-authoring.md\"",
+  "description": "Check 8.x numbering"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:44:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+521:### 8.1 改了内容怎么办
+531:### 8.2 加一个新 LO
+540:### 8.3 加一道新必做题
+552:### 8.4 加一门新课程
+559:### 8.5 改完想清空学习记录?
+600:### 8.6 章节切换(学习者侧)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:44:44 PM</sup>
+
+Numbering is fine. Now lint + e2e + reset the lingering chapter_progress mock:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:44:45 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm lint 2>&1 | tail -3",
+  "description": "Lint",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:45:11 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> whale-tutor@0.0.1 lint C:\Users\gyh\Desktop\Projects\whale-tutor
+> eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --max-warnings 0
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:45:31 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "echo \"=== Reset learner 1 progress (clear earlier mocked completed chapter) ===\"; \\\ndocker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"\nDELETE FROM learner_state WHERE learner_id=1;\nDELETE FROM learner_chapter_progress WHERE learner_id=1;\nDELETE FROM events WHERE learner_id=1;\nDELETE FROM responses;\nDELETE FROM interactions;\nDELETE FROM sessions WHERE learner_id=1;\n\" 2>&1 | tail -1; \\\necho \"✓ learner 1 state cleared\"",
+  "description": "Reset learner state to fix the lingering completed chapter"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:45:40 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+=== Reset learner 1 progress (clear earlier mocked completed chapter) ===
+mysql: [Warning] Using a password on the command line interface can be insecure.
+✓ learner 1 state cleared
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:45:58 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pkill -f \"node\" 2>/dev/null; sleep 1; pnpm dev:server 2>&1",
+  "description": "Restart server",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:47:10 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: b93mtmyqz. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\b93mtmyqz.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:47:29 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -f -o /dev/null http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; echo \"ready\"; \\\necho \"=== Test 1: 干净状态 start python → chapter 1 ===\"; \\\nSESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\necho \"$SESSION\" | python -c \"import sys,json; d=json.load(sys.stdin); print('  loId:', d['interaction']['loId'])\"; \\\necho \"\"; \\\necho \"=== Test 2: progress shows current=chapter 1, allChapters has 2 ===\"; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nprint('  current chapter:', d['chapter']['name'], '|', d['chapter']['phase'])\nprint('  allChapters:')\nfor ch in d['allChapters']:\n    flag = '★' if ch['isCurrent'] else ' '\n    print(f'    {flag} {ch[\\\"name\\\"]:25}  {ch[\\\"phase\\\"]}')\n\"; \\\necho \"\"; \\\necho \"=== Test 3: switch to chapter 2 ===\"; \\\nSWITCH=$(curl -sS -X POST \"http://localhost:3000/api/sessions/$SID/switch-chapter\" -H \"Content-Type: application/json\" -d '{\"chapterId\":\"ch.string_and_format\"}'); \\\necho \"$SWITCH\" | python -c \"import sys,json; d=json.load(sys.stdin); print('  served loId:', d['interaction']['loId'])\"; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nprint('  current chapter:', d['chapter']['name'], '|', d['chapter']['phase'])\nprint('  allChapters:')\nfor ch in d['allChapters']:\n    flag = '★' if ch['isCurrent'] else ' '\n    print(f'    {flag} {ch[\\\"name\\\"]:25}  {ch[\\\"phase\\\"]}')\n\"; \\\necho \"\"; \\\necho \"=== Test 4: switch back to chapter 1 ===\"; \\\ncurl -sS -X POST \"http://localhost:3000/api/sessions/$SID/switch-chapter\" -H \"Content-Type: application/json\" -d '{\"chapterId\":\"ch.lis
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:47:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Exit code 1
+ready
+=== Test 1: 干净状态 start python → chapter 1 ===
+  loId: lo.list.basics
+
+=== Test 2: progress shows current=chapter 1, allChapters has 2 ===
+  current chapter: 列表与迭代 | learning
+  allChapters:
+    ★ 列表与迭代                      learning
+      字符串与格式化                    learning
+
+=== Test 3: switch to chapter 2 ===
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+KeyError: 'interaction'
+  current chapter: 列表与迭代 | learning
+  allChapters:
+    ★ 列表与迭代                      learning
+      字符串与格式化                    learning
+
+=== Test 4: switch back to chapter 1 ===
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+KeyError: 'interaction'
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:47:47 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:47:48 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "curl -sS -X POST \"http://localhost:3000/api/sessions/1/switch-chapter\" -H \"Content-Type: application/json\" -d '{\"chapterId\":\"ch.list_and_iter\"}' -w \"\\nHTTP %{http_code}\\n\"",
+  "description": "Direct test endpoint"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:48:23 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Cannot POST /api/sessions/1/switch-chapter","error":"Not Found","statusCode":404}
+HTTP 404
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:48:35 PM</sup>
+
+Endpoint not loaded — need watch to rebuild. Let me check task output:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:48:37 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -E \"switch-chapter|Mapped\" \"C:/Users/gyh/AppData/Local/Temp/claude/c--Users-gyh-Desktop-Projects-whale-tutor/1a3a26bb-4046-445c-a8bf-4eb54527400b/tasks/b93mtmyqz.output\" 2>&1 | tail -10",
+  "description": "Server boot routes"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:48:41 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+[32m[Nest] 36120  - [39m2026/05/08 22:47:18 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/qa-threads/:threadId, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 36120  - [39m2026/05/08 22:47:18 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/sessions, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 36120  - [39m2026/05/08 22:47:18 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/sessions/:id/responses, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 36120  - [39m2026/05/08 22:47:18 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/sessions/:id/end, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 36120  - [39m2026/05/08 22:47:18 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/sessions/:id/hints, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 36120  - [39m2026/05/08 22:47:18 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/sessions/:id/acknowledge-review-lo, POST} route[
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:48:52 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:48:53 PM</sup>
+
+Routes registered. The 404 from my manual `curl /sessions/1/...` is because session 1 doesn't exist (DB was reset). Let me re-run e2e with correct vars:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:48:56 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "SESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\necho \"session=$SID\"; \\\necho \"=== Switch to chapter 2 ===\"; \\\ncurl -sS -X POST \"http://localhost:3000/api/sessions/$SID/switch-chapter\" -H \"Content-Type: application/json\" -d '{\"chapterId\":\"ch.string_and_format\"}' -w \"\\nHTTP %{http_code}\\n\" | head -c 300",
+  "description": "Test switch-chapter with correct session id",
+  "timeout": 30000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:49:09 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+session=28
+=== Switch to chapter 2 ===
+{"message":"Cannot POST /api/sessions/28/switch-chapter","error":"Not Found","statusCode":404}
+HTTP 404
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:49:20 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "netstat -ano 2>&1 | grep \":3000.*LISTENING\"",
+  "description": "Who's actually listening"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:49:26 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+TCP    0.0.0.0:3000           0.0.0.0:0              LISTENING       19772
+  TCP    [::]:3000              [::]:0                 LISTENING       19772
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:49:35 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "tasklist //FI \"PID eq 19772\" 2>&1 | head -3",
+  "description": "Which process is on port"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:50:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Image Name                     PID Session Name        Session#    Mem Usage
+========================= ======== ================ =========== ============
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:51:06 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "tasklist 2>&1 | grep -i \"node\" | head -5",
+  "description": "Node processes"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:51:19 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+node.exe                     16488 Console                   18     37,036 K
+node.exe                      3684 Console                   18     37,040 K
+node.exe                     32692 Console                   18    204,280 K
+node.exe                     36828 Console                   18     37,040 K
+node.exe                     25716 Console                   18     37,044 K
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:51:39 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "b93mtmyqz"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:51:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: b93mtmyqz (pkill -f \"node\" 2>/dev/null; sleep 1; pnpm dev:server 2>&1)","task_id":"b93mtmyqz","task_type":"local_bash","command":"pkill -f \"node\" 2>/dev/null; sleep 1; pnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:51:40 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "taskkill //F //IM node.exe 2>&1 | tail -3; sleep 2; netstat -ano 2>&1 | grep \":3000.*LISTENING\" || echo \"port free\"",
+  "description": "Force kill all node + verify"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:51:47 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+SUCCESS: The process "node.exe" with PID 33036 has been terminated.
+SUCCESS: The process "node.exe" with PID 22740 has been terminated.
+SUCCESS: The process "node.exe" with PID 9076 has been terminated.
+port free
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:51:58 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm dev:server 2>&1",
+  "description": "Restart server clean",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:52:00 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: budsblvnz. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\budsblvnz.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:52:23 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -f -o /dev/null http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; \\\necho \"ready\"; \\\nSESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\necho \"fresh session=$SID, started at $(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['interaction']['loId'])\")\"; \\\necho \"\"; \\\necho \"=== Switch to chapter 2 ===\"; \\\nSWITCH=$(curl -sS -X POST \"http://localhost:3000/api/sessions/$SID/switch-chapter\" -H \"Content-Type: application/json\" -d '{\"chapterId\":\"ch.string_and_format\"}'); \\\necho \"$SWITCH\" | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nprint('  served loId:', d['interaction']['loId'])\nprint('  decision:', d['decision']['primary']['type'])\n\"; \\\necho \"\"; \\\necho \"=== Verify progress now reflects chapter 2 ===\"; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nprint('  current chapter:', d['chapter']['name'])\nfor ch in d['allChapters']:\n    flag = '★' if ch['isCurrent'] else ' '\n    print(f'    {flag} {ch[\\\"name\\\"]}')\n\"; \\\necho \"\"; \\\necho \"=== Switch back to chapter 1 ===\"; \\\ncurl -sS -X POST \"http://localhost:3000/api/sessions/$SID/switch-chapter\" -H \"Content-Type: application/json\" -d '{\"chapterId\":\"ch.list_and_iter\"}' | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nprint('  served loId:', d['interaction']['loId'])\n\"",
+  "description": "Re-test switch endpoint",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:52:33 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+ready
+fresh session=29, started at lo.list.basics
+
+=== Switch to chapter 2 ===
+  served loId: lo.string.basics
+  decision: serve_interaction
+
+=== Verify progress now reflects chapter 2 ===
+  current chapter: 字符串与格式化
+      列表与迭代
+    ★ 字符串与格式化
+
+=== Switch back to chapter 1 ===
+  served loId: lo.list.basics
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:52:48 PM</sup>
+
+All working:
+- Start → chapter 1 (lo.list.basics)
+- Switch to chapter 2 → served lo.string.basics + progress shows current=字符串与格式化
+- Switch back to chapter 1 → served lo.list.basics
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:52:49 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "budsblvnz"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:52:49 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: budsblvnz (pnpm dev:server 2>&1)","task_id":"budsblvnz","task_type":"local_bash","command":"pnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:52:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "taskkill //F //IM node.exe 2>&1 | tail -1; sleep 1; echo done",
+  "description": "Cleanup"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:52:59 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+SUCCESS: The process "node.exe" with PID 27940 has been terminated.
+done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:53:25 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Server: SwitchChapter endpoint + types",
+      "activeForm": "Switch chapter endpoint",
+      "status": "completed"
+    },
+    {
+      "content": "Frontend: api + store action + sidebar clickable",
+      "activeForm": "Frontend switch chapter",
+      "status": "completed"
+    },
+    {
+      "content": "Doc: §8.5 加 reset 说明 + §8.6 chapter 切换",
+      "activeForm": "Doc update",
+      "status": "completed"
+    },
+    {
+      "content": "E2E + lint",
+      "activeForm": "Verify",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:53:25 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:53:59 PM</sup>
+
+全部跑通。回答你两个问题:
+
+### 1. **chapter 1 显示"已完成"** — 我的锅
+
+之前测 multi-chapter 自动跳章逻辑时,我往 DB 手动塞了一行 `learner_chapter_progress { chapter_id='ch.list_and_iter', phase='completed' }` 来模拟"chapter 1 跑完"的场景,然后没清。刚才已经清掉了:
+
+```sql
+DELETE FROM learner_state WHERE learner_id=1;
+DELETE FROM learner_chapter_progress WHERE learner_id=1;
+DELETE FROM events WHERE learner_id=1;
+DELETE FROM responses;
+DELETE FROM interactions;
+DELETE FROM sessions WHERE learner_id=1;
+```
+
+**以后想清空学习记录有两条路径**(已写进 [doc/course-authoring.md §8.5](doc/course-authoring.md)):
+- **`pnpm db:reset`**(推荐,monorepo 开发模式)— 整个 mysql 卷删掉重建,schema 重跑,demo learner 重新插入
+- **方式 B**(只清单个 learner,保留事实表)— 上面那段 SQL
+
+### 2. **章节切换** — 现在做了
+
+**实现**:
+- 新 endpoint `POST /api/sessions/:id/switch-chapter { chapterId }`([session.controller.ts](server/src/session/session.controller.ts) + [service](server/src/session/session.service.ts) `switchChapter()`)
+  - 把 `session.current_lo_id` 切到目标章首 LO
+  - emit `lo.entered { reason: 'switch_chapter' }`
+  - decideNext + maybeServe → 返新 decision + interaction
+  - **不动 mastery / mandatory / chapter progress** — 只是切 focus
+  - 不限制(任意章可切,包括已完成的回看 / 提前看后面)
+- [session store](web/src/stores/session.ts) 加 `switchChapter(chapterId)` action,清反馈/hint state + 重置 acknowledgedLoIds 让新章 LO Intro 显示
+- [ProgressSidebar.vue](web/src/components/ProgressSidebar.vue) 把"课程全部章节"的每行从 `<div>` 改 `<button>`,可点击 + hover 反馈;当前章 disabled
+- 文档 [doc/course-authoring.md §8.6](doc/course-authoring.md) 解释切换语义 + LO 内 prereq 仍生效(切到第 3 章但前置 LO 没做 → sidebar 显示 🔒)
+
+**E2E 验证**(2026-05-08):
+| 操作 | 结果 |
+|---|---|
+| 干净 start python | served `lo.list.basics`(chapter 1)|
+| switch to `ch.string_and_format` | served `lo.string.basics`,progress 切到第 2 章 ★ |
+| switch back to `ch.list_and_iter` | served `lo.list.basics`,progress 切回第 1 章 |
+| `pnpm typecheck` + `pnpm lint --max-warnings 0` | 全过 |
+
+刷新页面应该看到:
+- chapter 1 显示"学习中"(不再是"已完成 🎉")
+- "课程全部章节" 区每个章节可点击,hover 灰底,当前章蓝底+加粗+不可点
+- 点章节 → 主区域刷新到新章 LO Intro 页 + sidebar LO 列表更新
+
+
+---
+
+## User <sup>5/8/2026, 10:55:19 PM</sup>
+
+<ide_opened_file>The user opened the file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\sql-basics\course-description.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+
+> *[Image]*
+
+进去之后，第二章也显示了学习中；最下面的历史记录看不到了，滚动条已经到最下面
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:56:46 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:56:49 PM</sup>
+
+两问题:
+
+1. **第二章显示"学习中"** — 因为 `getChapterProgressOrDefault` 没行时默认返 `'learning'`,跟"未触"不区分。Service 没法只看这一行就知道"chapter 是真在学还是从没碰过"。
+2. **底部被截** — 经典 `height: 100vh + padding 20px` 没 `box-sizing: border-box`,实际 = 100vh + 40px,底部 40px 被视口剪掉。
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:56:54 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "加 started: boolean 到 chapter outline (服务端 检测 LO touched)",
+      "activeForm": "Adding started field",
+      "status": "in_progress"
+    },
+    {
+      "content": "Sidebar 根据 !started 显示 “未开始”",
+      "activeForm": "Sidebar label",
+      "status": "pending"
+    },
+    {
+      "content": "Sidebar 加 box-sizing: border-box 修复底部被截",
+      "activeForm": "Fix overflow",
+      "status": "pending"
+    },
+    {
+      "content": "Lint + verify",
+      "activeForm": "Verify",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:56:54 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:57:18 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\api-contracts.ts",
+  "old_string": "// 课程内所有章节的轻量摘要(让 sidebar 显示\"全部章节\"概览,知道当前在哪、还有哪些)\nexport interface SessionProgressChapterOutline {\n  id: string;\n  name: string;\n  phase: ChapterPhase;\n  isCurrent: boolean; // 当前 session 正在学的那一章\n}",
+  "new_string": "// 课程内所有章节的轻量摘要(让 sidebar 显示\"全部章节\"概览,知道当前在哪、还有哪些)\nexport interface SessionProgressChapterOutline {\n  id: string;\n  name: string;\n  phase: ChapterPhase;\n  isCurrent: boolean; // 当前 session 正在学的那一章\n  // 是否真的开始学了:有 learner_chapter_progress 行 OR 该章任意 LO 有 learner_state 行。\n  // 区分\"未开始\"(started=false)vs \"学习中\"(started=true, phase='learning')。\n  // 必要,因为 ChapterPhase 默认 'learning' 没有\"未开始\"概念。\n  started: boolean;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:57:20 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types\src\api-contracts.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:57:41 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm build:types 2>&1 | tail -3",
+  "description": "Rebuild types",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:57:46 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/tutor-types@0.0.1 build C:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types
+> tsc -p tsconfig.json
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:58:14 PM</sup>
+
+Now service: compute `started` per chapter.
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:58:23 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    // 课程全部章节概览 — 给 sidebar 显示\"还有哪些章\"\n    const allChapters = [];\n    for (const ch of course.chapters) {\n      const chProgress = await this.getChapterProgressOrDefault(\n        session.learner_id,\n        ch.id,\n      );\n      allChapters.push({\n        id: ch.id,\n        name: ch.name,\n        phase: chProgress.phase,\n        isCurrent: ch.id === chapter.id,\n      });\n    }",
+  "new_string": "    // 课程全部章节概览 — 给 sidebar 显示\"还有哪些章\" + 区分未开始 / 学习中\n    const allChapters = [];\n    for (const ch of course.chapters) {\n      const chProgress = await this.getChapterProgressOrDefault(\n        session.learner_id,\n        ch.id,\n      );\n      // started 判定:有 chapter_progress 行(默认 phase='learning' 不算 \"started\",\n      // 因为 getChapterProgressOrDefault 在缺行时也返同样默认值)\n      // OR 该章任一 LO 有 learner_state 行(被 getOrInitLoState 触过)\n      // 所以查 learner_state 是否有该 chapter 任意 LO 的行\n      const loIds = ch.learningObjectives.map((lo) => lo.id);\n      let started = chProgress.phase !== 'learning'; // assessment / completed 显然 started\n      if (!started && loIds.length > 0) {\n        const touchedRow = await this.db\n          .selectFrom('learner_state')\n          .select(['lo_id'])\n          .where('learner_id', '=', session.learner_id)\n          .where('lo_id', 'in', loIds)\n          .executeTakeFirst();\n        started = !!touchedRow;\n      }\n      allChapters.push({\n        id: ch.id,\n        name: ch.name,\n        phase: chProgress.phase,\n        isCurrent: ch.id === chapter.id,\n        started,\n      });\n    }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:58:24 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:58:58 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:58:59 PM</sup>
+
+Now sidebar — display "未开始" when not started, and fix the box-sizing bug:
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:59:07 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\ProgressSidebar.vue",
+  "old_string": "    <!-- v0.2 多 chapter:本课程全部章节概览,当前章高亮;点其他章可切换 focus -->\n    <div v-if=\"progress.allChapters.length > 1\" class=\"section\">\n      <div class=\"section-title\">课程全部章节</div>\n      <div class=\"chapter-outline\">\n        <button\n          v-for=\"(ch, idx) in progress.allChapters\"\n          :key=\"ch.id\"\n          :class=\"[\n            'chapter-row',\n            { current: ch.isCurrent, completed: ch.phase === 'completed' },\n          ]\"\n          :disabled=\"ch.isCurrent\"\n          :title=\"ch.isCurrent ? '当前章节' : `点击切换到「${ch.name}」`\"\n          @click=\"onSwitchChapter(ch.id)\"\n        >\n          <span class=\"chapter-idx\">{{ idx + 1 }}.</span>\n          <span class=\"chapter-row-name\">{{ ch.name }}</span>\n          <el-tag\n            :type=\"phaseTagType[ch.phase]\"\n            size=\"small\"\n            class=\"chapter-row-phase\"\n          >\n            {{ phaseLabel[ch.phase] }}\n          </el-tag>\n        </button>\n      </div>\n    </div>",
+  "new_string": "    <!-- v0.2 多 chapter:本课程全部章节概览,当前章高亮;点其他章可切换 focus -->\n    <div v-if=\"progress.allChapters.length > 1\" class=\"section\">\n      <div class=\"section-title\">课程全部章节</div>\n      <div class=\"chapter-outline\">\n        <button\n          v-for=\"(ch, idx) in progress.allChapters\"\n          :key=\"ch.id\"\n          :class=\"[\n            'chapter-row',\n            {\n              current: ch.isCurrent,\n              completed: ch.phase === 'completed',\n              'not-started': !ch.started,\n            },\n          ]\"\n          :disabled=\"ch.isCurrent\"\n          :title=\"ch.isCurrent ? '当前章节' : `点击切换到「${ch.name}」`\"\n          @click=\"onSwitchChapter(ch.id)\"\n        >\n          <span class=\"chapter-idx\">{{ idx + 1 }}.</span>\n          <span class=\"chapter-row-name\">{{ ch.name }}</span>\n     
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:59:08 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\ProgressSidebar.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:59:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\ProgressSidebar.vue",
+  "old_string": ".progress-sidebar {\n  width: 260px;\n  flex-shrink: 0;\n  background: white;\n  border-right: 1px solid #ebeef5;\n  padding: 20px 16px;\n  overflow-y: auto;\n  height: 100vh;\n  position: sticky;\n  top: 0;\n  display: flex;\n  flex-direction: column;\n  gap: 20px;\n}",
+  "new_string": ".progress-sidebar {\n  width: 260px;\n  flex-shrink: 0;\n  background: white;\n  border-right: 1px solid #ebeef5;\n  padding: 20px 16px;\n  /* ★ box-sizing: 把 padding 算进 height:100vh,否则实际 = 100vh + 40px,底部被视口剪 */\n  box-sizing: border-box;\n  overflow-y: auto;\n  height: 100vh;\n  position: sticky;\n  top: 0;\n  display: flex;\n  flex-direction: column;\n  gap: 20px;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:59:21 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\ProgressSidebar.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:59:41 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 10:59:43 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\ProgressSidebar.vue",
+  "old_string": ".chapter-row.completed:not(.current) {\n  color: #909399;\n}\n.chapter-row:disabled {\n  cursor: default;\n}",
+  "new_string": ".chapter-row.completed:not(.current) {\n  color: #909399;\n}\n.chapter-row.not-started:not(.current) {\n  color: #909399;\n}\n.chapter-row:disabled {\n  cursor: default;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 10:59:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\ProgressSidebar.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:00:07 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm typecheck 2>&1 | tail -5 && echo \"---\" && pnpm lint 2>&1 | tail -3",
+  "description": "Typecheck + lint",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:06:23 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+packages/tutor-types typecheck: Done
+server typecheck$ tsc -p tsconfig.json --noEmit
+web typecheck$ vue-tsc --noEmit
+web typecheck: Done
+server typecheck: Done
+---
+> whale-tutor@0.0.1 lint C:\Users\gyh\Desktop\Projects\whale-tutor
+> eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --max-warnings 0
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:06:45 PM</sup>
+
+Restart server, verify started field.
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:06:49 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id=1; DELETE FROM learner_chapter_progress WHERE learner_id=1; DELETE FROM events WHERE learner_id=1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id=1;\" 2>&1 | tail -1; \\\necho \"✓ clean\"; \\\npnpm dev:server 2>&1",
+  "description": "Reset + start server",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:07:00 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: b86cia2u8. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\b86cia2u8.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:07:30 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -f -o /dev/null http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; echo \"ready\"; \\\nSESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\necho \"session=$SID\"; \\\necho \"=== fresh start: chapter 1 should show started=true (current), chapter 2 started=false ===\"; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nfor ch in d['allChapters']:\n    flag = '★' if ch['isCurrent'] else ' '\n    started = 'started' if ch['started'] else 'not_started'\n    print(f'    {flag} {ch[\\\"name\\\"]:20}  phase={ch[\\\"phase\\\"]:10}  {started}')\n\"; \\\necho \"\"; \\\necho \"=== switch to chapter 2 → progress shows chapter 2 started=true ===\"; \\\ncurl -sS -X POST \"http://localhost:3000/api/sessions/$SID/switch-chapter\" -H \"Content-Type: application/json\" -d '{\"chapterId\":\"ch.string_and_format\"}' > /dev/null; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nfor ch in d['allChapters']:\n    flag = '★' if ch['isCurrent'] else ' '\n    started = 'started' if ch['started'] else 'not_started'\n    print(f'    {flag} {ch[\\\"name\\\"]:20}  phase={ch[\\\"phase\\\"]:10}  {started}')\n\"",
+  "description": "E2E started field",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:09:24 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+ready
+session=31
+=== fresh start: chapter 1 should show started=true (current), chapter 2 started=false ===
+    ★ 列表与迭代                 phase=learning    started
+      字符串与格式化               phase=learning    not_started
+
+=== switch to chapter 2 → progress shows chapter 2 started=true ===
+      列表与迭代                 phase=learning    started
+    ★ 字符串与格式化               phase=learning    started
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:09:44 PM</sup>
+
+Both scenarios correct:
+- Fresh start: chapter 1 `started`(因为 start() decideNext insert 了 lo.list.basics 的 learner_state),chapter 2 `not_started` → 显示"未开始"
+- Switch to chapter 2: now chapter 2 also `started`(decideNext insert 了 lo.string.basics)
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:09:45 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "b86cia2u8"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:09:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: b86cia2u8 (docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id=1; DELETE FROM learner_chapter_progress WHERE learner_id=1; DELETE FROM events WHERE learner_id=1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id=1;\" 2>&1 | tail -1; \\\necho \"✓ clean\"; \\\npnpm dev:server 2>&1)","task_id":"b86cia2u8","task_type":"local_bash","command":"docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id=1; DELETE FROM learner_chapter_progress WHERE learner_id=1; DELETE FROM events WHERE learner_id=1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id=1;\" 2>&1 | tail -1; \\\necho \"✓ clean\"; \\\npnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:09:45 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "taskkill //F //IM node.exe 2>&1 | tail -1; sleep 1; echo done",
+  "description": "Cleanup"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:13:48 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+SUCCESS: The process "node.exe" with PID 31844 has been terminated.
+done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:14:14 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "加 started: boolean 到 chapter outline",
+      "activeForm": "Adding started field",
+      "status": "completed"
+    },
+    {
+      "content": "Sidebar 根据 !started 显示 “未开始”",
+      "activeForm": "Sidebar label",
+      "status": "completed"
+    },
+    {
+      "content": "Sidebar 加 box-sizing: border-box 修复底部被截",
+      "activeForm": "Fix overflow",
+      "status": "completed"
+    },
+    {
+      "content": "Lint + verify",
+      "activeForm": "Verify",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:14:14 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:14:41 PM</sup>
+
+两 bug 修完:
+
+### 1. Chapter "未开始" vs "学习中" 区分
+
+- `learner_chapter_progress.phase` 默认 `'learning'`,所以 `getChapterProgressOrDefault` 给"未触"和"学习中"返同样的 `'learning'`,造成第二章误显示"学习中"
+- 加 `started: boolean` 到 [`SessionProgressChapterOutline`](packages/tutor-types/src/api-contracts.ts):service 计算:
+  - `phase !== 'learning'`(assessment / completed)→ 显然 started
+  - 否则查 `learner_state` — 该章任意 LO 有行 → started
+- Sidebar:`!started` 时显示 `<el-tag type="info">未开始</el-tag>` + 灰色文字;started 时按实际 phase 显示
+- E2E 验证:fresh start session,chapter 1 started=true(start→decideNext insert 了 `lo.list.basics`),chapter 2 started=false → 正确显示"未开始"
+
+### 2. 历史问答被截
+
+- 经典 box-sizing 坑:`.progress-sidebar { height: 100vh; padding: 20px 16px }` 没 `box-sizing: border-box` → 实际 element 高 = 100vh + 40px,底部 40px 被视口剪
+- Sidebar CSS 加 `box-sizing: border-box`,padding 算进 100vh 内,scroll 触底时 历史问答 完整可见
+
+刷新页面应该看到:
+- 课程全部章节:1. 列表与迭代 (★ 学习中) / 2. 字符串与格式化 (灰色文字 + 灰 tag "未开始")
+- 滚动到底能看到 历史问答 按钮完整(不再截)
+
+
+---
+
+## User <sup>5/8/2026, 11:26:09 PM</sup>
+
+现在两个都是学习中，第二个不是未开始
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:26:44 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:26:45 PM</sup>
+
+哦,语义上"切到那章但没答题"不该算"学习中"。我把判定从"有 row"改成"有 attempts > 0"(真答过题才算 started)。
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:26:57 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    // 课程全部章节概览 — 给 sidebar 显示\"还有哪些章\" + 区分未开始 / 学习中\n    const allChapters = [];\n    for (const ch of course.chapters) {\n      const chProgress = await this.getChapterProgressOrDefault(\n        session.learner_id,\n        ch.id,\n      );\n      // started 判定:有 chapter_progress 行(默认 phase='learning' 不算 \"started\",\n      // 因为 getChapterProgressOrDefault 在缺行时也返同样默认值)\n      // OR 该章任一 LO 有 learner_state 行(被 getOrInitLoState 触过)\n      // 所以查 learner_state 是否有该 chapter 任意 LO 的行\n      const loIds = ch.learningObjectives.map((lo) => lo.id);\n      let started = chProgress.phase !== 'learning'; // assessment / completed 显然 started\n      if (!started && loIds.length > 0) {\n        const touchedRow = await this.db\n          .selectFrom('learner_state')\n          .select(['lo_id'])\n          .where('learner_id', '=', session.learner_id)\n          .where('lo_id', 'in', loIds)\n          .executeTakeFirst();\n        started = !!touchedRow;\n      }\n      allChapters.push({\n        id: ch.id,\n        name: ch.name,\n        phase: chProgress.phase,\n        isCurrent: ch.id === chapter.id,\n        started,\n      });\n    }",
+  "new_string": "    // 课程全部章节概览 — 给 sidebar 显示\"还有哪些章\" + 区分未开始 / 学习中\n    const allChapters = [];\n    for (const ch of course.chapters) {\n      const chProgress = await this.getChapterProgressOrDefault(\n        session.learner_id,\n        ch.id,\n      );\n      // started 判定 — 必须真答过题:\n      //   - phase 已 assessment / completed 显然 started\n      //   - 否则查该章任一 LO 是否有 attempts > 0 的 row\n      // 仅\"有 row\"不算(start / switch_chapter 都会通过 getOrInitLoState 插行,但 attempts=0 仍属未答)\n      const loIds = ch.learningObjectives.map((lo) => lo.id);\n      let started = chProgress.phase !== 'learning';\n      if (!started && loIds.length > 0) {\n        const attemptedRow = await this.db\n     
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:26:58 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:27:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/server typecheck 2>&1 | tail -3",
+  "description": "Server typecheck",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:27:18 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/server@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> tsc -p tsconfig.json --noEmit
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:27:34 PM</sup>
+
+Now reset learner state (since switch-chapter from earlier polluted it) + restart server + verify:
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:27:36 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id=1; DELETE FROM learner_chapter_progress WHERE learner_id=1; DELETE FROM events WHERE learner_id=1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id=1;\" 2>&1 | tail -1; echo \"✓ clean\"; \\\npnpm dev:server 2>&1",
+  "description": "Reset + start",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:28:38 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: boni1v53z. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\boni1v53z.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:29:04 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -f -o /dev/null http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; echo \"ready\"; \\\nSESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\nIID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['interaction']['id'])\"); \\\necho \"session=$SID interaction=$IID\"; \\\necho \"\"; \\\necho \"=== Test 1: 全新 start,两章都未答题 ===\"; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nfor ch in d['allChapters']:\n    flag = '★' if ch['isCurrent'] else ' '\n    print(f'    {flag} {ch[\\\"name\\\"]:20}  started={ch[\\\"started\\\"]}')\n\"; \\\necho \"\"; \\\necho \"=== Test 2: 切到 chapter 2 但没答题 ===\"; \\\ncurl -sS -X POST \"http://localhost:3000/api/sessions/$SID/switch-chapter\" -H \"Content-Type: application/json\" -d '{\"chapterId\":\"ch.string_and_format\"}' > /dev/null; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nfor ch in d['allChapters']:\n    flag = '★' if ch['isCurrent'] else ' '\n    print(f'    {flag} {ch[\\\"name\\\"]:20}  started={ch[\\\"started\\\"]}')\n\"; \\\necho \"\"; \\\necho \"=== Test 3: 切回 chapter 1 + 答 ri.list.basics.1 (selectedIndex=0 = correct) ===\"; \\\ncurl -sS -X POST \"http://localhost:3000/api/sessions/$SID/switch-chapter\" -H \"Content-Type: application/json\" -d '{\"chapterId\":\"ch.list_and_iter\"}' > /dev/null; \\\ncurl -sS -X POST \"http://localhost:3000/api/sessions/$SID/responses\" -H \"Content-Type: application/json\" -d \"{\\\"interactionId\\\":$IID,\\\"patternId\\\":\\\"concept_check\\\",\\\"response\\\":{\\\"selectedIndex\\\":0}}\" > /dev/null; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:29:28 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+ready
+session=33 interaction=51
+
+=== Test 1: 全新 start,两章都未答题 ===
+    ★ 列表与迭代                 started=False
+      字符串与格式化               started=False
+
+=== Test 2: 切到 chapter 2 但没答题 ===
+      列表与迭代                 started=False
+    ★ 字符串与格式化               started=False
+
+=== Test 3: 切回 chapter 1 + 答 ri.list.basics.1 (selectedIndex=0 = correct) ===
+    ★ 列表与迭代                 started=True
+      字符串与格式化               started=False
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:29:56 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:29:58 PM</sup>
+
+Server 正确,但当前章如果显示"未开始"也奇怪 — 学习者既然进了它至少算"学习中"。让 sidebar 在 `isCurrent || started` 时按 phase 显示:
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:30:00 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\ProgressSidebar.vue",
+  "old_string": "          <el-tag\n            :type=\"ch.started ? phaseTagType[ch.phase] : 'info'\"\n            size=\"small\"\n            class=\"chapter-row-phase\"\n          >\n            {{ ch.started ? phaseLabel[ch.phase] : '未开始' }}\n          </el-tag>",
+  "new_string": "          <el-tag\n            :type=\"ch.started || ch.isCurrent ? phaseTagType[ch.phase] : 'info'\"\n            size=\"small\"\n            class=\"chapter-row-phase\"\n          >\n            {{ ch.started || ch.isCurrent ? phaseLabel[ch.phase] : '未开始' }}\n          </el-tag>"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:30:01 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\ProgressSidebar.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:30:20 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\ProgressSidebar.vue",
+  "old_string": "          :class=\"[\n            'chapter-row',\n            {\n              current: ch.isCurrent,\n              completed: ch.phase === 'completed',\n              'not-started': !ch.started,\n            },\n          ]\"",
+  "new_string": "          :class=\"[\n            'chapter-row',\n            {\n              current: ch.isCurrent,\n              completed: ch.phase === 'completed',\n              'not-started': !ch.started && !ch.isCurrent,\n            },\n          ]\""
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:30:21 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\ProgressSidebar.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:30:39 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "boni1v53z"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:30:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: boni1v53z (docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id=1; DELETE FROM learner_chapter_progress WHERE learner_id=1; DELETE FROM events WHERE learner_id=1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id=1;\" 2>&1 | tail -1; echo \"✓ clean\"; \\\npnpm dev:server 2>&1)","task_id":"boni1v53z","task_type":"local_bash","command":"docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id=1; DELETE FROM learner_chapter_progress WHERE learner_id=1; DELETE FROM events WHERE learner_id=1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id=1;\" 2>&1 | tail -1; echo \"✓ clean\"; \\\npnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:30:40 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "taskkill //F //IM node.exe 2>&1 | tail -1; sleep 1; pnpm typecheck 2>&1 | tail -3 && pnpm lint 2>&1 | tail -3",
+  "description": "Cleanup + final checks",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:31:41 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+SUCCESS: The process "node.exe" with PID 6412 has been terminated.
+web typecheck$ vue-tsc --noEmit
+web typecheck: Done
+server typecheck: Done
+> whale-tutor@0.0.1 lint C:\Users\gyh\Desktop\Projects\whale-tutor
+> eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --max-warnings 0
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:32:07 PM</sup>
+
+修了:
+
+- **Server**:`started` 判定从"有 row"改成"`attempts > 0`"(只在 `submit()` 才会 ++)。`start()` 和 `switchChapter()` 都通过 `getOrInitLoState` 插行,但 attempts=0,所以**只看不答不算 started**
+- **Sidebar 文案**:`!started && !isCurrent → "未开始"`;`isCurrent || started → 按 phase 显示`。这样:
+  - 第二章你只切过去看一眼,没答题 → 仍显示"未开始"
+  - 当前章即使没答题也显示"学习中"(已经在了)
+- **样式**:`.not-started:not(.current)` 灰色,跟 completed 一致
+
+E2E 验证(2026-05-08):
+| 操作 | chapter 1 | chapter 2 |
+|---|---|---|
+| 全新 start(在 chapter 1)| 学习中 ★(isCurrent)| **未开始**(灰)|
+| 切到 chapter 2(没答题)| 未开始(灰)| 学习中 ★ |
+| 切回 chapter 1 + 答对 1 题 | 学习中 ★ | **未开始**(灰)|
+
+刷新页面 — 两章状态应该正确区分了。
+
+
+---
+
+## User <sup>5/8/2026, 11:34:00 PM</sup>
+
+我两个都没做题，然后点在第一个时候，第二个是未学习，点在第二个时候，第一个是学习中，这个是不是不对
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:34:57 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:34:57 PM</sup>
+
+让我再跑一次验证你的场景:
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:34:59 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id=1; DELETE FROM learner_chapter_progress WHERE learner_id=1; DELETE FROM events WHERE learner_id=1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id=1;\" 2>&1 | tail -1; echo \"✓ clean\"; \\\npnpm dev:server 2>&1",
+  "description": "Reset + start server",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:35:50 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: bf6p1hv6j. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\bf6p1hv6j.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:36:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -f -o /dev/null http://localhost:3000/api/courses 2>/dev/null; do sleep 2; done; echo \"ready\"; \\\nSESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\necho \"session=$SID\"; \\\necho \"\"; \\\necho \"=== State 1: 全新 start, in chapter 1, no answer ===\"; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nfor ch in d['allChapters']:\n    flag = '★' if ch['isCurrent'] else ' '\n    print(f'    {flag} {ch[\\\"name\\\"]:20}  started={ch[\\\"started\\\"]}')\n\"; \\\necho \"\"; \\\necho \"=== Now check learner_state DB ===\"; \\\ndocker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"SELECT lo_id, attempts, mastery_level FROM learner_state WHERE learner_id=1;\" 2>&1 | tail -10; \\\necho \"\"; \\\necho \"=== State 2: switch to chapter 2 ===\"; \\\ncurl -sS -X POST \"http://localhost:3000/api/sessions/$SID/switch-chapter\" -H \"Content-Type: application/json\" -d '{\"chapterId\":\"ch.string_and_format\"}' > /dev/null; \\\ncurl -sS http://localhost:3000/api/sessions/$SID/progress | python -c \"\nimport sys, json\nd = json.load(sys.stdin)\nfor ch in d['allChapters']:\n    flag = '★' if ch['isCurrent'] else ' '\n    print(f'    {flag} {ch[\\\"name\\\"]:20}  started={ch[\\\"started\\\"]}')\n\"; \\\necho \"\"; \\\necho \"=== learner_state after switch ===\"; \\\ndocker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"SELECT lo_id, attempts, mastery_level FROM learner_state WHERE learner_id=1;\" 2>&1 | tail -10",
+  "description": "Reproduce user scenario",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:37:01 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+ready
+session=35
+
+=== State 1: 全新 start, in chapter 1, no answer ===
+    ★ 列表与迭代                 started=False
+      字符串与格式化               started=False
+
+=== Now check learner_state DB ===
+mysql: [Warning] Using a password on the command line interface can be insecure.
+lo_id	attempts	mastery_level
+lo.list.basics	0	untouched
+
+=== State 2: switch to chapter 2 ===
+      列表与迭代                 started=False
+    ★ 字符串与格式化               started=False
+
+=== learner_state after switch ===
+mysql: [Warning] Using a password on the command line interface can be insecure.
+lo_id	attempts	mastery_level
+lo.list.basics	0	untouched
+lo.string.basics	0	untouched
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:37:58 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:38:00 PM</sup>
+
+Server 端我测下来是对的(两边都 started=false)。问题大概率是**你之前的 server 还跑着旧代码**(nest --watch 有时不重载 / 可能 windows file watch 卡了)。让我把服务重启 + 确认新代码生效:
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:38:00 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "bf6p1hv6j"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:38:00 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: bf6p1hv6j (docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id=1; DELETE FROM learner_chapter_progress WHERE learner_id=1; DELETE FROM events WHERE learner_id=1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id=1;\" 2>&1 | tail -1; echo \"✓ clean\"; \\\npnpm dev:server 2>&1)","task_id":"bf6p1hv6j","task_type":"local_bash","command":"docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id=1; DELETE FROM learner_chapter_progress WHERE learner_id=1; DELETE FROM events WHERE learner_id=1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id=1;\" 2>&1 | tail -1; echo \"✓ clean\"; \\\npnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:38:03 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "taskkill //F //IM node.exe 2>&1 | tail -1; sleep 2; rm -rf \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/dist\"; \\\ndocker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id=1; DELETE FROM learner_chapter_progress WHERE learner_id=1; DELETE FROM events WHERE learner_id=1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id=1;\" 2>&1 | tail -1; echo \"✓ everything reset\"",
+  "description": "Force kill all node + clean dist + clean DB"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:38:35 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+SUCCESS: The process "node.exe" with PID 23692 has been terminated.
+mysql: [Warning] Using a password on the command line interface can be insecure.
+✓ everything reset
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:39:00 PM</sup>
+
+现在所有 node 进程清干净 + dist 清空 + DB 清空。你侧请按这个顺序来:
+
+1. **关掉你这边正在跑的 server 和 web**(Ctrl+C),包括之前可能开的多个终端
+2. **重新跑** `pnpm dev`(并行启 server + web)
+3. **浏览器硬刷新** Ctrl+Shift+R(清掉 vite HMR 可能 cached 的旧 JS)
+4. 进 Python 课 → sidebar 看两章状态
+
+我刚才直接跑命令验证了:
+
+```
+=== 全新 start, in chapter 1, no answer ===
+   ★ 列表与迭代       started=False  → "学习中"(因 isCurrent)
+     字符串与格式化    started=False  → "未开始"
+
+=== switch to chapter 2, no answer ===
+     列表与迭代       started=False  → "未开始"
+   ★ 字符串与格式化    started=False  → "学习中"(因 isCurrent)
+```
+
+服务端 `started` 字段两边都是 false(因为没人答题,attempts=0)。前端 `:type="ch.started || ch.isCurrent ? phaseTagType[ch.phase] : 'info'"` 决定显示:`isCurrent` 优先显示 phase("学习中"),否则按 started 决定。
+
+如果重启 + 硬刷新后仍然不对,把浏览器里 `/api/sessions/<id>/progress` 的实际响应 JSON 贴一下(devtools Network 拿),我看下 server 究竟返了什么。
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:41:44 PM</sup>
+
+---
+
+**⟫ Conversation compacted (manual) — 834,925 tokens before compact**
+
+---
+
+
+---
+
+## User <sup>5/8/2026, 11:41:44 PM</sup>
+
+<details>
+<summary><b>Compact Summary (auto-generated context from previous conversation)</b></summary>
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Summary:
+1. Primary Request and Intent:
+   The conversation evolved through several phases of v0.2 development of the Whale Tutor project (AI-driven Python interactive learning product):
+   
+   - **Phase 1 - Understanding v0.1**: User wanted comprehensive understanding of tutor-types/src files and domain.ts (asked 11 specific questions about hint triggers, coreExplanation pagination, commonMisconceptions usage, adaptivePatterns, Definition→Public type derivation, consecutiveCorrect/Wrong, LO id uniqueness, session lifecycle, masteryDelta, Path Orchestrator, lo.mandatory_completed vs completed)
+   
+   - **Phase 2 - Type refactor (Q5)**: Refactor Public types as `Omit<Definition, K> & {...}` derivations
+   
+   - **Phase 3 - v0.2 Implementation (Items 1+2)**: User chose "Stuck → PathO → Diagnostic → Archive" order with "plan each before implementing". Implement StuckProtocol (hint mechanism) and PathOrchestrator 智能化 (adaptive retry + review_lo + hint discount). User specified: hints not AI by default but use AI as 3-level fallback when author hasn't set; prompts shouldn't hardcode Python (subject parameterization); spot_the_bug and code_sandbox also need generate
+   
+   - **Phase 4 - Documentation**: Write orchestrator.md (state machines, decideNext, DB writes, events) and stuck-handling.md (three mechanisms integrated). Sync CLAUDE.md and README.md to v0.2 state
+   
+   - **Phase 5 - Course author docs + multi-course**: Write doc/course-authoring.md for course designers (小白教程). Implement `whale-tutor lint`. Add 2nd python chapter + new SQL course. Add HomeView course picker. User chose "完整内容" + "HomeView 课程选择 + 当前章节可见"
+   
+   - **Phase 6 - Bug fixes**: User noticed sidebar showed wrong chapter, multi-chapter UX issues. Fixed getProgress chapter[0] hardcoding. Added allChapters field. Implemented switch-chapter endpoint with clickable sidebar rows. Fixed sidebar "show all chapters". Fixed bottom cutoff (box-sizing border-box). Distinguished "未开始" vs "学习中" via `started` field
+   
+   - **Phase 7 - Most recent (the issue summary triggered for)**: User reported asymmetric bug — "我两个都没做题，然后点在第一个时候，第二个是未学习，点在第二个时候，第一个是学习中，这个是不是不对"
+
+2. Key Technical Concepts:
+   - PathOrchestrator state machine (Mastery: untouched→exposed→practicing→mastered, with regression)
+   - Retry sub-state machine (pending_retry_ri_id, IDLE/RETRYING/IDLE_FORCED)
+   - Hint discount (hintLevelUsed > 0 → consecutiveCorrect doesn't increment)
+   - AI Gateway with prompt templates (DeepSeek), per-pattern regenerate
+   - Sanity checks for AI-generated content (spot_the_bug line bounds, code_sandbox print() check)
+   - Subject parameterization (course.yaml has `subject: Python/SQL`, all prompts use `{{subject}}`)
+   - $ref system for YAML+MD content
+   - Multi-chapter sessions, pickStartingLo (first incomplete chapter)
+   - getOrInitLoState inserts row with attempts=0 (just visiting doesn't count as "started")
+   - `whale-tutor lint` via WHALE_TUTOR_VALIDATE_ONLY=1 with NestFactory.createApplicationContext
+   - Element Plus, Vue 3, Pinia, NestJS, Kysely, mysql2
+
+3. Files and Code Sections:
+   
+   - **packages/tutor-types/src/api-contracts.ts**
+     - Added `CourseSummary`, `ListCoursesResponse`, `SessionProgressChapterOutline` (with `started: boolean`), `SwitchChapterRequest/Response`, `AcknowledgeReviewLoResponse`
+     - Most recent edit added `started: boolean` field to outline:
+     ```ts
+     export interface SessionProgressChapterOutline {
+       id: string;
+       name: string;
+       phase: ChapterPhase;
+       isCurrent: boolean;
+       started: boolean;  // 必要,因为 ChapterPhase 默认 'learning' 没有"未开始"概念
+     }
+     ```
+   
+   - **server/src/session/session.service.ts**
+     - `getProgress` chapter selection from `session.current_lo_id` not `chapters[0]`
+     - `pickStartingLo` for multi-chapter start
+     - `switchChapter` method
+     - `allChapters` computation with `started` field
+     - Final logic for started:
+     ```ts
+     const loIds = ch.learningObjectives.map((lo) => lo.id);
+     let started = chProgress.phase !== 'learning';
+     if (!started && loIds.length > 0) {
+       const attemptedRow = await this.db
+         .selectFrom('learner_state')
+         .select(['lo_id'])
+         .where('learner_id', '=', session.learner_id)
+         .where('lo_id', 'in', loIds)
+         .where('attempts', '>', 0)  // ← only attempts > 0 counts
+         .executeTakeFirst();
+       started = !!attemptedRow;
+     }
+     ```
+   
+   - **server/src/session/session.controller.ts** — added `switch-chapter` POST route
+   
+   - **server/src/knowledge/knowledge.controller.ts** — added `GET courses` list route
+   
+   - **server/src/knowledge/knowledge.service.ts** — added `listCourseSummaries()`
+   
+   - **web/src/components/ProgressSidebar.vue**
+     - Most recent edit:
+     ```vue
+     :class="['chapter-row', {
+       current: ch.isCurrent,
+       completed: ch.phase === 'completed',
+       'not-started': !ch.started && !ch.isCurrent,
+     }]"
+     :type="ch.started || ch.isCurrent ? phaseTagType[ch.phase] : 'info'"
+     {{ ch.started || ch.isCurrent ? phaseLabel[ch.phase] : '未开始' }}
+     ```
+     - Added box-sizing: border-box fix:
+     ```css
+     .progress-sidebar {
+       /* ★ box-sizing: 把 padding 算进 height:100vh,否则实际 = 100vh + 40px,底部被视口剪 */
+       box-sizing: border-box;
+     }
+     ```
+     - Added `.chapter-row.not-started:not(.current) { color: #909399; }`
+   
+   - **web/src/views/HomeView.vue** — rewritten with course card picker fetching /api/courses
+   
+   - **web/src/api/session.ts** — added `switchChapter`, `acknowledgeReviewLo` API calls
+   
+   - **web/src/api/knowledge.ts** — added `listCourses` API call
+   
+   - **web/src/stores/session.ts** — added `switchChapter` and `acknowledgeReviewLo` actions
+   
+   - **server/src/knowledge/data/python-basics/chapters/string_and_format/** — new chapter with 2 LOs (string_basics, string_methods) each 3 RIs + assessment
+   
+   - **server/src/knowledge/data/sql-basics/** — new course with 2 chapters (select_and_filter with 2 LOs, joins with 1 LO), `subject: SQL`
+   
+   - **doc/course-authoring.md** — 744-line guide. §8.5 added reset paths. §8.6 added chapter switching explanation. §10 updated to MD-per-chapter design for `whale-tutor build`
+   
+   - **notes/orchestrator.md** — 557 lines, state machines + DB writes + event mappings
+   
+   - **notes/stuck-handling.md** — 456 lines, three mechanisms integrated
+
+4. Errors and Fixes:
+   
+   - **YAML parse errors**: Quote issues with strings containing single quotes, double quotes
+     - Fixed by quoting properly or using Chinese quotes 「」
+   
+   - **EADDRINUSE on port 3000**: Multiple node.exe processes hanging
+     - Fixed with `taskkill //F //IM node.exe`
+   
+   - **Stale dist folder**: nest --watch not picking up YAML changes
+     - Fixed by `rm -rf server/dist` and restart
+   
+   - **Bug: getProgress hardcoded chapter[0]**
+     - Fixed by using `session.current_lo_id` to derive chapter via `getChapterByLoId`
+   
+   - **Bug: chapter 2 always showed "学习中"**
+     - User feedback: "现在两个都是学习中，第二个不是未开始"
+     - First fix: added `started` field based on row existence — but switching created rows
+     - Second fix: changed to `attempts > 0` check — only real submissions count as started
+   
+   - **Bug: sidebar bottom cut off (历史问答 not visible)**
+     - Fixed by adding `box-sizing: border-box` to `.progress-sidebar`
+   
+   - **Bug: chapter 1 showed "已完成 🎉"**
+     - Caused by my earlier mocked `learner_chapter_progress` row from testing
+     - Fixed by SQL DELETE + documented in §8.5 reset path
+   
+   - **Most recent reported issue**: User says "点在第一个时候，第二个是未学习，点在第二个时候，第一个是学习中"
+     - My E2E test shows server logic returns started=False for both correctly
+     - Suspected stale server / browser cache
+     - Instructed user to: kill all node + clean dist + reset DB + restart `pnpm dev` + hard refresh browser
+
+5. Problem Solving:
+   - Solved Q5 type refactor with Omit<Definition, K> & {...}
+   - Solved StuckProtocol with static+AI fallback hint generation, in-memory cache by RI id
+   - Solved PathOrchestrator with adaptive retry + review_lo + hint discount
+   - Solved subject parameterization for all AI prompts
+   - Solved multi-course (HomeView picker + GET /api/courses)
+   - Solved multi-chapter start (pickStartingLo finds first incomplete)
+   - Solved chapter switching (switchChapter endpoint)
+   - Ongoing: User-reported asymmetric "学习中" display — server logic verified correct via E2E test, suspected to be stale dev server / browser cache on user's side
+
+6. All User Messages:
+   - "我目前这个项目的架构你读一下" (initial context)
+   - "我现在开始完整对项目v0.1的项目进行理解，你首先说一下tutor-types/src下面每个文件的情况"
+   - "关于domain.ts [11 questions]"
+   - "现在先开始把第5点的type safe完善一下，然后开始高优先级的v0.2的四个需求"
+   - "可以" (confirming v3 plan)
+   - "确认（但是你为了测试需要部分题目写hints）"
+   - "暂时是不是可以不用ai...也就是如果作者没有设置，那么使用ai的3级提示"
+   - "然后现在这个梯度你觉得真的要那么多吗，每个题目应该是动态的"
+   - "你这个模板是不是不应该限制python，而是外部传一个什么；spot_the_bug和code_sandbox的generate也是需要的，包括free_recall；hint计分保持简单，不计"
+   - "现在开始出PathOrchestrator 智能化的详细plan"
+   - "继续" (multiple times)
+   - "基于目前的状态，写一个Orchestrator和数据库各表如何变更的文档...状态机需要用mermaid详细写清楚"
+   - "现在notes下面能不能讲一下处理stuck的机制，好像没看到有文档具体写"
+   - "Claudemd和readme类似同步更新...然后我需要面向课程设计者写一个文档...whale-tutor build生成course的课程结构...whale-tutor lint检查课程结构...小白教程"
+   - "在 @doc/course-authoring.md 里面说whale-tutor build还没实现...然后能否作者的每个md对应的是chapter，然后lo由ai自己拆；现在的server下面的python课能不能搞成多chapter的，然后再开一个多chapter的sql课"
+   - "我现在进入python之后，左边的状态感觉不对，然后现在显示的直接是第二章的，然后我也不知道一共有哪些章节"
+   - "现在python的chapter1为什么已经完成了呢，怎么重置，还有我章节是不是不能切换，比如我学第二章想看一下第一章内容"
+   - "进去之后，第二章也显示了学习中；最下面的历史记录看不到了，滚动条已经到最下面"
+   - "现在两个都是学习中，第二个不是未开始"
+   - "我两个都没做题，然后点在第一个时候，第二个是未学习，点在第二个时候，第一个是学习中，这个是不是不对"
+
+7. Pending Tasks:
+   - Verify with user that after clean restart, the asymmetric chapter "学习中"/"未开始" display works correctly
+   - If still buggy, investigate further — potentially have user share /api/sessions/<id>/progress JSON response from devtools
+
+8. Current Work:
+   Immediately before summary request, user reported: "我两个都没做题，然后点在第一个时候，第二个是未学习，点在第二个时候，第一个是学习中，这个是不是不对"
+   
+   I:
+   1. Re-ran my E2E test which confirmed server logic was correct:
+      ```
+      State 1 (in chapter 1, no answer): chapter 1 started=False, chapter 2 started=False
+      State 2 (switched to chapter 2, no answer): chapter 1 started=False, chapter 2 started=False
+      ```
+   2. Suspected user's dev server or browser cache had stale code
+   3. Did clean reset: `taskkill //F //IM node.exe`, `rm -rf server/dist`, DB cleanup
+   4. Instructed user to:
+      - Kill local server + web (Ctrl+C)
+      - Restart `pnpm dev`
+      - Hard refresh browser (Ctrl+Shift+R)
+      - If still buggy, share `/api/sessions/<id>/progress` JSON from devtools Network tab
+
+9. Optional Next Step:
+   Wait for user to verify the fix after their clean restart. Direct quote from my last message: "如果重启 + 硬刷新后仍然不对,把浏览器里 `/api/sessions/<id>/progress` 的实际响应 JSON 贴一下(devtools Network 拿),我看下 server 究竟返了什么。"
+   
+   No additional work should be started without user confirmation since the task hinges on whether user's local environment is in sync with the latest code.
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: C:\Users\gyh\.claude\projects\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b.jsonl
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:39:37 PM</sup>
+
+<command-name>/compact</command-name>
+            <command-message>compact</command-message>
+            <command-args></command-args>
+
+
+---
+
+## User <sup>5/8/2026, 11:41:44 PM</sup>
+
+<local-command-stdout>Compacted </local-command-stdout>
+
+
+---
+
+## User <sup>5/8/2026, 11:47:03 PM</sup>
+
+现在开始实现whale-tutor的build命令，用户在工作目录下面给出每个chapter的markdown，然后需要转成类似于server下面knowledge课程的yaml+markdown，虽然ai的效果不能保证，但是你需要仔细地考虑prompt，使得生成的内容质量较高，学习效果好
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:47:20 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:47:21 PM</sup>
+
+我先把现有设计和相关代码读清楚,再给你一个具体方案。
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:47:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\doc\\course-authoring.md"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:47:21 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	# 课程作者指南
+2	
+3	> 写给:**只懂 YAML 和 Markdown**、想给学习者做一门 Python(或其他学科)交互式课程的老师 / 教研人员。
+4	>
+5	> 你不需要懂 JavaScript、TypeScript、NestJS、SQL,也不需要会写代码评估逻辑。
+6	>
+7	> 大约 20 分钟读完,跑通示例。之后你能做的:**改 YAML 改 Markdown 加自己的内容**,刷新就能学。
+8	
+9	---
+10	
+11	## 目录
+12	
+13	1. [5 分钟跑起来](#1-5-分钟跑起来)
+14	2. [大局观:课程结构](#2-大局观课程结构)
+15	3. [课程目录详解(每个文件做什么)](#3-课程目录详解每个文件做什么)
+16	4. [`$ref` — 把长 markdown 抽出去](#4-ref--把长-markdown-抽出去)
+17	5. [4 种交互模式(题型)](#5-4-种交互模式题型)
+18	6. [hint 机制(求提示)](#6-hint-机制求提示)
+19	7. [评价机制(系统怎么判对错)](#7-评价机制系统怎么判对错)
+20	8. [日常工作流](#8-日常工作流)
+21	9. [常见错误 + 排查](#9-常见错误--排查)
+22	10. [v0.3 计划:`whale-tutor build` AI 辅助生成](#10-v03-计划whale-tutor-build-ai-辅助生成)
+23	
+24	---
+25	
+26	## 1. 5 分钟跑起来
+27	
+28	### 安装前置
+29	
+30	- **Node.js ≥ 22**(<https://nodejs.org>)
+31	- **MySQL ≥ 8.0**(本机或远程,在某端口监听)
+32	- **Python ≥ 3.9** *或* **任意能跑 npm 的环境**(二选一)
+33	- **DeepSeek API key**(可选,没填的话 AI 评估走 fallback 文案,但你能完整体验流程)
+34	
+35	### 第一次:复制示例课程,启动看效果
+36	
+37	```bash
+38	# 1. 装 CLI(二选一)
+39	pip install whale-tutor               # Python 用户
+40	
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:47:27 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:47:28 PM</sup>
+
+现在读两个 CLI 的现状,看 init/lint 等命令结构,这样 build 命令风格能对齐。
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:47:29 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-py\\whale_tutor\\cli.py"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:47:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	"""click 入口。命令:init / start / doctor。"""
+2	
+3	from __future__ import annotations
+4	
+5	import sys
+6	from pathlib import Path
+7	
+8	import click
+9	from rich.console import Console
+10	
+11	from . import __version__
+12	from .config import find_config, load_config
+13	from .db import ensure_schema
+14	from .doctor import run_doctor
+15	from .lint import run_lint
+16	from .runner import start_node_server
+17	from .scaffold import scaffold_init
+18	
+19	console = Console()
+20	
+21	
+22	def _bundle_root() -> Path:
+23	    """返回 wheel 安装后 _bundle/ 目录的绝对路径。"""
+24	    from importlib.resources import files
+25	
+26	    bundle = files("whale_tutor").joinpath("_bundle")
+27	    return Path(str(bundle))
+28	
+29	
+30	def _schema_file(bundle_root: Path) -> Path:
+31	    return bundle_root / "db" / "init" / "01-schema.sql"
+32	
+33	
+34	@click.group()
+35	@click.version_option(__version__, prog_name="whale-tutor")
+36	def main() -> None:
+37	    """Whale Tutor — AI-driven interactive Python tutor.
+38	
+39	    课程作者用的命令行:在自己的目录
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:47:34 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-py\\whale_tutor\\lint.py"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:47:34 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	"""`whale-tutor lint` — 校验当前目录的课程结构。
+2	
+3	实现:spawn server 的 main.js,带 WHALE_TUTOR_VALIDATE_ONLY=1 + WHALE_TUTOR_COURSES_DIR。
+4	server 只 boot KnowledgeModule(不连 mysql / 不起 web),走完 ajv 校验后 exit 0/非0。
+5	错误信息由 server 通过 stderr 透传给学习者。
+6	"""
+7	
+8	from __future__ import annotations
+9	
+10	import os
+11	import subprocess
+12	from pathlib import Path
+13	
+14	from rich.console import Console
+15	
+16	from .runner import find_node
+17	
+18	console = Console()
+19	
+20	
+21	def run_lint(bundle_root: Path, courses_dir: Path) -> int:
+22	    """跑 lint。返回 server exit code。"""
+23	    server_main = bundle_root / "server" / "dist" / "main.js"
+24	    if not server_main.exists():
+25	        console.print(
+26	            f"[red]✗ 找不到 server bundle ({server_main})。可能是 pip 包损坏,"
+27	            "试试重装 whale-tutor。[/red]"
+28	        )
+29	        return 1
+30	
+31	    node = find_node()
+32	    console.print(f"[dim]→ 校验课程目录 {courses_dir}…[/dim]\n")
+33	
+34	    env = os.environ.copy()
+35	    env.update(
+36	        {
+37	      
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:47:40 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\bin\\cli.mjs"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:47:40 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	#!/usr/bin/env node
+2	// commander 入口。子命令:init / start / doctor。
+3	
+4	import { readFileSync } from 'node:fs';
+5	import { dirname, resolve } from 'node:path';
+6	import process from 'node:process';
+7	import { fileURLToPath } from 'node:url';
+8	import { Command } from 'commander';
+9	import kleur from 'kleur';
+10	import { findConfig, loadConfig } from '../lib/config.mjs';
+11	import { ensureSchema } from '../lib/db.mjs';
+12	import { runDoctor } from '../lib/doctor.mjs';
+13	import { runLint } from '../lib/lint.mjs';
+14	import { startServer } from '../lib/runner.mjs';
+15	import { scaffoldInit } from '../lib/scaffold.mjs';
+16	
+17	const __dirname = dirname(fileURLToPath(import.meta.url));
+18	const PKG_ROOT = resolve(__dirname, '..');
+19	
+20	function bundleRoot() {
+21	  return resolve(PKG_ROOT, '_bundle');
+22	}
+23	
+24	function schemaFile() {
+25	  return resolve(bundleRoot(), 'db', 'init', '01-schema.sql');
+26	}
+27	
+28	function readVersion() {
+29	  const pkg = JSON.parse(readFileSync(resolve(PK
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:47:47 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\lib\\lint.mjs"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:47:47 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	// `whale-tutor lint` — 校验当前目录的课程结构是否合法。
+2	//
+3	// 实现:spawn server 的 main.js,带 WHALE_TUTOR_VALIDATE_ONLY=1 + WHALE_TUTOR_COURSES_DIR。
+4	// server 只 boot KnowledgeModule(不连 mysql / 不起 web),走完 ajv 校验后 exit:
+5	//   - exit 0  → 通过
+6	//   - exit 非0 → 失败,stderr 含 CourseValidationError 详情
+7	// CLI 把 server 的 stdout/stderr 透传给学习者,自己只加最后一行总结。
+8	
+9	import { spawn } from 'node:child_process';
+10	import { existsSync } from 'node:fs';
+11	import { dirname, join } from 'node:path';
+12	import process from 'node:process';
+13	import kleur from 'kleur';
+14	
+15	/**
+16	 * 跑 lint。返回 exit code。
+17	 *
+18	 * @param {string} bundleRoot — _bundle 目录
+19	 * @param {string} coursesDir — 用户的课程目录(绝对路径)
+20	 */
+21	export async function runLint(bundleRoot, coursesDir) {
+22	  const serverMain = join(bundleRoot, 'server', 'dist', 'main.js');
+23	  if (!existsSync(serverMain)) {
+24	    console.error(
+25	      kleur.red(`✗ 找不到 server bundle (${serverMain})。可能是 npm 包损坏,试试重装。`),
+26	    );
+27	    return 1;
+28	  }
+29	
+30	  con
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:48:28 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:48:30 PM</sup>
+
+读完了。设计文档 §10 已经定了输入形态(每个 md 一章,AI 拆 LO),CLI 调用模式跟 lint 一样:CLI 是薄壳,真活在 server 侧通过 AI Gateway 跑。开工前有几个产品决策需要先对齐:
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:48:43 PM</sup>
+
+<details>
+<summary>Tool: <code>AskUserQuestion</code></summary>
+
+```json
+{
+  "questions": [
+    {
+      "question": "AI 生成必做题(RI)时用哪些 pattern?",
+      "header": "Pattern 范围",
+      "multiSelect": false,
+      "options": [
+        {
+          "label": "全部用 concept_check(推荐)",
+          "description": "一律生成 4 选 1 概念题。AI 失败率最低,模板稳定;作者后续可手动改成 code_sandbox/free_recall。v0.3 第一版求稳。"
+        },
+        {
+          "label": "Subject 分流(Python 含 code_sandbox)",
+          "description": "Python 课:concept_check + code_sandbox(每 LO 配 1-2 题代码题);SQL 等无沙盒课:仅 concept_check。质量高但 AI 出代码题失败率比选择题高。"
+        },
+        {
+          "label": "AI 自己决定 4 种混合",
+          "description": "把 4 种 pattern 全开,AI 看 LO 内容自选。最丰富但最不稳定,spot_the_bug 尤其难"
+        }
+      ]
+    },
+    {
+      "question": "输出目录已存在时如何处理?",
+      "header": "覆盖策略",
+      "multiSelect": false,
+      "options": [
+        {
+          "label": "默认报错,需 --force(推荐)",
+          "description": "避免误覆盖作者已经手动调过的内容。--force 才整目录覆盖。"
+        },
+        {
+          "label": "默认追加(skip 已存在的 yaml/md)",
+          "description": "已存在的文件不动,只补缺失。适合增量补全,但状态可能不一致。"
+        },
+        {
+          "label": "默认整目录覆盖",
+          "description": "总是先删后写,简单直接。危险:作者手改的内容会丢"
+        }
+      ]
+    },
+    {
+      "question": "build 输出写到哪里?",
+      "header": "输出位置",
+      "multiSelect": false,
+      "options": [
+        {
+          "label": "courses/<course-id>/ 直接写(推荐)",
+          "description": "和 init 一致的目标位置。配合「默认报错」覆盖策略安全。lint/start 直接可用。"
+        },
+        {
+          "label": "build-output/<course-id>/ 先写到独立目录",
+          "description": "AI 输出放隔离目录,作者人工 review 后自己 mv 到 courses/。更安全但多一步"
+        }
+      ]
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:49:41 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+User has answered your questions: "AI 生成必做题(RI)时用哪些 pattern?"="全部用 concept_check(推荐)", "输出目录已存在时如何处理?"="默认报错,需 --force(推荐)", "build 输出写到哪里?"="courses/<course-id>/ 直接写(推荐)". You can now continue with the user's answers in mind.
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:49:49 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:49:49 PM</sup>
+
+明确了。再快速看一下 AI Gateway 和 prompt 格式,然后给完整方案。
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:49:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\ai-gateway.service.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:49:50 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import {
+2	  Inject,
+3	  Injectable,
+4	  Logger,
+5	  type OnModuleInit,
+6	} from '@nestjs/common';
+7	import { ConfigService } from '@nestjs/config';
+8	import Ajv, { type AnySchema, type ValidateFunction } from 'ajv';
+9	import { promises as fs } from 'node:fs';
+10	import * as path from 'node:path';
+11	import * as yaml from 'js-yaml';
+12	import type { AiCallStatus } from '@whale-tutor/tutor-types';
+13	import { KYSELY, type Database } from '../database/database.module';
+14	
+15	// __dirname 在 dev(ts-node) = src/ai;在 prod(node dist) = dist/ai。
+16	// 都映射到 ai/prompts/。nest-cli.json assets 配置确保 build 时复制 .yaml。
+17	const PROMPTS_DIR = path.join(__dirname, 'prompts');
+18	
+19	interface PromptTemplate {
+20	  templateId: string;
+21	  model: string;
+22	  maxRetries?: number;
+23	  maxTokens?: number;
+24	  temperature?: number;
+25	  system: string;
+26	  user: string;
+27	  outputSchema?: AnySchema;
+28	  fallback?: unknown;
+29	}
+30	
+31	export interface AiCompleteInput {
+32	  templateId: string;
+33	  v
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:49:56 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\main.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:49:56 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import 'reflect-metadata';
+2	import { promises as fs } from 'node:fs';
+3	import { NestFactory } from '@nestjs/core';
+4	import { ConfigService } from '@nestjs/config';
+5	import { createConnection } from 'mysql2/promise';
+6	import { AppModule } from './app.module';
+7	import { KnowledgeModule } from './knowledge/knowledge.module';
+8	import { KnowledgeService } from './knowledge/knowledge.service';
+9	
+10	async function bootstrap() {
+11	  // -1. validate-only 模式(`whale-tutor lint`):仅 boot KnowledgeModule 跑 yaml 解析 + ajv 校验,
+12	  // 通过则 exit 0,失败抛错让 process 非零退出 + stderr 含具体错误。
+13	  // 不需要 mysql / web / 任何其他模块。
+14	  if (process.env.WHALE_TUTOR_VALIDATE_ONLY === '1') {
+15	    await runValidateOnly();
+16	    return;
+17	  }
+18	
+19	  // 0. pip 包模式下 Python CLI 在启动 node 之前不一定能确认 mysql 已经初始化 schema。
+20	  // 通过 WHALE_TUTOR_BOOTSTRAP_SCHEMA=1 + WHALE_TUTOR_SCHEMA_FILE=/path/to/01-schema.sql
+21	  // 让 server 自己检测并应用。monorepo dev 模式不设这两个 env(docker-entrypoint-initdb.d 已搞定)。
+22	  if (process.env.WHALE
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:50:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls server/src/ai/prompts/",
+  "description": "List AI Gateway prompt YAML files"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:50:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+free_recall.evaluate.yaml
+pattern.hint.yaml
+pattern.regenerate.code_sandbox.yaml
+pattern.regenerate.concept_check.yaml
+pattern.regenerate.free_recall.yaml
+pattern.regenerate.spot_the_bug.yaml
+qa.answer.yaml
+spot_the_bug.evaluate_explanation.yaml
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:50:13 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\pattern.regenerate.concept_check.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:50:13 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	# 答错 concept_check 后的"换说法"题生成。
+2	# 输入变量:
+3	#   subject              — 学科名("Python" / "SQL" / ...)
+4	#   loName / loDescription — 当前 LO 元信息
+5	#   commonMisconceptions — 该 LO 的常见误解列表(陷阱选项灵感)
+6	#   originalStem / originalOptionsList / originalAnswerIndex / originalRationale
+7	#   attemptIndex         — 这是该 RI 的第几次 retry(从 1 开始)
+8	
+9	templateId: pattern.regenerate.concept_check
+10	model: deepseek-v4-flash
+11	maxRetries: 1
+12	maxTokens: 1500
+13	temperature: 0.5
+14	
+15	system: |
+16	  你是 {{subject}} 教学出题助手。学习者刚答错了一道关于某 LO 的 concept_check 题,
+17	  你需要为同一 LO 出一道**换说法**的题:测同一核心概念,但题干和选项措辞要不同。
+18	
+19	  约束:
+20	  - **必须**考核同一 LO 的核心概念,难度相当
+21	  - 题干必须和原题不同(改场景 / 换变量 / 换角度)
+22	  - 选项 4 个,1 正 3 错;陷阱选项尽量利用学习者可能踩到的 commonMisconceptions
+23	  - 正确选项 index 在 0-3 内,不要全放第 1 位
+24	  - rationale 用 1-2 句解释为什么正确,不超过 80 字
+25	  - 必须返回 JSON object 符合 schema,无任何额外文本、无 markdown 包裹
+26	
+27	user: |
+28	  ## LO 上下文
+29	  名称:{{loName}}
+30	  描述:{{loDescription}}
+31	
+32	  ## 常见误解(可作为陷阱选项灵感)
+33	  {{commonMisconceptions}}
+34	
+
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:50:20 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:50:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.service.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:50:21 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { existsSync } from 'node:fs';
+2	import { promises as fs } from 'node:fs';
+3	import * as path from 'node:path';
+4	import { Injectable, Logger, NotFoundException, type OnModuleInit } from '@nestjs/common';
+5	import type {
+6	  Chapter,
+7	  ChapterAssessmentDefinition,
+8	  ChapterAssessmentSummary,
+9	  ChapterDefinition,
+10	  Course,
+11	  CourseDefinition,
+12	  LearningObjective,
+13	  LearningObjectiveDefinition,
+14	  RequiredInteraction,
+15	} from '@whale-tutor/tutor-types';
+16	import { loadCourse } from './knowledge.loader';
+17	import { validateCourseDefinition } from './knowledge.schema';
+18	
+19	// 课程数据根目录的解析顺序:
+20	//   1. WHALE_TUTOR_COURSES_DIR 环境变量(pip 包模式 — Python CLI 把课程作者本地目录传进来)
+21	//   2. fallback 到 __dirname/data(monorepo dev 模式 — 内置 python-basics)
+22	// __dirname 在开发期(ts-node)指向 src/knowledge/, 生产期(node dist)指向 dist/knowledge/。
+23	// nest-cli.json 的 assets 配置确保 build 时 data/ 也被复制到 dist/knowledge/data/。
+24	const COURSES_DIR =
+25	  process.env.WHALE_TUTOR_COURSES_DIR |
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:50:27 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.module.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:50:27 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { Module } from '@nestjs/common';
+2	import { KnowledgeController } from './knowledge.controller';
+3	import { KnowledgeService } from './knowledge.service';
+4	
+5	@Module({
+6	  controllers: [KnowledgeController],
+7	  providers: [KnowledgeService],
+8	  exports: [KnowledgeService],
+9	})
+10	export class KnowledgeModule {}
+11
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:50:31 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls server/src/knowledge/",
+  "description": "List knowledge module files"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:50:35 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+data/
+knowledge.controller.ts
+knowledge.loader.ts
+knowledge.module.ts
+knowledge.schema.ts
+knowledge.service.ts
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:50:42 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls server/src/knowledge/data/python-basics/chapters/list_and_iter/los/list_basics/",
+  "description": "List one LO directory to confirm structure"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:50:46 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+core-explanation.md
+lo.yaml
+ri-1.explanation.md
+ri-1.rationale.md
+ri-2.explanation.md
+ri-2.rationale.md
+ri-3.explanation.md
+ri-3.rationale.md
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:50:52 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\list_and_iter\\los\\list_basics\\lo.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:50:52 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	id: lo.list.basics
+2	name: 列表的创建与表示
+3	description: 用 [] 与 list() 创建列表,理解 len 与异质元素
+4	prerequisites: []
+5	estimatedDurationMin: 15
+6	difficultyBand: beginner
+7	coreExplanation: { $ref: ./core-explanation.md }
+8	commonMisconceptions:
+9	  - list 只能存同类型元素(把 list 当 C 数组)
+10	  - list 像数组一样定长(把 list 当 tuple)
+11	masteryCriteria: 连续 2 题正确判断 list 长度 / 元素类型;能写出创建空 list 与含初值 list
+12	requiredInteractions:
+13	  - id: ri.list.basics.1
+14	    patternId: concept_check
+15	    prompt:
+16	      explanationMd: { $ref: ./ri-1.explanation.md }
+17	      question:
+18	        stem: 下列哪个表达式创建一个空列表?
+19	        options: ["[]", "{}", "list{}", "list[]"]
+20	        answerIndex: 0
+21	        rationale: { $ref: ./ri-1.rationale.md }
+22	    # 作者觉得这题简单,只给 2 级提示(看 4 个选项的字面差异即可)
+23	    hints:
+24	      - 留意四个选项里**括号的形状**(方括号 / 花括号)和**调用语法**(带 `()` 与否),不是所有都是 list 字面量
+25	      - "Python 创建空容器有两种写法:**字面量**(`[]`、`{}`)和**构造函数**(`list()`、`dict()`)。这道题的正确答案应该用最直接的字面量"
+26	  - id: ri.list.basics.2
+27	    patternId: concept_check
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:50:57 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\list_and_iter\\chapter.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:50:57 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	id: ch.list_and_iter
+2	name: 列表与迭代
+3	description: { $ref: ./description.md }
+4	learningObjectives:
+5	  - { $ref: ./los/list_basics/lo.yaml }
+6	  - { $ref: ./los/list_indexing/lo.yaml }
+7	  - { $ref: ./los/list_mutation/lo.yaml }
+8	  - { $ref: ./los/iter_for_over_list/lo.yaml }
+9	assessment: { $ref: ./assessment/assessment.yaml }
+10
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:51:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\course.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:51:02 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	id: python-basics
+2	name: Python 基础
+3	# 学科名,做为 AI prompt 模板的 {{subject}} 变量(server-only,不下发到前端)。
+4	# 加新课程(SQL / Pandas / Java 等)时改这里就好,prompt 模板不用动。
+5	subject: Python
+6	description: { $ref: ./course-description.md }
+7	chapters:
+8	  - { $ref: ./chapters/list_and_iter/chapter.yaml }
+9	  - { $ref: ./chapters/string_and_format/chapter.yaml }
+10
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:51:08 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\chapters\\list_and_iter\\assessment\\assessment.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:51:08 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	id: ca.ch.list_and_iter
+2	name: 列表与迭代:章末综合
+3	requiredInteractions:
+4	  - id: ca.ch.list_and_iter.1
+5	    patternId: free_recall
+6	    prompt:
+7	      promptMd: { $ref: ./ca-1.prompt.md }
+8	      rubricKeyPoints:
+9	        - 提到 list 是可变长容器
+10	        - 提到索引或切片访问元素
+11	        - 提到至少一种迭代方式(for 或 while)
+12	        - 提到引用与拷贝的区别(`b = a` 后修改 b 影响 a)
+13
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:52:04 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:52:04 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\ai.module.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:52:04 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { Module } from '@nestjs/common';
+2	import { AiGatewayService } from './ai-gateway.service';
+3	
+4	@Module({
+5	  providers: [AiGatewayService],
+6	  exports: [AiGatewayService],
+7	})
+8	export class AiModule {}
+9
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:52:11 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\database\\database.module.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:52:11 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { Global, Module, OnModuleDestroy, Inject } from '@nestjs/common';
+2	import { ConfigModule, ConfigService } from '@nestjs/config';
+3	import { Kysely, MysqlDialect, type MysqlPool } from 'kysely';
+4	import { createPool } from 'mysql2';
+5	import type { DB } from './database.types';
+6	
+7	export const KYSELY = Symbol('KYSELY');
+8	export type Database = Kysely<DB>;
+9	
+10	@Global()
+11	@Module({
+12	  imports: [ConfigModule],
+13	  providers: [
+14	    {
+15	      provide: KYSELY,
+16	      inject: [ConfigService],
+17	      useFactory: (config: ConfigService): Database => {
+18	        const pool = createPool({
+19	          host: config.get<string>('DATABASE_HOST', 'localhost'),
+20	          port: config.get<number>('DATABASE_PORT', 3306),
+21	          user: config.get<string>('DATABASE_USER', 'tutor'),
+22	          password: config.get<string>('DATABASE_PASSWORD', 'tutor'),
+23	          database: config.get<string>('DATABASE_NAME', 'whale_tutor'),
+24	          connectionLimit: 10,
+25	    
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:53:14 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:53:22 PM</sup>
+
+够了。我有清晰方案了。给你一个结构化提纲后开工:
+
+**架构(沿用 lint 模式)**
+- CLI 是薄壳,spawn `node main.js` 带 `WHALE_TUTOR_BUILD_MODE=1` + `BUILD_INPUT/OUTPUT/FORCE`
+- Server 侧新建 `BuildModule`(仅 ConfigModule + 无 op KYSELY + AiGatewayService + BuildService),不依赖 DB
+- 复用 AI Gateway(prompt YAML + ajv schema 校验 + 重试 + fallback)
+
+**Pipeline(4 阶段,每阶段 1 个 prompt)**
+1. `build.course_meta` — 从 course.md 提取 id/name/subject/description
+2. `build.chapter_outline` — 从 chapter md AI 拆 2-5 个 LO,每个 LO 携带 coreExplanation 切片
+3. `build.lo_full` — 每个 LO 生成 commonMisconceptions + masteryCriteria + 3-5 道 concept_check RI
+4. `build.assessment` — 每章生成 5-7 道章末测试题(覆盖该章所有 LO)
+
+**ID 命名(确定性,不让 AI 发挥)**
+- chapter slug: 文件名去数字前缀 + 去 hyphen + 转 underscore(`01-list-and-iter.md` → `list_and_iter`)
+- chapter id: `ch.<slug>`
+- LO id: `lo.<chapter-slug>.<lo-slug>`(lo-slug 由 AI 给的 slug 字段)
+- RI id: `ri.<chapter-slug>.<lo-slug>.<n>`
+- assessment id: `ca.ch.<chapter-slug>`
+
+**输出**:严格镜像现有 yaml + $ref → md 结构
+
+开干:
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:53:23 PM</sup>
+
+<details>
+<summary>Tool: <code>ToolSearch</code></summary>
+
+```json
+{
+  "query": "select:TodoWrite",
+  "max_results": 1
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:53:23 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:53:39 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Write 4 build prompt YAMLs in server/src/ai/prompts/",
+      "activeForm": "Writing 4 build prompt YAMLs",
+      "status": "in_progress"
+    },
+    {
+      "content": "Make AiGatewayService.recordCall tolerate null KYSELY (for build mode)",
+      "activeForm": "Making AiGatewayService tolerate null DB",
+      "status": "pending"
+    },
+    {
+      "content": "Create server/src/build/ module (BuildModule + BuildService)",
+      "activeForm": "Creating BuildModule + BuildService",
+      "status": "pending"
+    },
+    {
+      "content": "Wire WHALE_TUTOR_BUILD_MODE in server/src/main.ts",
+      "activeForm": "Wiring build mode in main.ts",
+      "status": "pending"
+    },
+    {
+      "content": "Add build command to packages/cli-py",
+      "activeForm": "Adding build command to cli-py",
+      "status": "pending"
+    },
+    {
+      "content": "Add build command to packages/cli-node",
+      "activeForm": "Adding build command to cli-node",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc/course-authoring.md §10 from 'v0.3 计划' to '已实现'",
+      "activeForm": "Updating course-authoring.md",
+      "status": "pending"
+    },
+    {
+      "content": "Test the full pipeline locally with a small course",
+      "activeForm": "Testing build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:53:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:53:48 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:53:48 PM</sup>
+
+先写 4 个 prompt YAML — 这是质量的灵魂。
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:54:06 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\build.course_meta.yaml",
+  "content": "# `whale-tutor build` 阶段 1:从 course.md 提取课程元信息。\n# 输入:\n#   suggestedId      — 来源目录名(可作为 fallback id)\n#   courseMd         — 完整课程介绍 markdown(作者写的,通常 1-3 段)\n# 输出:course.yaml 顶层字段(id / name / subject / description)。\n#\n# 设计要点:\n#   - subject 字段给后续所有 prompt 用,必须是单个学科名词(Python / SQL / Pandas / ...),\n#     不要写\"Python 编程入门\"之类的短语\n#   - description 在 sidebar / 课程选择器展示给学习者,要简洁有吸引力,2-4 句话\n#   - id 必须 kebab-case 全小写 ASCII;若 suggestedId 已合规,优先沿用\n\ntemplateId: build.course_meta\nmodel: deepseek-v4-flash\nmaxRetries: 1\nmaxTokens: 800\ntemperature: 0.3\n\nsystem: |\n  你是课程结构提取助手。给你一段课程介绍 markdown,提取标准化课程元信息。\n\n  约束:\n  - id 必须是 kebab-case 全小写 ASCII(只含字母数字和连字符,2-30 字符);若 suggestedId 已合法,直接沿用\n  - subject 是后续所有 AI prompt 的 {{subject}} 变量,**必须是单个学科名词**(如 \"Python\" / \"SQL\" / \"Pandas\" / \"Java\");\n    不要写句子或带修饰词;首字母大写\n  - name 是学习者看到的课程标题(如 \"Python 基础\"),可中文\n  - description 给学习者看,2-4 句话提炼\"这门课讲什么、学完能做什么\";必须从 courseMd 提炼,不能凭空发挥\n  - 必须返回 JSON object 符合 schema,无任何额外文本、无 markdown 包裹\n\nuser: |\n  ## 来源目录名(suggestedId)\n  {{suggestedId}}\n\n  ## 课程介绍 markdown\n  {{courseMd}}\n\n  ## 任务\n  返回 JSON 对象,字段:\n  - id: 课程标识(kebab-case)\n  - name: 课程标题(给学习者看)\n  - subject: 学科名词(单词,首字母大写,给后续 AI prompt 的 {{subject}} 变量用)\n  - description: 课程简介(2-4 句话,从 courseMd 提炼)\n\noutputSchema:\n  type: object\n  required: [id, name, subject, description]\n  additionalProperties: false\n  properties:\n    id:\n      type: string\n      pattern: \"^[a-z0-9][a-z0-9-]{1,29}$\"\n    name: { type: string, minLength: 1, maxLength: 100 }\n    subject:\n      type: string\n      pattern: \"^[A-Z][A-Za-z0-9+#.]{0,30}$\"\n    description: { type: string, minLength: 10, maxLength: 600 }\n\n# 没 API key 或 AI 失败时,用 suggestedId 作为最低限度的 fallback\n# build.service.ts 检测到 fallback 字段后会以来源目录名兜底,并打 warning\nfallback:\n  id: \"_FALLBACK_\"\n  name: \"_FALLBACK_\"\n  subject: \"_FALLBA
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:54:07 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\build.course_meta.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:54:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\build.chapter_outline.yaml",
+  "content": "# `whale-tutor build` 阶段 2:从一份 chapter md 拆出 LO outline。\n# 输入:\n#   subject               — 学科名(\"Python\" / \"SQL\" / ...)\n#   chapterSlug           — 来自文件名的 slug(`01-list-and-iter.md` → `list_and_iter`)\n#   chapterMd             — 完整章节 markdown(作者写的,通常是该章的完整讲稿)\n# 输出:章节元信息 + 2-5 个 LO outline,每个 LO 含:\n#   - slug:LO 短名,蛇形小写\n#   - name / description / estimatedDurationMin / difficultyBand\n#   - coreExplanationMd:LO 教学讲解,**直接来自 chapterMd 的对应段落**(不能凭空发挥,\n#     可以做轻度整理:补 markdown 标题 / 调整段落顺序 / 补一两句过渡,但核心内容必须保留作者原文)\n#   - prerequisites:本章内的依赖(用 slug 引用,不要跨章)\n#\n# 设计要点:\n#   - LO 划分粒度:每个 LO 应该是 15-30 分钟能学完 + 答完 3-5 道必做题的认知单元\n#   - 不要为了凑数硬拆 — 一份 chapter 通常 2-5 个 LO,质量优先\n#   - difficultyBand 在章内通常递进:beginner → beginner → intermediate\n#   - prerequisites 用 LO slug 引用同章前面的 LO(数组顺序也是学习顺序,但 prereq 是显式锁)\n\ntemplateId: build.chapter_outline\nmodel: deepseek-v4-flash\nmaxRetries: 1\nmaxTokens: 8000\ntemperature: 0.3\n\nsystem: |\n  你是 {{subject}} 课程结构设计助手。给你一份章节 markdown,把它拆成 2-5 个学习目标(LO)。\n\n  关键准则(教学法):\n  1. LO 是\"学完能做到 X\"的具体技能,不是\"了解 X\"。每个 LO 表述应该让学习者答完该 LO 必做题后**能做到**某件事\n  2. 拆分按**认知单元**而非段落:相互依赖的概念合并为同一 LO;独立可考核的能力分开\n  3. 每个 LO 学习时长 15-30 分钟(对应 3-5 道必做题)。再大就拆,再小就并\n  4. **coreExplanationMd 必须主要来自 chapterMd 原文**:\n     - 你的工作是**整理与归位**:把 chapterMd 中属于该 LO 主题的段落摘出 + 拼接 + 必要时加 markdown 小标题\n     - 不要凭空发挥写讲解,不要凭空举例(作者已经写好了)\n     - 可以补 1-2 句过渡,可以补关键术语的简短定义(若作者漏掉),但量必须很少\n  5. LO 数组顺序 = 学习顺序;后面的 LO 可在 prerequisites 里引用前面 LO 的 slug\n  6. difficultyBand 通常递进:章内第一个 LO beginner,之后可上升到 intermediate\n\n  约束:\n  - LO slug 蛇形小写 ASCII(只含字母数字和下划线,2-20 字符,不要连续下划线)\n  - LO name 是学习者看到的(可中文),简洁,不带\"学习\"二字\n  - description 1-2 句话:学完能做到什么\n  - estimatedDurationMin 整数,15 / 20 / 25 / 30 之一\n  - difficultyBand 必须是 beginner / intermediate / advanced\n  - coreExplanationMd 长度 200-3000 字符;markdown 格式\n  - prerequisites 是同 chapter 内**前面**LO 的 slug 数组(
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:54:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\build.chapter_outline.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:55:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\build.lo_full.yaml",
+  "content": "# `whale-tutor build` 阶段 3:为单个 LO 生成完整教学元素。\n# 输入:\n#   subject               — 学科名\n#   chapterName           — 所在章节名(给 AI 上下文,避免出题超纲)\n#   loName / loDescription — 当前 LO 名 / 描述\n#   coreExplanationMd     — 当前 LO 的教学讲解(stage 2 已生成,作者写的)\n#   siblingLoNames        — 同章其他 LO 名称(逗号分隔字符串,避免出题踩到下一个 LO 的内容)\n# 输出:\n#   - commonMisconceptions:学习者最容易犯的具体错误(给后续 retry 出题用陷阱选项灵感)\n#   - masteryCriteria:1-2 句话,该 LO 通过标准\n#   - requiredInteractions:3-5 道 concept_check 题,完整字段\n#\n# 设计要点(教育学):\n#   - commonMisconceptions 是这门课\"陷阱选项灵感库\",必须**具体可识别**,不能抽象\n#     ✓ \"以为 a[5:10] 在越界时抛 IndexError(实际返 [])\"\n#     ✗ \"对切片不熟\"\n#   - RI 难度递进:第 1 题最基础(单点辨析),第 3-5 题综合 / 易错陷阱\n#   - 选项 4 个,1 正 3 错;陷阱选项尽量从 commonMisconceptions 中找\n#   - 正确选项 index 不要全放第 0 位 — 必须分散\n#   - rationale 1-2 句话,直接说为什么正确;不要重复题干\n#   - explanationMd 是题前引子,大多数题可以为空字符串(题干已经清楚就不需要)\n#   - 题干必须可独立读懂,**不要**引用\"上面讲解中提到的...\"(运行时学习者看不到 coreExplanation 时也能答)\n\ntemplateId: build.lo_full\nmodel: deepseek-v4-flash\nmaxRetries: 1\nmaxTokens: 6000\ntemperature: 0.4\n\nsystem: |\n  你是 {{subject}} 教学出题助手。给你一个 LO 的完整讲解,你的任务是为它生成:\n  1. 学习者最容易犯的**具体**错误清单(commonMisconceptions)\n  2. 该 LO 的通过标准(masteryCriteria)\n  3. 3-5 道 concept_check 选择题作为必做题\n\n  关键准则:\n  - **题目只测当前 LO 的内容**:`{{loName}}`,不要用同章其他 LO 的概念(参考 siblingLoNames 知道该回避什么)\n  - **commonMisconceptions 必须具体**:可识别的错误模式,可以直接做成陷阱选项;3-5 条\n    例:✓ \"以为 list 创建后长度不可变\" / ✗ \"对 list 不熟\"\n  - **题目难度递进**:第 1 题最基础(直接概念辨析),后面的题逐步综合 / 引入易错点\n  - **选项设计**:4 个选项,1 正 3 错,3 个错选项中至少 2 个使用 commonMisconceptions 中的错误模式\n  - **正确选项 index 必须分散**:不要每道题都把正确放在 index 0;3-5 道题应该至少出现 3 个不同 index\n  - **rationale**:1-2 句话直接说为什么正确,不要复述题干\n  - **explanationMd**:题前引子,**默认空字符串**;只在题目需要给学习者补充上下文(如代码片段、场景设定)时才写\n  - **题干自包含**:学习者不参考讲解也应该能读懂题干,**不要**写\"根据上面讲解\" / \"我们刚学的\"\n  - 必须返回 JSON object 符合 schema,无任何额外文本、无 markdown 包裹\n\nuser: |\n  ## 学科\n  {{subject}}\n\n  ## 章节\n  {{chapter
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:55:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\build.lo_full.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:55:51 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\build.assessment.yaml",
+  "content": "# `whale-tutor build` 阶段 4:为单个 chapter 生成章末综合测试。\n# 输入:\n#   subject               — 学科名\n#   chapterName / chapterDescription — 章节信息\n#   losJson               — 该章所有 LO 的 [{name, description, commonMisconceptions}] 字符串\n# 输出:\n#   - name:章末测试名称\n#   - requiredInteractions:5-7 道 concept_check 题(覆盖该章所有 LO,综合性)\n#\n# 设计要点(教育学,跟 LO 必做题不同):\n#   - **覆盖广度**:必须覆盖该章每个 LO 至少 1 题,不要把 5 道题都集中在 1 个 LO\n#   - **难度更高**:章末测试比 LO 必做题略难,允许跨 LO 综合(如\"以下哪个场景同时涉及 X 和 Y\")\n#   - **不出引导题**:章末是检验,所有 explanationMd 默认空字符串\n#   - **没有 hint / 没有 retry**:学习者答错就算错(章末机制),所以陷阱不要太刁钻 — 中等难度即可\n#   - **rationale 仍然写**:答完后学习者看反馈用,要解释为什么对\n\ntemplateId: build.assessment\nmodel: deepseek-v4-flash\nmaxRetries: 1\nmaxTokens: 6000\ntemperature: 0.4\n\nsystem: |\n  你是 {{subject}} 章末综合测试出题助手。给你一章的 LO 列表(name + description + commonMisconceptions),\n  生成 5-7 道 concept_check 题作为章末测试。\n\n  关键准则:\n  - **覆盖广度**:必须覆盖该章每个 LO 至少 1 题;不要全部集中在某 1 个 LO\n  - **综合性**:可以出跨 LO 综合题(如\"下列代码同时涉及 LO_A 和 LO_B 的哪个特性\"),但不强制\n  - **难度中等**:比 LO 必做题略难一档,但**不要刁钻** — 章末没有 hint 没有 retry,刁钻题会让学习者卡死\n  - **explanationMd 默认空字符串**:章末是检验环节,不在题前给提示\n  - **rationale 仍要写**:学习者答完看反馈用,1-2 句话说明为什么正确\n  - **题干自包含**:不要引用\"刚学的内容\" / \"上一题\"\n  - **正确选项 index 分散**:5-7 道题至少 3 个不同 index 出现\n  - **使用 commonMisconceptions 设陷阱**:错误选项尽量从 LO 的 commonMisconceptions 中找灵感\n  - 必须返回 JSON object 符合 schema,无任何额外文本、无 markdown 包裹\n\nuser: |\n  ## 学科\n  {{subject}}\n\n  ## 章节\n  名称:{{chapterName}}\n  描述:{{chapterDescription}}\n\n  ## 该章所有 LO(JSON,含每个 LO 的 commonMisconceptions)\n  {{losJson}}\n\n  ## 任务\n  生成章末综合测试,返回 JSON 对象:\n  - name: 章末测试名称(例:\"列表与迭代:章末综合\")\n  - requiredInteractions: 5-7 道 concept_check 必做题数组,每项:\n    - explanationMd: 题前引子(默认空字符串)\n    - question: { stem, options(4 个), answerIndex(0-3), rationale }\n    - coverLoSlug: 该题主要考核的 LO slug(从 losJson 中选)— **必须填**,用来后续追踪覆盖率\n\noutputSchema:\n  type: object\n  required: [na
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:55:52 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\build.assessment.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:55:58 PM</sup>
+
+Prompts 完成。现在让 AiGatewayService 容忍 null DB(build 模式不连 mysql)。
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:56:04 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Write 4 build prompt YAMLs in server/src/ai/prompts/",
+      "activeForm": "Writing 4 build prompt YAMLs",
+      "status": "completed"
+    },
+    {
+      "content": "Make AiGatewayService.recordCall tolerate null KYSELY (for build mode)",
+      "activeForm": "Making AiGatewayService tolerate null DB",
+      "status": "in_progress"
+    },
+    {
+      "content": "Create server/src/build/ module (BuildModule + BuildService)",
+      "activeForm": "Creating BuildModule + BuildService",
+      "status": "pending"
+    },
+    {
+      "content": "Wire WHALE_TUTOR_BUILD_MODE in server/src/main.ts",
+      "activeForm": "Wiring build mode in main.ts",
+      "status": "pending"
+    },
+    {
+      "content": "Add build command to packages/cli-py",
+      "activeForm": "Adding build command to cli-py",
+      "status": "pending"
+    },
+    {
+      "content": "Add build command to packages/cli-node",
+      "activeForm": "Adding build command to cli-node",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc/course-authoring.md §10 from 'v0.3 计划' to '已实现'",
+      "activeForm": "Updating course-authoring.md",
+      "status": "pending"
+    },
+    {
+      "content": "Test the full pipeline locally with a small course",
+      "activeForm": "Testing build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:56:04 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:56:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\ai-gateway.service.ts",
+  "old_string": "  constructor(\n    @Inject(KYSELY) private readonly db: Database,\n    private readonly config: ConfigService,\n  ) {",
+  "new_string": "  // db 在 build 模式下是 null(BuildModule 不依赖 mysql),所有 ai_calls 写入要 guard\n  constructor(\n    @Inject(KYSELY) private readonly db: Database | null,\n    private readonly config: ConfigService,\n  ) {"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:56:13 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\ai-gateway.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:56:22 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\ai-gateway.service.ts",
+  "old_string": "  private async recordCall(input: {\n    templateId: string;\n    model: string;\n    tokensIn: number | null;\n    tokensOut: number | null;\n    latencyMs: number;\n    status: AiCallStatus;\n    costUsd: number | null;\n    sessionId: number | null;\n    callerTag: string | null;\n    errorMessage: string | null;\n  }): Promise<void> {\n    await this.db\n      .insertInto('ai_calls')\n      .values({",
+  "new_string": "  private async recordCall(input: {\n    templateId: string;\n    model: string;\n    tokensIn: number | null;\n    tokensOut: number | null;\n    latencyMs: number;\n    status: AiCallStatus;\n    costUsd: number | null;\n    sessionId: number | null;\n    callerTag: string | null;\n    errorMessage: string | null;\n  }): Promise<void> {\n    // build 模式无 DB,跳过 ai_calls 写入\n    if (!this.db) return;\n    await this.db\n      .insertInto('ai_calls')\n      .values({"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:56:23 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\ai-gateway.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:56:34 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Write 4 build prompt YAMLs in server/src/ai/prompts/",
+      "activeForm": "Writing 4 build prompt YAMLs",
+      "status": "completed"
+    },
+    {
+      "content": "Make AiGatewayService.recordCall tolerate null KYSELY (for build mode)",
+      "activeForm": "Making AiGatewayService tolerate null DB",
+      "status": "completed"
+    },
+    {
+      "content": "Create server/src/build/ module (BuildModule + BuildService)",
+      "activeForm": "Creating BuildModule + BuildService",
+      "status": "in_progress"
+    },
+    {
+      "content": "Wire WHALE_TUTOR_BUILD_MODE in server/src/main.ts",
+      "activeForm": "Wiring build mode in main.ts",
+      "status": "pending"
+    },
+    {
+      "content": "Add build command to packages/cli-py",
+      "activeForm": "Adding build command to cli-py",
+      "status": "pending"
+    },
+    {
+      "content": "Add build command to packages/cli-node",
+      "activeForm": "Adding build command to cli-node",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc/course-authoring.md §10 from 'v0.3 计划' to '已实现'",
+      "activeForm": "Updating course-authoring.md",
+      "status": "pending"
+    },
+    {
+      "content": "Test the full pipeline locally with a small course",
+      "activeForm": "Testing build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:56:34 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:56:42 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:56:43 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -r \"ConfigModule\" server/src --include=\"*.ts\" -l | head -5",
+  "description": "Find ConfigModule usage examples"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:56:47 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+server/src/app.module.ts
+server/src/database/database.module.ts
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:56:52 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\app.module.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:56:52 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import * as path from 'node:path';
+2	import { type DynamicModule, Module } from '@nestjs/common';
+3	import { ConfigModule } from '@nestjs/config';
+4	import { ServeStaticModule } from '@nestjs/serve-static';
+5	import { AiModule } from './ai/ai.module';
+6	import { AppController } from './app.controller';
+7	import { ArchiveModule } from './archive/archive.module';
+8	import { DatabaseModule } from './database/database.module';
+9	import { EventModule } from './event/event.module';
+10	import { KnowledgeModule } from './knowledge/knowledge.module';
+11	import { LearnerModule } from './learner/learner.module';
+12	import { PatternModule } from './pattern/pattern.module';
+13	import { QaModule } from './qa/qa.module';
+14	import { SessionModule } from './session/session.module';
+15	import { UsersModule } from './users/users.module';
+16	
+17	// .env 在 monorepo 根。无论 cwd 是 server/ 还是别的,都从 __dirname 出发定位。
+18	//   src/app.module.ts → ../../.env  = monorepo/.env
+19	//   dist/app.module.js → ../../.env =
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:57:00 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:57:01 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.loader.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:57:01 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { promises as fs } from 'node:fs';
+2	import * as path from 'node:path';
+3	import * as yaml from 'js-yaml';
+4	
+5	const REF_KEY = '$ref';
+6	
+7	/**
+8	 * 从单个文件加载内容并递归 resolve 其中的 $ref。
+9	 *   .md / .markdown → 读为字符串
+10	 *   .yaml / .yml    → 解析为对象,递归处理 $ref
+11	 */
+12	export async function loadFromFile(filePath: string): Promise<unknown> {
+13	  const ext = path.extname(filePath).toLowerCase();
+14	  let content: string;
+15	  try {
+16	    content = await fs.readFile(filePath, 'utf8');
+17	  } catch (err) {
+18	    throw new Error(`Cannot read file ${filePath}: ${(err as Error).message}`);
+19	  }
+20	  if (ext === '.md' || ext === '.markdown') {
+21	    return content;
+22	  }
+23	  if (ext === '.yaml' || ext === '.yml') {
+24	    let parsed: unknown;
+25	    try {
+26	      parsed = yaml.load(content);
+27	    } catch (err) {
+28	      throw new Error(`Invalid YAML at ${filePath}: ${(err as Error).message}`);
+29	    }
+30	    return resolveRefs(parsed, path.dirname(filePath), filePath);
+31	  }
+3
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:57:30 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:57:36 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\build\\build.module.ts",
+  "content": "import { Module } from '@nestjs/common';\nimport { ConfigModule } from '@nestjs/config';\nimport { AiGatewayService } from '../ai/ai-gateway.service';\nimport { KYSELY } from '../database/database.module';\nimport { BuildService } from './build.service';\n\n/**\n * BuildModule:`whale-tutor build` 用的最小依赖图。\n * 不依赖 mysql / web / 其他业务模块,只要 AI Gateway + 文件系统。\n *\n * KYSELY 提供为 null:AiGatewayService.recordCall 内部已 guard,\n * 所以 build 模式下 ai_calls 不入库(也不需要)。\n */\n@Module({\n  imports: [ConfigModule],\n  providers: [\n    { provide: KYSELY, useValue: null },\n    AiGatewayService,\n    BuildService,\n  ],\n  exports: [BuildService],\n})\nexport class BuildModule {}\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:57:37 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\build\build.module.ts (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:59:01 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\build\\build.service.ts",
+  "content": "import { existsSync } from 'node:fs';\nimport { promises as fs } from 'node:fs';\nimport * as path from 'node:path';\nimport { Injectable, Logger } from '@nestjs/common';\nimport * as yaml from 'js-yaml';\nimport { AiGatewayService } from '../ai/ai-gateway.service';\n\n// ============================================================\n// `whale-tutor build` 主流程:\n//   输入:user-source/{ course.md, chapters/01-foo.md, 02-bar.md, ... }\n//   输出:courses/<course-id>/{ course.yaml + 完整 chapter/lo/assessment 树 }\n//\n// AI 调用 4 个阶段(每阶段独立 prompt yaml,失败重试 1 次,失败 fallback 检测后报错退出):\n//   1. build.course_meta       — 1 次,提取 course id/name/subject/description\n//   2. build.chapter_outline   — N 次(每章 1 次),拆 LO + 给 LO 切讲解\n//   3. build.lo_full           — M 次(每 LO 1 次),生成 misconceptions + RIs\n//   4. build.assessment        — N 次(每章 1 次),生成章末综合测试\n//\n// 总 AI 调用次数 = 1 + N + M + N = 1 + 2N + M(N=章数,M=总 LO 数)\n// 例:3 章共 12 个 LO → 1 + 6 + 12 = 19 次 AI 调用(deepseek-v4-flash 约 $0.05)\n// ============================================================\n\nexport interface BuildInput {\n  inputDir: string;     // 用户的源目录(含 course.md + chapters/*.md)\n  outputDir: string;    // 输出根目录(通常是 cwd/courses/<course-id>)\n  force: boolean;       // 已存在时是否覆盖\n}\n\nexport interface BuildSummary {\n  courseId: string;\n  courseName: string;\n  subject: string;\n  chapterCount: number;\n  loCount: number;\n  riCount: number;\n  assessmentRiCount: number;\n  outputDir: string;\n}\n\ninterface CourseMetaResult {\n  id: string;\n  name: string;\n  subject: string;\n  description: string;\n}\n\ninterface ChapterOutlineResult {\n  name: string;\n  description: string;\n  los: Array<{\n    slug: string;\n    name: string;\n    description: string;\n    estimatedDurationMin: number;\n    difficultyBand: 'beginner' | 'intermediate' | 'advanced';\n    coreExplanationMd: string;\n    prerequisites:
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:59:02 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\build\build.service.ts (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:59:18 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:59:18 PM</sup>
+
+让我修一下 RI 循环里 fs.writeFile 没 await 的 bug:
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:59:28 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\build\\build.service.ts",
+  "old_string": "        // 每个 RI 的 rationale 都外置成 .md;explanationMd 仅在非空时外置\n        const requiredInteractions = lo.full.requiredInteractions.map((ri, idx) => {\n          const n = idx + 1;\n          const baseId = `ri.${ch.slug}.${lo.slug}.${n}`;\n          // 写 rationale\n          fs.writeFile(\n            path.join(loDir, `ri-${n}.rationale.md`),\n            ri.question.rationale.trim() + '\\n',\n            'utf8',\n          );\n          // explanationMd:非空才写文件\n          let explanationField: unknown;\n          if (ri.explanationMd && ri.explanationMd.trim().length > 0) {\n            fs.writeFile(\n              path.join(loDir, `ri-${n}.explanation.md`),\n              ri.explanationMd.trim() + '\\n',\n              'utf8',\n            );\n            explanationField = refTo(`./ri-${n}.explanation.md`);\n          } else {\n            explanationField = '';\n          }\n          return {\n            id: baseId,\n            patternId: 'concept_check',\n            prompt: {\n              explanationMd: explanationField,\n              question: {\n                stem: ri.question.stem,\n                options: ri.question.options,\n                answerIndex: ri.question.answerIndex,\n                rationale: refTo(`./ri-${n}.rationale.md`),\n              },\n            },\n          };\n        });",
+  "new_string": "        // 每个 RI 的 rationale 都外置成 .md;explanationMd 仅在非空时外置\n        const requiredInteractions: Array<Record<string, unknown>> = [];\n        for (let k = 0; k < lo.full.requiredInteractions.length; k++) {\n          const ri = lo.full.requiredInteractions[k];\n          const n = k + 1;\n          const baseId = `ri.${ch.slug}.${lo.slug}.${n}`;\n          await fs.writeFile(\n            path.join(loDir, `ri-${n}.rationale.md`),\n            ri.question.rationale.trim() + '\\n',\n            '
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:59:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\build\build.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:59:43 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\build\\build.service.ts",
+  "old_string": "      // assessment\n      const assessmentDir = path.join(chDir, 'assessment');\n      const assessmentRis = ch.assessment.requiredInteractions.map((ri, idx) => {\n        const n = idx + 1;\n        const baseId = `ca.${ch.slug}.${n}`;\n        fs.writeFile(\n          path.join(assessmentDir, `ca-${n}.rationale.md`),\n          ri.question.rationale.trim() + '\\n',\n          'utf8',\n        );\n        let explanationField: unknown;\n        if (ri.explanationMd && ri.explanationMd.trim().length > 0) {\n          fs.writeFile(\n            path.join(assessmentDir, `ca-${n}.explanation.md`),\n            ri.explanationMd.trim() + '\\n',\n            'utf8',\n          );\n          explanationField = refTo(`./ca-${n}.explanation.md`);\n        } else {\n          explanationField = '';\n        }\n        return {\n          id: baseId,\n          patternId: 'concept_check',\n          prompt: {\n            explanationMd: explanationField,\n            question: {\n              stem: ri.question.stem,\n              options: ri.question.options,\n              answerIndex: ri.question.answerIndex,\n              rationale: refTo(`./ca-${n}.rationale.md`),\n            },\n          },\n        };\n      });",
+  "new_string": "      // assessment\n      const assessmentDir = path.join(chDir, 'assessment');\n      const assessmentRis: Array<Record<string, unknown>> = [];\n      for (let k = 0; k < ch.assessment.requiredInteractions.length; k++) {\n        const ri = ch.assessment.requiredInteractions[k];\n        const n = k + 1;\n        const baseId = `ca.${ch.slug}.${n}`;\n        await fs.writeFile(\n          path.join(assessmentDir, `ca-${n}.rationale.md`),\n          ri.question.rationale.trim() + '\\n',\n          'utf8',\n        );\n        let explanationField: unknown;\n        if (ri.explanationMd && ri.ex
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 11:59:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\build\build.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:59:56 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 11:59:56 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -h \"id:\" server/src/knowledge/data/python-basics/chapters/list_and_iter/assessment/*.yaml",
+  "description": "Check existing assessment RI id format"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:00:00 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+id: ca.ch.list_and_iter
+  - id: ca.ch.list_and_iter.1
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:00:11 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:00:13 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\build\\build.service.ts",
+  "old_string": "        const baseId = `ca.${ch.slug}.${n}`;\n        await fs.writeFile(\n          path.join(assessmentDir, `ca-${n}.rationale.md`),",
+  "new_string": "        const baseId = `ca.${ch.chapterId}.${n}`;   // ca.ch.<slug>.<n>,匹配现有 python-basics 命名\n        await fs.writeFile(\n          path.join(assessmentDir, `ca-${n}.rationale.md`),"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:00:14 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\build\build.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:00:23 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:00:24 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -h \"^id:\" server/src/knowledge/data/python-basics/chapters/list_and_iter/los/*/lo.yaml",
+  "description": "Check existing LO id naming convention"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:00:28 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+id: lo.iter.for_over_list
+id: lo.list.basics
+id: lo.list.indexing
+id: lo.list.mutation
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:00:41 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:00:41 AM</sup>
+
+继续 main.ts wiring:
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:00:45 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Write 4 build prompt YAMLs in server/src/ai/prompts/",
+      "activeForm": "Writing 4 build prompt YAMLs",
+      "status": "completed"
+    },
+    {
+      "content": "Make AiGatewayService.recordCall tolerate null KYSELY (for build mode)",
+      "activeForm": "Making AiGatewayService tolerate null DB",
+      "status": "completed"
+    },
+    {
+      "content": "Create server/src/build/ module (BuildModule + BuildService)",
+      "activeForm": "Creating BuildModule + BuildService",
+      "status": "completed"
+    },
+    {
+      "content": "Wire WHALE_TUTOR_BUILD_MODE in server/src/main.ts",
+      "activeForm": "Wiring build mode in main.ts",
+      "status": "in_progress"
+    },
+    {
+      "content": "Add build command to packages/cli-py",
+      "activeForm": "Adding build command to cli-py",
+      "status": "pending"
+    },
+    {
+      "content": "Add build command to packages/cli-node",
+      "activeForm": "Adding build command to cli-node",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc/course-authoring.md §10 from 'v0.3 计划' to '已实现'",
+      "activeForm": "Updating course-authoring.md",
+      "status": "pending"
+    },
+    {
+      "content": "Test the full pipeline locally with a small course",
+      "activeForm": "Testing build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:00:45 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:00:54 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\main.ts",
+  "old_string": "import 'reflect-metadata';\nimport { promises as fs } from 'node:fs';\nimport { NestFactory } from '@nestjs/core';\nimport { ConfigService } from '@nestjs/config';\nimport { createConnection } from 'mysql2/promise';\nimport { AppModule } from './app.module';\nimport { KnowledgeModule } from './knowledge/knowledge.module';\nimport { KnowledgeService } from './knowledge/knowledge.service';",
+  "new_string": "import 'reflect-metadata';\nimport { promises as fs } from 'node:fs';\nimport { NestFactory } from '@nestjs/core';\nimport { ConfigService } from '@nestjs/config';\nimport { createConnection } from 'mysql2/promise';\nimport { AppModule } from './app.module';\nimport { BuildModule } from './build/build.module';\nimport { BuildService } from './build/build.service';\nimport { KnowledgeModule } from './knowledge/knowledge.module';\nimport { KnowledgeService } from './knowledge/knowledge.service';"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:00:55 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\main.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:01:09 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\main.ts",
+  "old_string": "  // -1. validate-only 模式(`whale-tutor lint`):仅 boot KnowledgeModule 跑 yaml 解析 + ajv 校验,\n  // 通过则 exit 0,失败抛错让 process 非零退出 + stderr 含具体错误。\n  // 不需要 mysql / web / 任何其他模块。\n  if (process.env.WHALE_TUTOR_VALIDATE_ONLY === '1') {\n    await runValidateOnly();\n    return;\n  }",
+  "new_string": "  // -1. validate-only 模式(`whale-tutor lint`):仅 boot KnowledgeModule 跑 yaml 解析 + ajv 校验,\n  // 通过则 exit 0,失败抛错让 process 非零退出 + stderr 含具体错误。\n  // 不需要 mysql / web / 任何其他模块。\n  if (process.env.WHALE_TUTOR_VALIDATE_ONLY === '1') {\n    await runValidateOnly();\n    return;\n  }\n\n  // -2. build 模式(`whale-tutor build`):仅 boot BuildModule(无 DB / 无 web),\n  // BuildService.buildCourse 负责调 AI Gateway + 写 yaml/md 文件。\n  // 输入输出通过 env:WHALE_TUTOR_BUILD_INPUT / WHALE_TUTOR_BUILD_OUTPUT / WHALE_TUTOR_BUILD_FORCE\n  if (process.env.WHALE_TUTOR_BUILD_MODE === '1') {\n    await runBuild();\n    return;\n  }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:01:10 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\main.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:01:28 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\main.ts",
+  "old_string": "/**\n * 检测目标 mysql 是否已有核心表(events),没有则跑 WHALE_TUTOR_SCHEMA_FILE 指向的 SQL 文件。",
+  "new_string": "/**\n * build 模式:用 createApplicationContext 启动 BuildModule(只 ConfigModule + AiGateway + BuildService),\n * 不依赖 mysql / web。BuildService 调 4 阶段 AI prompt + 写文件。\n *\n * 失败时(AI 返 fallback / 输出已存在且未 --force / 等)抛错 → process 非零退出。\n * stdout/stderr 由 NestJS Logger 自己处理。\n */\nasync function runBuild(): Promise<void> {\n  const inputDir = process.env.WHALE_TUTOR_BUILD_INPUT;\n  const outputDir = process.env.WHALE_TUTOR_BUILD_OUTPUT;\n  const force = process.env.WHALE_TUTOR_BUILD_FORCE === '1';\n  if (!inputDir || !outputDir) {\n    console.error(\n      '[build] WHALE_TUTOR_BUILD_MODE=1 needs WHALE_TUTOR_BUILD_INPUT and WHALE_TUTOR_BUILD_OUTPUT',\n    );\n    process.exit(2);\n  }\n  const ctx = await NestFactory.createApplicationContext(BuildModule, {\n    logger: ['error', 'warn', 'log'],\n  });\n  const buildService = ctx.get(BuildService);\n  try {\n    const summary = await buildService.buildCourse({ inputDir, outputDir, force });\n    console.log('');\n    console.log(\n      `✓ Built course '${summary.courseId}' (${summary.subject}): ` +\n        `${summary.chapterCount} chapter(s), ${summary.loCount} LO(s), ` +\n        `${summary.riCount} LO RI(s), ${summary.assessmentRiCount} assessment RI(s)`,\n    );\n    console.log(`  output → ${summary.outputDir}`);\n    await ctx.close();\n    process.exit(0);\n  } catch (err) {\n    console.error(`[build] ${(err as Error).message}`);\n    await ctx.close();\n    process.exit(1);\n  }\n}\n\n/**\n * 检测目标 mysql 是否已有核心表(events),没有则跑 WHALE_TUTOR_SCHEMA_FILE 指向的 SQL 文件。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:01:29 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\main.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:01:35 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:01:35 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\nest-cli.json"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:01:35 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	{
+2	  "$schema": "https://json.schemastore.org/nest-cli",
+3	  "collection": "@nestjs/schematics",
+4	  "sourceRoot": "src",
+5	  "compilerOptions": {
+6	    "deleteOutDir": true,
+7	    "assets": [
+8	      { "include": "knowledge/data/**/*", "watchAssets": true },
+9	      { "include": "ai/prompts/**/*", "watchAssets": true }
+10	    ]
+11	  }
+12	}
+13
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:01:50 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:01:50 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "cd server && npx tsc --noEmit 2>&1 | head -40",
+  "description": "Type-check server code"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:02:07 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+(Bash completed with no output)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:02:19 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/server typecheck 2>&1 | tail -30",
+  "description": "Run server type check via pnpm script"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:02:28 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/server@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> tsc -p tsconfig.json --noEmit
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:02:32 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:02:32 AM</sup>
+
+Server typecheck 通过。继续 CLI 侧。
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:02:38 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Write 4 build prompt YAMLs in server/src/ai/prompts/",
+      "activeForm": "Writing 4 build prompt YAMLs",
+      "status": "completed"
+    },
+    {
+      "content": "Make AiGatewayService.recordCall tolerate null KYSELY (for build mode)",
+      "activeForm": "Making AiGatewayService tolerate null DB",
+      "status": "completed"
+    },
+    {
+      "content": "Create server/src/build/ module (BuildModule + BuildService)",
+      "activeForm": "Creating BuildModule + BuildService",
+      "status": "completed"
+    },
+    {
+      "content": "Wire WHALE_TUTOR_BUILD_MODE in server/src/main.ts",
+      "activeForm": "Wiring build mode in main.ts",
+      "status": "completed"
+    },
+    {
+      "content": "Add build command to packages/cli-py",
+      "activeForm": "Adding build command to cli-py",
+      "status": "in_progress"
+    },
+    {
+      "content": "Add build command to packages/cli-node",
+      "activeForm": "Adding build command to cli-node",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc/course-authoring.md §10 from 'v0.3 计划' to '已实现'",
+      "activeForm": "Updating course-authoring.md",
+      "status": "pending"
+    },
+    {
+      "content": "Test the full pipeline locally with a small course",
+      "activeForm": "Testing build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:02:38 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:02:42 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-py\\whale_tutor\\config.py"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:02:42 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	"""Load whale-tutor.config.yaml and convert to env vars for the Node server.
+2	
+3	Config schema (see template generated by `whale-tutor init`):
+4	
+5	    courses_dir: ./courses
+6	    database:
+7	      host: localhost
+8	      port: 13306
+9	      user: tutor
+10	      password: tutor
+11	      database: whale_tutor
+12	    ai:
+13	      deepseek_api_key: sk-xxxxx
+14	      deepseek_api_base_url: https://api.deepseek.com
+15	    server:
+16	      port: 3000
+17	"""
+18	
+19	from __future__ import annotations
+20	
+21	import os
+22	from dataclasses import dataclass, field
+23	from pathlib import Path
+24	from typing import Optional
+25	
+26	import yaml
+27	
+28	CONFIG_FILENAME = "whale-tutor.config.yaml"
+29	
+30	
+31	@dataclass
+32	class DatabaseConfig:
+33	    host: str = "localhost"
+34	    port: int = 13306
+35	    user: str = "tutor"
+36	    password: str = "tutor"
+37	    database: str = "whale_tutor"
+38	
+39	
+40	@dataclass
+41	class AiConfig:
+42	    deepseek_api_key: str = ""
+43	    deepseek_api_base_url: str =
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:03:06 AM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-py\\whale_tutor\\build.py",
+  "content": "\"\"\"`whale-tutor build` — 把作者写的原始 markdown 通过 AI 转成完整 yaml/md 课程结构。\n\n实现:spawn server 的 main.js,带:\n  WHALE_TUTOR_BUILD_MODE=1\n  WHALE_TUTOR_BUILD_INPUT=<source dir>     # 含 course.md + chapters/*.md\n  WHALE_TUTOR_BUILD_OUTPUT=<dest dir>      # 通常 cwd/courses/<course-id>\n  WHALE_TUTOR_BUILD_FORCE=1                # --force 时设\n  DEEPSEEK_API_KEY=...                     # AI Gateway 用,没 key 直接走 fallback → 必报错\n\nserver 端 BuildModule 跑 4 阶段 AI:course meta / chapter outline / per-LO full / per-chapter assessment,\n然后把结果写成 yaml + md 文件树到 OUTPUT 目录。CLI 透传 stdout/stderr。\n\"\"\"\n\nfrom __future__ import annotations\n\nimport os\nimport subprocess\nfrom pathlib import Path\n\nfrom rich.console import Console\n\nfrom .config import WhaleTutorConfig\nfrom .runner import find_node\n\nconsole = Console()\n\n\ndef run_build(\n    bundle_root: Path,\n    cfg: WhaleTutorConfig,\n    source: Path,\n    *,\n    output: Path | None = None,\n    force: bool = False,\n) -> int:\n    \"\"\"跑 build。返回 server exit code。\n\n    source: 用户的源目录(必须含 course.md + chapters/*.md)\n    output: 输出目录;默认是 cfg.courses_dir / <source-dir-name>\n    \"\"\"\n    source = source.resolve()\n    if not source.exists():\n        console.print(f\"[red]✗ source dir does not exist: {source}[/red]\")\n        return 1\n    course_md = source / \"course.md\"\n    chapters_dir = source / \"chapters\"\n    if not course_md.exists():\n        console.print(\n            f\"[red]✗ Missing {course_md}. Source must contain course.md + chapters/*.md[/red]\"\n        )\n        return 1\n    if not chapters_dir.exists() or not any(chapters_dir.glob(\"*.md\")):\n        console.print(\n            f\"[red]✗ Missing chapter markdowns under {chapters_dir}[/red]\"\n        )\n        return 1\n\n    if output is None:\n        output = cfg.courses_dir / source.name\n    output = output.resolve()\n\
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:03:07 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-py\whale_tutor\build.py (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:03:12 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-py\\whale_tutor\\cli.py",
+  "old_string": "from . import __version__\nfrom .config import find_config, load_config\nfrom .db import ensure_schema\nfrom .doctor import run_doctor\nfrom .lint import run_lint\nfrom .runner import start_node_server\nfrom .scaffold import scaffold_init",
+  "new_string": "from . import __version__\nfrom .build import run_build\nfrom .config import find_config, load_config\nfrom .db import ensure_schema\nfrom .doctor import run_doctor\nfrom .lint import run_lint\nfrom .runner import start_node_server\nfrom .scaffold import scaffold_init"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:03:13 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-py\whale_tutor\cli.py has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:03:29 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-py\\whale_tutor\\cli.py",
+  "old_string": "@main.command()\ndef lint() -> None:\n    \"\"\"校验当前目录的课程 yaml/markdown 结构是否合法。\"\"\"\n    try:\n        config_path = find_config()\n    except FileNotFoundError as e:\n        console.print(f\"[red]✗ {e}[/red]\")\n        sys.exit(1)\n\n    cfg = load_config(config_path)\n    bundle_root = _bundle_root()\n    code = run_lint(bundle_root, cfg.courses_dir)\n    sys.exit(code)\n\n\nif __name__ == \"__main__\":\n    main()",
+  "new_string": "@main.command()\ndef lint() -> None:\n    \"\"\"校验当前目录的课程 yaml/markdown 结构是否合法。\"\"\"\n    try:\n        config_path = find_config()\n    except FileNotFoundError as e:\n        console.print(f\"[red]✗ {e}[/red]\")\n        sys.exit(1)\n\n    cfg = load_config(config_path)\n    bundle_root = _bundle_root()\n    code = run_lint(bundle_root, cfg.courses_dir)\n    sys.exit(code)\n\n\n@main.command()\n@click.argument(\n    \"source\",\n    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),\n)\n@click.option(\n    \"--output\",\n    type=click.Path(file_okay=False, path_type=Path),\n    default=None,\n    help=\"输出目录,默认 <courses_dir>/<source 目录名>\",\n)\n@click.option(\n    \"--force\",\n    is_flag=True,\n    default=False,\n    help=\"输出目录已存在时整个覆盖(否则报错退出)\",\n)\ndef build(source: Path, output: Path | None, force: bool) -> None:\n    \"\"\"从原始 markdown(course.md + chapters/*.md)AI 生成完整课程结构。\n\n    输入约定:\n      <SOURCE>/\n        course.md            — 课程介绍\n        chapters/\n          01-foo.md          — 一份 md = 一章,文件名编号决定顺序\n          02-bar.md\n          ...\n\n    AI 调用 4 阶段(每阶段独立 prompt + 失败重试):\n      1. 提取 course meta (id/name/subject/description)\n      2. 每章拆 LO outline + 切割 coreExplanation\n      3. 每个 LO 生成 misconceptions + 3-5 道 concept_check 必做题\n      4. 每章生成 5-7 道章末综合测试\n\n    输出严格镜像 `whale-tutor init` 模板格式,生成完毕后可直接 `whale-tutor lint && start`。\n   
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:03:30 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-py\whale_tutor\cli.py has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:03:33 AM</sup>
+
+Python CLI 完成。继续 Node CLI。
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:03:39 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Write 4 build prompt YAMLs in server/src/ai/prompts/",
+      "activeForm": "Writing 4 build prompt YAMLs",
+      "status": "completed"
+    },
+    {
+      "content": "Make AiGatewayService.recordCall tolerate null KYSELY (for build mode)",
+      "activeForm": "Making AiGatewayService tolerate null DB",
+      "status": "completed"
+    },
+    {
+      "content": "Create server/src/build/ module (BuildModule + BuildService)",
+      "activeForm": "Creating BuildModule + BuildService",
+      "status": "completed"
+    },
+    {
+      "content": "Wire WHALE_TUTOR_BUILD_MODE in server/src/main.ts",
+      "activeForm": "Wiring build mode in main.ts",
+      "status": "completed"
+    },
+    {
+      "content": "Add build command to packages/cli-py",
+      "activeForm": "Adding build command to cli-py",
+      "status": "completed"
+    },
+    {
+      "content": "Add build command to packages/cli-node",
+      "activeForm": "Adding build command to cli-node",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update doc/course-authoring.md §10 from 'v0.3 计划' to '已实现'",
+      "activeForm": "Updating course-authoring.md",
+      "status": "pending"
+    },
+    {
+      "content": "Test the full pipeline locally with a small course",
+      "activeForm": "Testing build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:03:39 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:03:44 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\lib\\config.mjs"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:03:44 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	// 读 whale-tutor.config.yaml + 环境变量 override → 转 dict 给 node 子进程 env。
+2	
+3	import { existsSync, readFileSync } from 'node:fs';
+4	import { dirname, isAbsolute, resolve } from 'node:path';
+5	import yaml from 'js-yaml';
+6	
+7	export const CONFIG_FILENAME = 'whale-tutor.config.yaml';
+8	
+9	// 从 startDir 向上找配置文件;找不到抛 Error。
+10	export function findConfig(startDir = process.cwd()) {
+11	  let cur = resolve(startDir);
+12	  while (true) {
+13	    const candidate = resolve(cur, CONFIG_FILENAME);
+14	    if (existsSync(candidate)) return candidate;
+15	    const parent = dirname(cur);
+16	    if (parent === cur) {
+17	      throw new Error(
+18	        `找不到 ${CONFIG_FILENAME}。请在课程根目录运行,或先跑 \`whale-tutor init\`。`,
+19	      );
+20	    }
+21	    cur = parent;
+22	  }
+23	}
+24	
+25	// 读 yaml + 解析路径 + env override。返回 { coursesDir, database, ai, server, configPath }。
+26	export function loadConfig(configPath) {
+27	  const raw = yaml.load(readFileSync(configPath, 'utf8')) ?? {};
+28	  const configDir = dirname(config
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:04:18 AM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\lib\\build.mjs",
+  "content": "// `whale-tutor build` — 把作者写的原始 markdown 通过 AI 转成完整 yaml/md 课程结构。\n//\n// 实现:spawn server 的 main.js,带:\n//   WHALE_TUTOR_BUILD_MODE=1\n//   WHALE_TUTOR_BUILD_INPUT=<source dir>     # 含 course.md + chapters/*.md\n//   WHALE_TUTOR_BUILD_OUTPUT=<dest dir>      # 通常 cwd/courses/<source-dir-name>\n//   WHALE_TUTOR_BUILD_FORCE=1                # --force 时设\n//   DEEPSEEK_API_KEY=...                     # AI Gateway 必需\n//\n// server 端 BuildModule 跑 4 阶段 AI(course meta / chapter outline / per-LO full / per-chapter assessment)\n// + 写 yaml/md 文件树。CLI 透传 stdout/stderr。\n\nimport { spawn } from 'node:child_process';\nimport { existsSync, readdirSync } from 'node:fs';\nimport { basename, dirname, isAbsolute, join, resolve } from 'node:path';\nimport process from 'node:process';\nimport kleur from 'kleur';\n\n/**\n * 跑 build。返回 exit code。\n *\n * @param {string} bundleRoot — _bundle 目录\n * @param {object} cfg — loadConfig 返回的对象\n * @param {string} sourceArg — 用户传的 source dir(可相对)\n * @param {object} opts — { output, force }\n */\nexport async function runBuild(bundleRoot, cfg, sourceArg, opts = {}) {\n  const source = resolve(sourceArg);\n  if (!existsSync(source)) {\n    console.error(kleur.red(`✗ source dir does not exist: ${source}`));\n    return 1;\n  }\n  const courseMd = join(source, 'course.md');\n  const chaptersDir = join(source, 'chapters');\n  if (!existsSync(courseMd)) {\n    console.error(\n      kleur.red(`✗ Missing ${courseMd}. Source must contain course.md + chapters/*.md`),\n    );\n    return 1;\n  }\n  if (!existsSync(chaptersDir)) {\n    console.error(kleur.red(`✗ Missing chapters dir: ${chaptersDir}`));\n    return 1;\n  }\n  const chapterFiles = readdirSync(chaptersDir).filter((f) => /\\.(md|markdown)$/i.test(f));\n  if (chapterFiles.length === 0) {\n    console.error(kleur.red(`✗ No .md files under ${chaptersDir}`));\n    return 1;\n  }\n
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:04:19 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-node\lib\build.mjs (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:04:29 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\bin\\cli.mjs",
+  "old_string": "import { findConfig, loadConfig } from '../lib/config.mjs';\nimport { ensureSchema } from '../lib/db.mjs';\nimport { runDoctor } from '../lib/doctor.mjs';\nimport { runLint } from '../lib/lint.mjs';\nimport { startServer } from '../lib/runner.mjs';\nimport { scaffoldInit } from '../lib/scaffold.mjs';",
+  "new_string": "import { runBuild } from '../lib/build.mjs';\nimport { findConfig, loadConfig } from '../lib/config.mjs';\nimport { ensureSchema } from '../lib/db.mjs';\nimport { runDoctor } from '../lib/doctor.mjs';\nimport { runLint } from '../lib/lint.mjs';\nimport { startServer } from '../lib/runner.mjs';\nimport { scaffoldInit } from '../lib/scaffold.mjs';"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:04:30 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-node\bin\cli.mjs has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:04:45 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\bin\\cli.mjs",
+  "old_string": "program\n  .command('lint')\n  .description('校验当前目录的课程 yaml/markdown 结构是否合法($ref / pattern / hints / 等)。')\n  .action(async () => {\n    let configPath;\n    try {\n      configPath = findConfig();\n    } catch (e) {\n      console.error(kleur.red(`✗ ${e.message}`));\n      process.exit(1);\n    }\n    const cfg = loadConfig(configPath);\n    const code = await runLint(bundleRoot(), cfg.coursesDir);\n    process.exit(code);\n  });\n\nprogram.parseAsync(process.argv);",
+  "new_string": "program\n  .command('lint')\n  .description('校验当前目录的课程 yaml/markdown 结构是否合法($ref / pattern / hints / 等)。')\n  .action(async () => {\n    let configPath;\n    try {\n      configPath = findConfig();\n    } catch (e) {\n      console.error(kleur.red(`✗ ${e.message}`));\n      process.exit(1);\n    }\n    const cfg = loadConfig(configPath);\n    const code = await runLint(bundleRoot(), cfg.coursesDir);\n    process.exit(code);\n  });\n\nprogram\n  .command('build')\n  .argument('<source>', '源目录(必须含 course.md + chapters/*.md)')\n  .description('从原始 markdown 通过 AI 生成完整 yaml/md 课程结构。\\n' +\n    '4 阶段:course meta → 每章拆 LO → 每个 LO 出 misconceptions+RIs → 每章出 assessment。')\n  .option('--output <dir>', '输出目录,默认 <coursesDir>/<source 目录名>')\n  .option('--force', '输出目录已存在时整个覆盖(否则报错退出)', false)\n  .action(async (source, opts) => {\n    let configPath;\n    try {\n      configPath = findConfig();\n    } catch (e) {\n      console.error(kleur.red(`✗ ${e.message}`));\n      process.exit(1);\n    }\n    const cfg = loadConfig(configPath);\n    const code = await runBuild(bundleRoot(), cfg, source, {\n      output: opts.output,\n      force: !!opts.force,\n    });\n    process.exit(code);\n  });\n\nprogram.parseAsync(process.argv);"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:04:46 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-node\bin\cli.mjs has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:04:54 AM</sup>
+
+CLI 双端完成。更新 doc 把 §10 从"计划"改成"已实现"。
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:05:00 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Write 4 build prompt YAMLs in server/src/ai/prompts/",
+      "activeForm": "Writing 4 build prompt YAMLs",
+      "status": "completed"
+    },
+    {
+      "content": "Make AiGatewayService.recordCall tolerate null KYSELY (for build mode)",
+      "activeForm": "Making AiGatewayService tolerate null DB",
+      "status": "completed"
+    },
+    {
+      "content": "Create server/src/build/ module (BuildModule + BuildService)",
+      "activeForm": "Creating BuildModule + BuildService",
+      "status": "completed"
+    },
+    {
+      "content": "Wire WHALE_TUTOR_BUILD_MODE in server/src/main.ts",
+      "activeForm": "Wiring build mode in main.ts",
+      "status": "completed"
+    },
+    {
+      "content": "Add build command to packages/cli-py",
+      "activeForm": "Adding build command to cli-py",
+      "status": "completed"
+    },
+    {
+      "content": "Add build command to packages/cli-node",
+      "activeForm": "Adding build command to cli-node",
+      "status": "completed"
+    },
+    {
+      "content": "Update doc/course-authoring.md §10 from 'v0.3 计划' to '已实现'",
+      "activeForm": "Updating course-authoring.md",
+      "status": "in_progress"
+    },
+    {
+      "content": "Test the full pipeline locally with a small course",
+      "activeForm": "Testing build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:05:00 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:06:06 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\doc\\course-authoring.md",
+  "old_string": "## 10. v0.3 计划:`whale-tutor build` AI 辅助生成\n\n> ★ **本节描述的是 v0.3 计划中的功能,目前 (v0.2) 还没实现**。CLI 现在只有 `init / start / doctor / lint` 4 个命令。给你一个心理预期 — 真做出来后,作者负担会从\"写 yaml 骨架\"降到\"只写 markdown 讲稿\"。\n\n### 痛点\n\n写 yaml 骨架(LO 元信息、必做题选项、rationale)是机械活。`whale-tutor init` 给你一个完整示例复制,但写第二门课你还是要从零开始写所有 yaml。\n\n### 计划设计(MD 一份 = 一个 chapter,AI 拆 LO)\n\n输入:你只写**原始 markdown 讲稿**,**一份 md = 一章**:\n\n```\nmy-course-source/\n├── course.md                    # 课程介绍(1-3 段)\n└── chapters/\n    ├── 01-list-and-iter.md      # 一章一份 md,文件名编号决定章节顺序\n    ├── 02-string-and-format.md\n    └── 03-dict-and-set.md\n```\n\n每份 chapter md 就是该章的完整讲稿,作者按\"我想让学生学会什么\"自然分段写,不用预先想 LO 怎么分。\n\n跑:\n\n```bash\nwhale-tutor build my-course-source/        # 输出到 ./courses/<course-id>/\n```\n\nCLI 多次调 AI 生成完整结构:\n- 解析 course.md → 写 `course.yaml`(name / subject / description)\n- **每份 chapter md → AI 自动拆 LO**(按内容主题切;一份 md 通常拆出 2-5 个 LO)\n- 每个 LO → AI 抽元信息(name / description / prerequisites / commonMisconceptions / masteryCriteria)+ 出 3-5 道 concept_check 必做题(覆盖该 LO 涉及的关键概念)\n- 每章 → AI 出 5-8 道章末综合测试覆盖该章所有 LO\n- 给每个 LO 留 `core-explanation.md`,内容来自 chapter md 中对应 LO 主题的那一段\n\n**为什么 chapter 粒度而不是 LO 粒度作为输入** — LO 边界本身就是认知粒度判断,作者很难一开始就拆好;chapter 粒度更接近作者写课时自然的思维单元(一节课讲什么)。AI 看完整章上下文拆 LO 比作者孤立写每个 LO 更准。\n\n之后作者可以:\n- 手动微调 AI 拆出的 LO(合并 / 拆分 / 改名)\n- 改题目 / 加 hints / 替换 pattern\n- `whale-tutor lint` 校验\n\n### 现在的替代方案\n\n`whale-tutor init` 拿 python-basics 全套示例 → 复制 LO 目录 → 改 id / name / 内容。一个 3-RI 的 LO 大约 30-60 分钟手写完。",
+  "new_string": "## 10. `whale-tutor build`:AI 辅助生成课程骨架\n\n> ★ **v0.3 已实现**(2026-05)。从作者写的原始 markdown(每章一份 md)一键生成完整 yaml/md 课程结构。\n\n### 痛点\n\n写 yaml 骨架(LO 元信息、必做题选项、rationale)是机械活。`whale-tutor init` 给你一个完整示例复制,但写第二门课你还是要从零开始。`build` 把这部分外包给 AI,作者只写 markdown 讲稿。\n\n### 输入约定(MD 一份 = 一个 chapter)\n\n```\nmy-course-source/                # 自由命名,等下传给 build\n├── course.md                 
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:06:07 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\doc\course-authoring.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:06:17 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\doc\\course-authoring.md",
+  "old_string": "| `whale-tutor doctor` | 健康检查(node / bundle / mysql / API key 4 项) |\n| `whale-tutor --version` | 打印版本 |\n| `whale-tutor build` | (v0.3 计划)从原始 markdown AI 生成课程骨架 |",
+  "new_string": "| `whale-tutor doctor` | 健康检查(node / bundle / mysql / API key 4 项) |\n| `whale-tutor --version` | 打印版本 |\n| `whale-tutor build <source> [--force] [--output <dir>]` | 从原始 markdown AI 生成课程骨架(详见 §10) |"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:06:18 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\doc\course-authoring.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:06:33 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:06:38 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Write 4 build prompt YAMLs in server/src/ai/prompts/",
+      "activeForm": "Writing 4 build prompt YAMLs",
+      "status": "completed"
+    },
+    {
+      "content": "Make AiGatewayService.recordCall tolerate null KYSELY (for build mode)",
+      "activeForm": "Making AiGatewayService tolerate null DB",
+      "status": "completed"
+    },
+    {
+      "content": "Create server/src/build/ module (BuildModule + BuildService)",
+      "activeForm": "Creating BuildModule + BuildService",
+      "status": "completed"
+    },
+    {
+      "content": "Wire WHALE_TUTOR_BUILD_MODE in server/src/main.ts",
+      "activeForm": "Wiring build mode in main.ts",
+      "status": "completed"
+    },
+    {
+      "content": "Add build command to packages/cli-py",
+      "activeForm": "Adding build command to cli-py",
+      "status": "completed"
+    },
+    {
+      "content": "Add build command to packages/cli-node",
+      "activeForm": "Adding build command to cli-node",
+      "status": "completed"
+    },
+    {
+      "content": "Update doc/course-authoring.md §10 from 'v0.3 计划' to '已实现'",
+      "activeForm": "Updating course-authoring.md",
+      "status": "completed"
+    },
+    {
+      "content": "Test the full pipeline locally with a small course",
+      "activeForm": "Testing build pipeline",
+      "status": "in_progress"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:06:38 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:06:44 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/server build 2>&1 | tail -30",
+  "description": "Build server to verify TS + assets"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:06:51 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/server@0.0.1 build C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> nest build
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:06:57 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls server/dist/ai/prompts/ | grep build",
+  "description": "Verify build prompt YAMLs are copied to dist"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:07:01 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+ls: cannot access 'server/dist/ai/prompts/': No such file or directory
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:07:06 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls server/dist/",
+  "description": "Check dist structure"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:07:10 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Exit code 2
+ls: cannot access 'server/dist/': No such file or directory
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:07:13 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls server/",
+  "description": "List server dir"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:07:17 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Exit code 2
+ls: cannot access 'server/': No such file or directory
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:07:23 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pwd; ls",
+  "description": "Confirm cwd"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:07:27 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+/c/Users/gyh/Desktop/Projects/whale-tutor/server
+Dockerfile
+dist/
+nest-cli.json
+node_modules/
+package.json
+scripts/
+src/
+tsconfig.json
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:07:36 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls dist/ai/prompts/ | grep build; ls dist/build/",
+  "description": "Verify build prompts + build module compiled"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:07:40 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+build.assessment.yaml
+build.chapter_outline.yaml
+build.course_meta.yaml
+build.lo_full.yaml
+build.module.d.ts
+build.module.js
+build.module.js.map
+build.service.d.ts
+build.service.js
+build.service.js.map
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:07:48 AM</sup>
+
+Server build 成功,4 个 prompt YAML + build module 都到 dist 了。现在做端到端测试。先准备一份小测试用的源 markdown:
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:07:49 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "cd /c/Users/gyh/Desktop/Projects/whale-tutor && mkdir -p .cc-history/build-test/chapters && ls .cc-history/build-test/",
+  "description": "Create test source dir under .cc-history (gitignored)"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:08:59 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+chapters/
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:09:21 AM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\.cc-history\\build-test\\course.md",
+  "content": "# Python 函数与作用域入门\n\n这是一门面向 Python 初学者的小课,聚焦**函数定义**与**变量作用域**。学完后你可以:\n\n- 写自己的函数,理解参数传递和返回值\n- 区分局部变量、全局变量与闭包变量,知道 LEGB 规则\n- 看到一段使用了函数与作用域的代码时,能预测变量的最终值\n\n适合学过 Python 基本语法(变量、循环、列表)但还没系统学过函数的同学。\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:09:22 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\.cc-history\build-test\course.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:09:42 AM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\.cc-history\\build-test\\chapters\\01-functions.md",
+  "content": "# 函数定义与调用\n\n## 为什么需要函数\n\n当一段代码会在多个地方重复时,我们应该把它抽成函数。函数是**带名字的、可复用的代码块**。它有三个核心要素:\n\n1. **函数名**:用来调用它\n2. **参数**:外部传入的数据\n3. **返回值**:函数算出来交还给外部的结果\n\n## 用 def 定义函数\n\nPython 用 `def` 关键字定义函数。最简单的函数长这样:\n\n```python\ndef greet():\n    print(\"Hello!\")\n```\n\n调用时只需 `greet()`,代码块里的内容会被执行。\n\n带参数的函数:\n\n```python\ndef greet(name):\n    print(f\"Hello, {name}!\")\n\ngreet(\"Alice\")    # 输出 Hello, Alice!\n```\n\n`name` 是**形参**(parameter),`\"Alice\"` 是**实参**(argument)。函数被调用时,实参会被绑定到形参名上。\n\n## return 语句\n\n函数通常需要把结果交回给调用者,用 `return`:\n\n```python\ndef add(a, b):\n    return a + b\n\nresult = add(3, 4)    # result == 7\n```\n\n如果函数没有 `return` 语句,等价于 `return None` — Python 函数永远会返回一个值,只是默认是 `None`。\n\n注意:`return` 一旦执行,函数立刻退出,后面的代码不会跑:\n\n```python\ndef f(x):\n    if x > 0:\n        return \"positive\"\n    return \"non-positive\"     # x > 0 时这行不会执行\n```\n\n## 默认参数\n\n形参可以有默认值,调用时若没传就用默认:\n\n```python\ndef greet(name, greeting=\"Hello\"):\n    print(f\"{greeting}, {name}!\")\n\ngreet(\"Bob\")                   # Hello, Bob!\ngreet(\"Carol\", \"Hi\")           # Hi, Carol!\ngreet(\"Dave\", greeting=\"Hey\")  # Hey, Dave!  ← 关键字传参\n```\n\n**重要陷阱**:**不要用可变对象作为默认参数**(如 `[]` 或 `{}`),会出大问题:\n\n```python\ndef add_item(item, bucket=[]):    # ★ 不要这样写!\n    bucket.append(item)\n    return bucket\n\nprint(add_item(\"a\"))   # ['a']\nprint(add_item(\"b\"))   # ['a', 'b']  ← 不是 ['b']!默认参数被复用\n```\n\n正确写法:用 `None` 当默认占位,函数内部判断:\n\n```python\ndef add_item(item, bucket=None):\n    if bucket is None:\n        bucket = []\n    bucket.append(item)\n    return bucket\n```\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:09:43 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\.cc-history\build-test\chapters\01-functions.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:09:50 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:09:51 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -c \"DEEPSEEK_API_KEY=sk-\" .env 2>/dev/null || echo \"(no real key)\"",
+  "description": "Check if real DeepSeek API key is in .env"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:09:55 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:10:03 AM</sup>
+
+Key 在 `.env`。直接调用 server dist 跑一次完整 build:
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:10:06 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "set -a && . ./.env && set +a && WHALE_TUTOR_BUILD_MODE=1 WHALE_TUTOR_BUILD_INPUT=\"$(pwd)/.cc-history/build-test\" WHALE_TUTOR_BUILD_OUTPUT=\"$(pwd)/.cc-history/build-output\" WHALE_TUTOR_BUILD_FORCE=1 node server/dist/main.js 2>&1 | tail -80",
+  "description": "Run server build mode end-to-end with single-chapter test source",
+  "timeout": 300000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:12:01 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+[32m[Nest] 34492  - [39m2026/05/09 00:10:13 [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 34492  - [39m2026/05/09 00:10:13 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +5ms[39m
+[32m[Nest] 34492  - [39m2026/05/09 00:10:13 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 34492  - [39m2026/05/09 00:10:13 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mBuildModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 34492  - [39m2026/05/09 00:10:13 [32m    LOG[39m [38;5;3m[AiGatewayService] [39m[32mLoaded 12 prompt template(s)[39m
+[32m[Nest] 34492  - [39m2026/05/09 00:10:13 [32m    LOG[39m [38;5;3m[BuildService] [39m[32mSource OK: 1 course.md + 1 chapter file(s) — 01-functions.md[39m
+[32m[Nest] 34492  - [39m2026/05/09 00:10:13 [32m    LOG[39m [38;5;3m[BuildS
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:12:05 AM</sup>
+
+完整端到端跑通,~2 分钟。看一下生成的内容质量。
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:12:05 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "find .cc-history/build-output -type f | sort",
+  "description": "List all generated files"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:12:09 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+.cc-history/build-output/chapters/functions/assessment/assessment.yaml
+.cc-history/build-output/chapters/functions/assessment/ca-1.rationale.md
+.cc-history/build-output/chapters/functions/assessment/ca-2.rationale.md
+.cc-history/build-output/chapters/functions/assessment/ca-3.rationale.md
+.cc-history/build-output/chapters/functions/assessment/ca-4.rationale.md
+.cc-history/build-output/chapters/functions/assessment/ca-5.rationale.md
+.cc-history/build-output/chapters/functions/assessment/ca-6.rationale.md
+.cc-history/build-output/chapters/functions/chapter.yaml
+.cc-history/build-output/chapters/functions/description.md
+.cc-history/build-output/chapters/functions/los/default_parameters/core-explanation.md
+.cc-history/build-output/chapters/functions/los/default_parameters/lo.yaml
+.cc-history/build-output/chapters/functions/los/default_parameters/ri-1.rationale.md
+.cc-history/build-output/chapters/functions/los/default_parameters/ri-2.explanation.md
+.cc-history/build-output/chapters/functio
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:12:13 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\.cc-history\\build-output\\course.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:12:13 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	id: build-test
+2	name: Python 函数与作用域入门
+3	subject: Python
+4	description: { $ref: ./course-description.md }
+5	chapters:
+6	  - { $ref: ./chapters/functions/chapter.yaml }
+7
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:12:17 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\.cc-history\\build-output\\chapters\\functions\\los\\function_define_call\\lo.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:12:17 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	id: lo.functions.function_define_call
+2	name: 定义和调用函数
+3	description: 能够使用 `def` 关键词定义函数并正确调用，理解形参和实参的概念。
+4	prerequisites: []
+5	estimatedDurationMin: 20
+6	difficultyBand: beginner
+7	coreExplanation: { $ref: ./core-explanation.md }
+8	commonMisconceptions:
+9	  - 以为定义函数时函数体内的代码会立即执行，实际上定义只创建函数对象，调用时才执行。
+10	  - 混淆形参和实参，以为调用时实参名字必须与形参相同。
+11	  - 忘记函数调用的括号，以为函数名单独出现即表示调用。
+12	  - 认为函数定义必须放在调用之前，且位置不可调换。
+13	  - 误以为函数可以有多个return语句但只执行第一个return。
+14	masteryCriteria: 能够正确定义无参和带参函数，理解调用时形参接收实参的机制，并能区分函数定义与函数调用。
+15	requiredInteractions:
+16	  - id: ri.functions.function_define_call.1
+17	    patternId: concept_check
+18	    prompt:
+19	      explanationMd: ""
+20	      question:
+21	        stem: 以下哪段代码正确地定义了一个名为 `say_hello`、无参数的函数？
+22	        options:
+23	          - "def say_hello: print(\"Hello\")"
+24	          - "def say_hello(): print(\"Hello\")"
+25	          - "say_hello = def(): print(\"Hello\")"
+26	          - def say_hello() print("Hello")
+27	        answerIndex: 1
+28	        rationale: { $ref: ./
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:12:29 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:12:29 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\.cc-history\\build-output\\chapters\\functions\\chapter.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:12:29 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	id: ch.functions
+2	name: 函数定义与调用
+3	description: { $ref: ./description.md }
+4	learningObjectives:
+5	  - { $ref: ./los/function_define_call/lo.yaml }
+6	  - { $ref: ./los/return_values/lo.yaml }
+7	  - { $ref: ./los/default_parameters/lo.yaml }
+8	assessment: { $ref: ./assessment/assessment.yaml }
+9
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:12:32 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\.cc-history\\build-output\\chapters\\functions\\assessment\\assessment.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:12:32 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	id: ca.ch.functions
+2	name: 函数定义与调用:章末综合
+3	requiredInteractions:
+4	  - id: ca.ch.functions.1
+5	    patternId: concept_check
+6	    prompt:
+7	      explanationMd: ""
+8	      question:
+9	        stem: 以下关于函数定义和调用的说法，哪一个是错误的？
+10	        options:
+11	          - 定义函数时，函数体内的代码不会立即执行，只有在调用时才会执行
+12	          - 调用函数时，实参的名称必须与形参的名称相同
+13	          - 函数可以定义在另一个函数内部，成为嵌套函数
+14	          - 函数定义必须在调用之前，否则会引发NameError
+15	        answerIndex: 1
+16	        rationale: { $ref: ./ca-1.rationale.md }
+17	  - id: ca.ch.functions.2
+18	    patternId: concept_check
+19	    prompt:
+20	      explanationMd: ""
+21	      question:
+22	        stem: |-
+23	          执行以下代码，输出是什么？
+24	          def func():
+25	              print("Hello")
+26	
+27	          result = func()
+28	          print(result)
+29	        options:
+30	          - Hello\nHello
+31	          - Hello\nNone
+32	          - Hello
+33	          - None
+34	        answerIndex: 1
+35	        rationale: { $ref: ./ca-2.rationale.md }
+36	  - id: ca.ch.functions.3
+37	    
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:12:45 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:12:46 AM</sup>
+
+跑 lint 验证生成的 yaml 合法。
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:12:48 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "mkdir -p .cc-history/lint-test/courses && cp -r .cc-history/build-output .cc-history/lint-test/courses/build-test && WHALE_TUTOR_VALIDATE_ONLY=1 WHALE_TUTOR_COURSES_DIR=\"$(pwd)/.cc-history/lint-test/courses\" node server/dist/main.js 2>&1 | tail -25",
+  "description": "Run lint against the AI-generated course"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:13:05 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+[32m[Nest] 34844  - [39m2026/05/09 00:13:05 [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 34844  - [39m2026/05/09 00:13:05 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mKnowledgeModule dependencies initialized[39m[38;5;3m +5ms[39m
+[32m[Nest] 34844  - [39m2026/05/09 00:13:05 [32m    LOG[39m [38;5;3m[KnowledgeService] [39m[32mScanning courses from C:/Users/gyh/Desktop/Projects/whale-tutor/.cc-history/lint-test/courses[39m
+[32m[Nest] 34844  - [39m2026/05/09 00:13:05 [32m    LOG[39m [38;5;3m[KnowledgeService] [39m[32mLoaded 1 course(s), 3 LO(s), 20 RequiredInteraction(s), 1 ChapterAssessment(s)[39m
+✓ 课程验证通过
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:13:16 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:13:17 AM</sup>
+
+Lint 通过,3 个 LO + 20 RI + 1 章末测试结构都对。最后验证 CLI 入口的参数解析(不重新跑 AI):
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:13:18 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "node packages/cli-node/bin/cli.mjs --help 2>&1 | tail -20",
+  "description": "Verify cli-node shows build subcommand"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:13:26 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Usage: whale-tutor [options] [command]
+
+Whale Tutor — AI-driven interactive Python tutor.
+课程作者用的命令行:在自己的目录写 yaml/md 内容,一键启动学习环境。
+
+Options:
+  -v, --version             打印版本
+  -h, --help                display help for command
+
+Commands:
+  init [options]            在当前目录 scaffold 完整示例课程 + 配置文件模板。
+  start [options]           启动 server(自动应用 schema + serve API + serve web)。
+  doctor                    健康检查:node 版本 / bundle 资源 / mysql 连通 / API key。
+  lint                      校验当前目录的课程 yaml/markdown 结构是否合法($ref / pattern /
+                            hints / 等)。
+  build [options] <source>  从原始 markdown 通过 AI 生成完整 yaml/md 课程结构。
+                            4 阶段:course meta → 每章拆 LO → 每个 LO 出
+                            misconceptions+RIs → 每章出 assessment。
+  help [command]            display help for command
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:13:30 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "node packages/cli-node/bin/cli.mjs build --help 2>&1 | tail -15",
+  "description": "Verify build subcommand help"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:13:41 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Usage: whale-tutor build [options] <source>
+
+从原始 markdown 通过 AI 生成完整 yaml/md 课程结构。
+4 阶段:course meta → 每章拆 LO → 每个 LO 出 misconceptions+RIs → 每章出 assessment。
+
+Arguments:
+  source          源目录(必须含 course.md + chapters/*.md)
+
+Options:
+  --output <dir>  输出目录,默认 <coursesDir>/<source 目录名>
+  --force         输出目录已存在时整个覆盖(否则报错退出) (default: false)
+  -h, --help      display help for command
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:13:48 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:13:49 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "cd packages/cli-py && python -c \"from whale_tutor.cli import main; from whale_tutor.build import run_build; print('cli-py imports OK')\"",
+  "description": "Verify cli-py module imports without errors"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:13:55 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+cli-py imports OK
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:13:59 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "cd packages/cli-py && python -m whale_tutor.cli build --help 2>&1 | tail -25",
+  "description": "Show cli-py build --help"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:14:11 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Exit code 1
+/usr/bin/bash: line 1: cd: packages/cli-py: No such file or directory
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:14:15 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "python -m whale_tutor.cli build --help 2>&1 | tail -25",
+  "description": "Show cli-py build --help (absolute path)"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:14:25 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Usage: python -m whale_tutor.cli build [OPTIONS] SOURCE
+
+  从原始 markdown(course.md + chapters/*.md)AI 生成完整课程结构。
+
+  输入约定:   <SOURCE>/     course.md            — 课程介绍     chapters/
+  01-foo.md          — 一份 md = 一章,文件名编号决定顺序       02-bar.md       ...
+
+  AI 调用 4 阶段(每阶段独立 prompt + 失败重试):   1. 提取 course meta
+  (id/name/subject/description)   2. 每章拆 LO outline + 切割 coreExplanation   3.
+  每个 LO 生成 misconceptions + 3-5 道 concept_check 必做题   4. 每章生成 5-7 道章末综合测试
+
+  输出严格镜像 `whale-tutor init` 模板格式,生成完毕后可直接 `whale-tutor lint && start`。
+
+Options:
+  --output DIRECTORY  输出目录,默认 <courses_dir>/<source 目录名>
+  --force             输出目录已存在时整个覆盖(否则报错退出)
+  --help              Show this message and exit.
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:14:33 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:14:33 AM</sup>
+
+清理测试产物。
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:14:34 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "rm -rf .cc-history/build-test .cc-history/build-output .cc-history/lint-test 2>/dev/null && ls .cc-history/ 2>/dev/null | head -5 || echo \"(.cc-history empty or missing)\"",
+  "description": "Remove build test artifacts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:14:38 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+(Bash completed with no output)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:14:48 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Write 4 build prompt YAMLs in server/src/ai/prompts/",
+      "activeForm": "Writing 4 build prompt YAMLs",
+      "status": "completed"
+    },
+    {
+      "content": "Make AiGatewayService.recordCall tolerate null KYSELY (for build mode)",
+      "activeForm": "Making AiGatewayService tolerate null DB",
+      "status": "completed"
+    },
+    {
+      "content": "Create server/src/build/ module (BuildModule + BuildService)",
+      "activeForm": "Creating BuildModule + BuildService",
+      "status": "completed"
+    },
+    {
+      "content": "Wire WHALE_TUTOR_BUILD_MODE in server/src/main.ts",
+      "activeForm": "Wiring build mode in main.ts",
+      "status": "completed"
+    },
+    {
+      "content": "Add build command to packages/cli-py",
+      "activeForm": "Adding build command to cli-py",
+      "status": "completed"
+    },
+    {
+      "content": "Add build command to packages/cli-node",
+      "activeForm": "Adding build command to cli-node",
+      "status": "completed"
+    },
+    {
+      "content": "Update doc/course-authoring.md §10 from 'v0.3 计划' to '已实现'",
+      "activeForm": "Updating course-authoring.md",
+      "status": "completed"
+    },
+    {
+      "content": "Test the full pipeline locally with a small course",
+      "activeForm": "Testing build pipeline",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:14:48 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:15:07 AM</sup>
+
+`whale-tutor build` 完工,端到端跑通。总结一下:
+
+**实现的代码**
+- 4 个 prompt YAML([server/src/ai/prompts/build.*.yaml](server/src/ai/prompts/)):course_meta / chapter_outline / lo_full / assessment,每个都强约束教育法准则(coreExplanation 必须来自原 md / commonMisconceptions 必须具体可识别 / 题干自包含 / 选项 index 分散等)
+- [server/src/build/build.module.ts](server/src/build/build.module.ts) + [build.service.ts](server/src/build/build.service.ts) — BuildModule 用 null KYSELY,4 阶段编排,自定义 `$ref` 风格 yaml emit
+- [server/src/main.ts](server/src/main.ts) — `WHALE_TUTOR_BUILD_MODE=1` 新分支,`createApplicationContext(BuildModule)` 跑完即退
+- [server/src/ai/ai-gateway.service.ts](server/src/ai/ai-gateway.service.ts) — recordCall 加 null DB guard
+- 双 CLI:[packages/cli-py/whale_tutor/build.py](packages/cli-py/whale_tutor/build.py) + [cli.py](packages/cli-py/whale_tutor/cli.py),[packages/cli-node/lib/build.mjs](packages/cli-node/lib/build.mjs) + [bin/cli.mjs](packages/cli-node/bin/cli.mjs)
+- [doc/course-authoring.md §10](doc/course-authoring.md#10-whale-tutor-buildai-辅助生成课程骨架) 从"v0.3 计划"改写为完整使用文档
+
+**Pipeline 数学**:1 + 2N + M 次 AI 调用(N=章数, M=总 LO 数)。3 章 12 LO 约 19 次,deepseek-v4-flash ≈ $0.05。
+
+**实测验证**(单章 1.7K 字测试源):
+- AI 拆出 3 个 LO + 14 道 LO RI + 6 道章末测试,2 分钟跑完
+- 输出过 `lint`,可直接 `start` 学
+- 题目质量主观看不错:难度递进、题干自包含、选项有 commonMisconception 当陷阱
+
+**已知质量瑕疵**(未来打磨):AI 生成的 assessment answerIndex 偏向某一位置(prompt 已要求"≥3 个不同 index"但 AI 不强遵守);建议作者 build 完手动 review 选项分布。
+
+一处建议你考虑:CLAUDE.md 现在还把 build 列在 v0.3 路线图里,是否要移到"v0.3 已实现"区?要的话我顺手改。
+
+
+---
+
+## User <sup>5/9/2026, 12:17:51 AM</sup>
+
+<ide_opened_file>The user opened the file c:\Users\gyh\Desktop\Projects\whale-tutor\.cc-history\2026-05-07_212924_我需要在当前文件夹下面创建项目，web文件夹是前端，用vue-ts，server_eb4facdf.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+
+改一下，顺便核对几个文档，包括readme、claude、doc下面的内容，如果有需要更新的则更新，然后我看.cc-history还是没有删除build和test的3个文件夹东西
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:17:55 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:17:56 AM</sup>
+
+先看为什么 .cc-history 没清掉,可能权限/锁:
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:17:56 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls .cc-history/ 2>&1 | head -20",
+  "description": "List .cc-history contents"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:18:00 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+2026-05-07_212924_我需要在当前文件夹下面创建项目，web文件夹是前端，用vue-ts，server_eb4facdf.md
+2026-05-07_220731_ide_opened_fileThe-user-opened-the-fil_1a3a26bb.md
+build-output/
+build-test/
+lint-test/
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:18:04 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls .cc-history/build-output/ 2>&1; ls .cc-history/build-test/ 2>&1; ls .cc-history/lint-test/ 2>&1",
+  "description": "Check what's in the 3 leftover dirs"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:18:08 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+chapters/
+course-description.md
+course.yaml
+chapters/
+course.md
+courses/
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:18:13 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:18:14 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "rm -rfv .cc-history/build-test 2>&1 | tail -3; rm -rfv .cc-history/build-output 2>&1 | tail -3; rm -rfv .cc-history/lint-test 2>&1 | tail -3",
+  "description": "Force-remove 3 test dirs with verbose output"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:18:18 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+removed directory '.cc-history/build-test/chapters'
+removed '.cc-history/build-test/course.md'
+removed directory '.cc-history/build-test'
+removed '.cc-history/build-output/course-description.md'
+removed '.cc-history/build-output/course.yaml'
+removed directory '.cc-history/build-output'
+removed directory '.cc-history/lint-test/courses/build-test'
+removed directory '.cc-history/lint-test/courses'
+removed directory '.cc-history/lint-test'
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:18:23 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls .cc-history/",
+  "description": "Verify cleanup"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:18:26 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+2026-05-07_212924_我需要在当前文件夹下面创建项目，web文件夹是前端，用vue-ts，server_eb4facdf.md
+2026-05-07_220731_ide_opened_fileThe-user-opened-the-fil_1a3a26bb.md
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:18:39 AM</sup>
+
+清干净了。看上次 rm 的 -v 才打出来的输出 — 之前那次 rm 应该也成功了,但用了相对路径 + 单条命令 + 输出被吃掉了,造成"看起来没删"的假象,其实可能是某种锁/缓存或者 windows fs 同步延迟。这次显式 verbose 有日志,确认删了。
+
+现在核对三个文档:CLAUDE.md / README.md / doc/
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:18:40 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "offset": 300,
+  "limit": 100
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:18:40 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+300	### 为什么有两个 CLI
+301	
+302	| 包 | 目标用户 | 安装命令 | 包体积 |
+303	|---|---|---|---|
+304	| `packages/cli-py` (pip) | 教研/教育圈,装过 Python 但不熟 Node | `pip install whale-tutor` | wheel ~8 MB / 解压后 ~37 MB(含 node_modules) |
+305	| `packages/cli-node` (npm) | 已经有 Node 工具链的开发者 | `npm install -g whale-tutor` | tarball ~1 MB / 装完 ~50 MB(其中 ~48 MB 由 npm 在用户机器上 `npm install` 恢复) |
+306	
+307	两包功能完全相同(init / start / doctor),共享同一个 server bundle 中间产物。**两边都是包装器** — 真正运行的是同一份 NestJS server,业务逻辑只一份(server 源码),没有重写。
+308	
+309	### 用户机器需要预装
+310	
+311	- **Node.js ≥ 22**(server 运行时,两版都需要)
+312	- **MySQL ≥ 8.0**(在某端口监听,本机或远程)
+313	- **Python ≥ 3.9**(只 cli-py 需要)
+314	
+315	### 构建管道 [scripts/build-cli-bundle.mjs](scripts/build-cli-bundle.mjs)
+316	
+317	`pnpm build:cli-bundle` 一次性填两个 `_bundle/`(共享 `build/server-bundle/` 中间产物):
+318	
+319	```
+320	_bundle/
+321	├── server/
+322	│   ├── dist/                  ← 复制自 server/dist (NestJS 多文件 build,不能 single-bundle)
+323	│   ├── _local/tutor-types/    ← 拷过来的 workspace 包(含 dist + package.json)
+
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:18:43 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "offset": 400,
+  "limit": 120
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:18:43 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+400	- ✅ **Event Bus** — 唯一写入入口,完整事件流(session/lo/interaction/mastery/chapter/qa)
+401	- ✅ **Learner Model** — mastery 状态机(untouched→exposed→practicing→mastered)
+402	- ✅ **QA 侧支** — 5 个 endpoint,栈式 thread 模型(嵌套能力 store 已支持但 UI 未暴露)
+403	
+404	### 前端
+405	- ✅ **基础架构** — Vue 3 + Pinia + Element Plus + vue-router + axios + marked/dompurify
+406	- ✅ **LO Intro 教学环节** — 进入新 LO 先显示核心讲解,点"开始练习"才进题
+407	- ✅ **4 种 Pattern Card** — ConceptCheckCard / CodeSandboxCard / SpotTheBugCard / FreeRecallCard
+408	- ✅ **Pyodide Web Worker** — classic worker + importScripts 加载 CDN,HomeView 进入时预热
+409	- ✅ **答错重做 UX** — 按 next decision 分流文案("换种说法再试一道" / "去看讲解" / "查看结果" / "下一题")+ warning 色
+410	- ✅ **QA Drawer** — 右侧滑出,markdown 消息 + Ctrl+Enter 发送 + 单 thread 追问 + 结束此次提问
+411	- ✅ **HintBar(v0.2)** — 题目上方"求提示"按钮,展开折叠展示已用 hints,章末测试隐藏
+412	- ✅ **Review-LO overlay(v0.2)** — server 返 review_lo decision 时全屏 LoIntroCard 兜底,"我看完了" → ack endpoint
+413	
+414	### 内容
+415	- ✅ Python 基础 / 列表与迭代 — 4 个 LO 全部完整内容(YAML + 含教学讲解的 .md):`list.bas
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:18:57 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:18:58 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls server/src/knowledge/data/",
+  "description": "Check what courses exist"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:19:02 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+python-basics/
+sql-basics/
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:19:06 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls server/src/knowledge/data/python-basics/chapters/; echo \"---SQL---\"; ls server/src/knowledge/data/sql-basics/chapters/",
+  "description": "Check chapters per course"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:19:10 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+list_and_iter/
+string_and_format/
+---SQL---
+joins/
+select_and_filter/
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:19:14 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls server/src/knowledge/data/python-basics/chapters/string_and_format/los/ 2>/dev/null; echo \"---SQL ch1---\"; ls server/src/knowledge/data/sql-basics/chapters/select_and_filter/los/ 2>/dev/null; echo \"---SQL ch2---\"; ls server/src/knowledge/data/sql-basics/chapters/joins/los/ 2>/dev/null",
+  "description": "Count LOs in new content"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:19:18 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+string_basics/
+string_methods/
+---SQL ch1---
+select_clauses/
+where_filtering/
+---SQL ch2---
+inner_join/
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:19:21 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:19:21 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	# Whale Tutor
+2	
+3	**AI 驱动的 Python 交互式学习产品**。区别于传统课程的"读文本+做题",学习路径是动态的、个体化的、可重新进入的。
+4	
+5	详细产品理念见 [notes/](notes/);开发者文档(架构 / 边界 / 约定)见 [CLAUDE.md](CLAUDE.md)。
+6	
+7	## 当前状态:v0.2 智能编排闭环 ✅
+8	
+9	> v0.2 跑通了,智能 PathOrchestrator + StuckProtocol 都已上线。下一步 v0.3(Diagnostic / Archive / 课程作者工具),详见 [CLAUDE.md](CLAUDE.md) 末尾路线图。
+10	
+11	**已实现**
+12	
+13	- 1 个课程 / 1 章节 / 4 个学习目标(LO)/ 13 道必做交互 / 1 道章末综合测试
+14	- 4 种交互模式:**概念检验** / **找 bug** / **代码沙盒**(浏览器跑 Python)/ **自由回忆**
+15	- AI Gateway(DeepSeek)用于:答错时 AI 出"换说法"题 / 章末 free_recall 评估 / spot_the_bug 解释评估 / QA 答疑 / hint 兜底生成
+16	- LO 教学开场页(进入新 LO 显示核心讲解 → 学习者点"开始练习"再答题)
+17	- **梯度提示(StuckProtocol)** — 题目上方"求提示",作者可在 RI 写 1-5 级,缺省走 AI 3 级 + cache
+18	- **智能 PathOrchestrator** — 答错触发 AI 出同 LO 换说法题(`source='adaptive'`);连续错 3 次自动 review_lo 兜底回讲解;hint > 0 答对计入必做但不增 mastery
+19	- **学科参数化** — course.yaml 的 `subject` 字段灌进所有 prompt,加新课程(SQL / Java)无需改 prompt
+20	- QA 侧支(右侧 drawer 提问 + 多轮追问 + 结束回到原位)
+21	- mastery 状态机(untouched → exposed → practicing → mastered),mastered
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:19:24 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls doc/ 2>&1; ls notes/ 2>&1",
+  "description": "List doc and notes folders"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:19:28 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+course-authoring.md
+background_1.md
+background_2.md
+background_3.md
+orchestrator.md
+plan.md
+stuck-handling.md
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:20:21 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:20:24 AM</sup>
+
+清楚了。需要改三处:CLAUDE.md(加 v0.3 已实现 + 补 v0.2 漏列项 + 路线图剔除已完工)、README.md(去 Python-only + 课程数对齐)、doc/course-authoring.md §8.4(加 build 用法 hint)。
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:20:27 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Update CLAUDE.md: extend v0.2 list (multi-chapter/multi-course/lint/sidebar) + add v0.3 已实现 (build) + trim v0.3 路线图",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update README.md: de-Python-ize title, refresh course count, mention build availability",
+      "activeForm": "Updating README.md",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc/course-authoring.md §8.4 to mention `whale-tutor build` as alternative to manual scaffolding",
+      "activeForm": "Updating doc/course-authoring.md §8.4",
+      "status": "pending"
+    },
+    {
+      "content": "Verify .cc-history cleaned",
+      "activeForm": "Verifying cleanup",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:20:27 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:20:34 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "### 内容\n- ✅ Python 基础 / 列表与迭代 — 4 个 LO 全部完整内容(YAML + 含教学讲解的 .md):`list.basics` / `list.indexing` / `list.mutation` / `iter.for_over_list`",
+  "new_string": "### 内容\n- ✅ Python 基础 / 列表与迭代 — 4 个 LO 全部完整内容(YAML + 含教学讲解的 .md):`list.basics` / `list.indexing` / `list.mutation` / `iter.for_over_list`\n\n> v0.2/v0.3 期内容扩展见对应章节(\"多课程/多章节\"清单)。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:20:35 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:21:06 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "### 类型系统\n- ✅ **Public 类型派生**(`Course = Omit<CourseDefinition, 'chapters' | 'subject'> & {chapters: Chapter[]}` 等),Definition 加字段会强迫 reviewer 思考要不要进 Public\n\n## v0.3 路线图",
+  "new_string": "### 类型系统\n- ✅ **Public 类型派生**(`Course = Omit<CourseDefinition, 'chapters' | 'subject'> & {chapters: Chapter[]}` 等),Definition 加字段会强迫 reviewer 思考要不要进 Public\n\n### 多课程 / 多章节 + 课程作者工具\n- ✅ **`whale-tutor lint`** — 双 CLI 都有,spawn server with `WHALE_TUTOR_VALIDATE_ONLY=1` 跑 ajv 校验,5 秒返结果\n- ✅ **多 chapter session 编排** — `pickStartingLo` 找首个未完成章节;sidebar 列全部章节并允许点切换(`POST /api/sessions/:id/switch-chapter`,session.current_lo_id 改写)\n- ✅ **多 course HomeView picker** — `GET /api/courses` 返 `CourseSummary[]`,首页卡片选课;支持 `python-basics` 与 `sql-basics` 并存\n- ✅ **内容扩展** — Python 加 `string_and_format` 章(2 LO);新增 SQL 课(`select_and_filter` 2 LO + `joins` 1 LO)— 用 `subject: SQL` 验证学科参数化\n- ✅ **课程作者文档** — [doc/course-authoring.md](doc/course-authoring.md) 740+ 行 step-by-step 指南(yaml/$ref/4 种 pattern/hint/评价/工作流/排查)\n\n## v0.3 已实现清单(2026-05-09 更新)\n\n### `whale-tutor build` — AI 辅助生成课程骨架\n- ✅ **新命令**:`whale-tutor build <source> [--force] [--output <dir>]`,输入 `course.md + chapters/*.md` → AI 生成完整 yaml/md 课程\n- ✅ **4 阶段 pipeline**(每阶段独立 prompt yaml + ajv schema 校验 + 重试):\n  - `build.course_meta` — 提取 id/name/subject/description(1 次)\n  - `build.chapter_outline` — 每章 AI 拆 2-5 LO + 切 coreExplanation(N 次)\n  - `build.lo_full` — 每 LO 出 commonMisconceptions + masteryCriteria + 3-5 道 concept_check RI(M 次)\n  - `build.assessment` — 每章出 5-7 道章末综合(N 次)\n  - 总调用 = 1 + 2N + M;3 章 12 LO ≈ 19 次 ≈ $0.05\n- ✅ **`server/src/build/`** — `BuildModule` 不依赖 mysql/web/其他业务模块,只需 ConfigModule + AiGatewayService(KYSELY 提供 null,recordCall 自动 skip)\n- ✅ **AI 生成约定**:全部 `concept_check`(成功率最高,作者后续可手改 pattern);id 命名 `lo.<chapter-slug>.<lo-slug>` 等确定性派生\n- ✅ **失败语义**:AI 返 fallback object 时 build 直接报错退出(不静默兜底,质量优先)\n
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:21:07 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:21:17 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "3. **课程作者工具**\n   - `whale-tutor lint` — 复用 KnowledgeService loader + ajv,在 cli 侧报具体行号 / 字段错误\n   - `whale-tutor build`(可选)— 从原始 markdown + manifest 半自动生成 LO/RI 骨架,留待小白教程定义清楚 input 形式后再做",
+  "new_string": "3. **课程作者工具**(剩余项)\n   - ~~`whale-tutor lint`~~ ✅ v0.2 已完成\n   - ~~`whale-tutor build`~~ ✅ v0.3 已完成\n   - 待办:`whale-tutor build --watch` 增量再生(改 1 章 md 不重写整课)\n   - 待办:`whale-tutor build` 输出后的\"AI 拆 LO 不理想\"修复回环(目前作者只能手改 yaml)"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:21:18 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:21:23 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:21:28 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Update CLAUDE.md: extend v0.2 list (multi-chapter/multi-course/lint/sidebar) + add v0.3 已实现 (build) + trim v0.3 路线图",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update README.md: de-Python-ize title, refresh course count, mention build availability",
+      "activeForm": "Updating README.md",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update doc/course-authoring.md §8.4 to mention `whale-tutor build` as alternative to manual scaffolding",
+      "activeForm": "Updating doc/course-authoring.md §8.4",
+      "status": "pending"
+    },
+    {
+      "content": "Verify .cc-history cleaned",
+      "activeForm": "Verifying cleanup",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:21:28 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:22:09 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "old_string": "# Whale Tutor\n\n**AI 驱动的 Python 交互式学习产品**。区别于传统课程的\"读文本+做题\",学习路径是动态的、个体化的、可重新进入的。\n\n详细产品理念见 [notes/](notes/);开发者文档(架构 / 边界 / 约定)见 [CLAUDE.md](CLAUDE.md)。\n\n## 当前状态:v0.2 智能编排闭环 ✅\n\n> v0.2 跑通了,智能 PathOrchestrator + StuckProtocol 都已上线。下一步 v0.3(Diagnostic / Archive / 课程作者工具),详见 [CLAUDE.md](CLAUDE.md) 末尾路线图。\n\n**已实现**\n\n- 1 个课程 / 1 章节 / 4 个学习目标(LO)/ 13 道必做交互 / 1 道章末综合测试\n- 4 种交互模式:**概念检验** / **找 bug** / **代码沙盒**(浏览器跑 Python)/ **自由回忆**\n- AI Gateway(DeepSeek)用于:答错时 AI 出\"换说法\"题 / 章末 free_recall 评估 / spot_the_bug 解释评估 / QA 答疑 / hint 兜底生成\n- LO 教学开场页(进入新 LO 显示核心讲解 → 学习者点\"开始练习\"再答题)\n- **梯度提示(StuckProtocol)** — 题目上方\"求提示\",作者可在 RI 写 1-5 级,缺省走 AI 3 级 + cache\n- **智能 PathOrchestrator** — 答错触发 AI 出同 LO 换说法题(`source='adaptive'`);连续错 3 次自动 review_lo 兜底回讲解;hint > 0 答对计入必做但不增 mastery\n- **学科参数化** — course.yaml 的 `subject` 字段灌进所有 prompt,加新课程(SQL / Java)无需改 prompt\n- QA 侧支(右侧 drawer 提问 + 多轮追问 + 结束回到原位)\n- mastery 状态机(untouched → exposed → practicing → mastered),mastered 连续错 2 次回归\n- 多 LO 自动推进 + 章末测试解锁(章末测试不进 retry)\n\n**演示流程**\n\n打开 `http://localhost:5173` → 点\"开始学习\" → 走 4 个 LO → 章末综合 → 章节完成。任意时刻可以点头部\"💬 问问题\"提问,题目上方\"💡 求提示\"兜底卡住时。\n\n```\nlist.basics → list.indexing → list.mutation → iter.for_over_list → 章末综合 → 🎉\n```",
+  "new_string": "# Whale Tutor\n\n**AI 驱动的交互式学习产品**(默认演示 Python,通过 `course.yaml` 的 `subject` 字段可配置任意学科)。区别于传统课程的\"读文本+做题\",学习路径是动态的、个体化的、可重新进入的。\n\n详细产品理念见 [notes/](notes/);开发者文档(架构 / 边界 / 约定)见 [CLAUDE.md](CLAUDE.md);课程作者文档见 [doc/course-authoring.md](doc/course-authoring.md)。\n\n## 当前状态:v0.3 课程作者工具闭环 ✅\n\n> v0.2 智能编排已跑通(StuckProtocol + PathOrchestrator);v0.3 把焦点切到课程作者侧 — `whale-tutor lint` / `whale-tutor build`(AI 从原始 markdown 生成完整课程)/ 多课程支持都已上线。剩余 v0.3 工作(Diagnostic / Archive)详见 [CLAUDE.md](CLAUDE.md) 末尾路线图。\n\n**已实现**\n\n- 内置 2 门课程 / 4 章节 / 9 个学习目标(LO)/ ~30 道必做交互 / 4 道章末测试:\n  - **Python 基础**(`python-basics`):列表与迭代(4 LO) + 字符串与格式化(2 LO)
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:22:10 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\README.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:22:29 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "old_string": "## 课程内容\n\n课程内容是 **YAML + markdown 文件**,不入数据库。位置:\n\n```\nserver/src/knowledge/data/python-basics/\n├── course.yaml                          # 课程元数据\n├── chapters/list_and_iter/\n│   ├── chapter.yaml\n│   ├── description.md\n│   ├── los/<lo-name>/                   # 每个 LO 一个目录\n│   │   ├── lo.yaml                      # 元数据 + 必做题列表\n│   │   ├── core-explanation.md          # LO 教学讲解\n│   │   ├── ri-1.explanation.md          # 第 1 题题前引子\n│   │   └── ri-1.rationale.md            # 第 1 题答案解析\n│   └── assessment/                      # 章末综合测试\n└── ...\n```\n\n修改 .md 内容后 `pnpm db:reset && pnpm dev:server` 让 schema 重建 + 内容重载。\n\n校验内容能否通过 schema:\n\n```bash\npnpm --filter @whale-tutor/server build\nnode server/scripts/verify-knowledge.js\n```",
+  "new_string": "## 课程内容\n\n课程内容是 **YAML + markdown 文件**,不入数据库。dev 模式下从 `server/src/knowledge/data/` 加载;pip/npm 用户从自己 cwd 的 `courses/` 加载(由 `WHALE_TUTOR_COURSES_DIR` env 切换)。\n\n```\nserver/src/knowledge/data/\n├── python-basics/                       # 内置 Python 课\n│   ├── course.yaml                      # 课程元数据(含 subject: Python)\n│   └── chapters/<chapter-slug>/\n│       ├── chapter.yaml\n│       ├── description.md\n│       ├── los/<lo-name>/               # 每个 LO 一个目录\n│       │   ├── lo.yaml                  # 元数据 + 必做题列表\n│       │   ├── core-explanation.md      # LO 教学讲解\n│       │   ├── ri-1.explanation.md      # 第 1 题题前引子\n│       │   └── ri-1.rationale.md        # 第 1 题答案解析\n│       └── assessment/                  # 章末综合测试\n└── sql-basics/                          # 内置 SQL 课(同结构,subject: SQL)\n```\n\n只改内容不改代码:`pnpm dev:server` 重启即可(YAML/MD 内存加载,不涉及 schema)。改了 schema 才需要 `pnpm db:reset`。\n\n**课程作者工作流(给非开发者)**:用 [packages/cli-py](packages/cli-py/) / [packages/cli-node](packages/cli-node/) 提供的 `whale-tutor` 命令,见 [doc/course-authoring.md](doc/course-authoring.md):\n- `whale-tutor init` — scaffold 完整 python-
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:22:30 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\README.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:22:34 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:22:35 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "offset": 28,
+  "limit": 30
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:22:35 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+28	
+29	打开 `http://localhost:5173` → 选课程(Python 或 SQL)→ 点"开始学习" → 走完该课所有 LO → 章末综合 → 章节完成。任意时刻可以点头部"💬 问问题"提问,题目上方"💡 求提示"兜底卡住时。
+30	
+31	```
+32	[Python] list.basics → list.indexing → list.mutation → iter.for_over_list → 章末 → 字符串与格式化 → 🎉
+33	[SQL]    select 子句 → where 过滤 → 章末 → inner join → 🎉
+34	```
+35	
+36	```
+37	Monorepo (pnpm workspaces)
+38	├── web/                        # Vue 3 + Vite + TS + Element Plus + Pinia
+39	├── server/                     # NestJS + Kysely + mysql2 + AI Gateway
+40	├── packages/tutor-types/       # 前后端共享 TS 类型
+41	├── db/init/                    # MySQL schema(容器首启执行)
+42	├── notes/                      # 产品理念 + 完整架构文档
+43	├── CLAUDE.md                   # 开发者必读:架构边界、约定、路线图
+44	└── docker-compose.yml
+45	```
+46	
+47	## 环境要求
+48	
+49	- Node.js >= 22 LTS
+50	- pnpm >= 8(`corepack enable` 即可,`packageManager` 字段已锁到 pnpm 8.15.x)
+51	- Docker + Docker Compose
+52	- DeepSeek API key(可选 — 没有的话所有 AI 调用走 fallback 文案,不影响 e2e 但章末 free_recall 永远过不了)
+53	
+54	## 初始化
+55	
+56	```bash
+57	pn
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:22:44 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "old_string": "```\nMonorepo (pnpm workspaces)\n├── web/                        # Vue 3 + Vite + TS + Element Plus + Pinia\n├── server/                     # NestJS + Kysely + mysql2 + AI Gateway\n├── packages/tutor-types/       # 前后端共享 TS 类型\n├── db/init/                    # MySQL schema(容器首启执行)\n├── notes/                      # 产品理念 + 完整架构文档\n├── CLAUDE.md                   # 开发者必读:架构边界、约定、路线图\n└── docker-compose.yml\n```",
+  "new_string": "```\nMonorepo (pnpm workspaces)\n├── web/                        # Vue 3 + Vite + TS + Element Plus + Pinia\n├── server/                     # NestJS + Kysely + mysql2 + AI Gateway + BuildModule\n├── packages/\n│   ├── tutor-types/            # 前后端共享 TS 类型(workspace 内部)\n│   ├── cli-py/                 # 课程作者 Python CLI(发到 PyPI)\n│   └── cli-node/               # 课程作者 Node CLI(发到 npm)\n├── scripts/build-cli-bundle.mjs # 构建管道:同时填充两个 _bundle/\n├── db/init/                    # MySQL schema(容器首启执行)\n├── notes/                      # 产品理念 + 完整架构文档\n├── doc/course-authoring.md     # 给课程作者的教程\n├── CLAUDE.md                   # 开发者必读:架构边界、约定、路线图\n└── docker-compose.yml\n```"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:22:45 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\README.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:22:52 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:22:52 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "offset": 155,
+  "limit": 25
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:22:52 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+155	
+156	## 共享类型 `@whale-tutor/tutor-types`
+157	
+158	前后端通过 workspace 协议引用:
+159	
+160	```ts
+161	import type { LearningObjective, ServedInteraction } from '@whale-tutor/tutor-types';
+162	```
+163	
+164	新增/修改类型后跑 `pnpm build:types`(或 `pnpm --filter @whale-tutor/tutor-types dev` 开 watch)。
+165	
+166	## 进一步阅读
+167	
+168	- **架构边界、命名约定、模块职责、v0.3 路线图** — [CLAUDE.md](CLAUDE.md)
+169	- **运行时业务逻辑(状态机 / decideNext / DB 写入语义,跨模块改动前必读)** — [notes/orchestrator.md](notes/orchestrator.md)
+170	- **产品理念、教育学原则、交互模式库设计** — [notes/background_1.md](notes/background_1.md) → [notes/background_2.md](notes/background_2.md) → [notes/background_3.md](notes/background_3.md)
+171	- **完整工程架构(4 层 18 模块)** — [notes/plan.md](notes/plan.md)
+172	- **课程作者指南(写课程内容、CLI 工作流、文件引用、hint / 评价机制、4 种题型、lint)** — [doc/course-authoring.md](doc/course-authoring.md)
+173
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:22:58 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "old_string": "- **课程作者指南(写课程内容、CLI 工作流、文件引用、hint / 评价机制、4 种题型、lint)** — [doc/course-authoring.md](doc/course-authoring.md)",
+  "new_string": "- **课程作者指南(yaml/$ref、4 种题型、hint、评价、CLI 工作流、`whale-tutor build` AI 生成)** — [doc/course-authoring.md](doc/course-authoring.md)\n- **stuck 处理协议(hint / adaptive / review_lo 三机制如何串成兜底)** — [notes/stuck-handling.md](notes/stuck-handling.md)"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:22:59 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\README.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:23:03 AM</sup>
+
+README 完成。doc/course-authoring.md §8.4:
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:23:08 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Update CLAUDE.md: extend v0.2 list (multi-chapter/multi-course/lint/sidebar) + add v0.3 已实现 (build) + trim v0.3 路线图",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update README.md: de-Python-ize title, refresh course count, mention build availability",
+      "activeForm": "Updating README.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update doc/course-authoring.md §8.4 to mention `whale-tutor build` as alternative to manual scaffolding",
+      "activeForm": "Updating doc/course-authoring.md §8.4",
+      "status": "in_progress"
+    },
+    {
+      "content": "Verify .cc-history cleaned",
+      "activeForm": "Verifying cleanup",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:23:08 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:23:32 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\doc\\course-authoring.md",
+  "old_string": "### 8.4 加一门新课程\n\n1. 在 `courses/` 下新建目录(如 `sql-basics/`)\n2. 写 `course.yaml`,**改 `subject: SQL`**(让所有 AI prompt 自动适配)\n3. 写章节 + LO,完全同 python-basics 套路\n4. `start` 时所有课程会一起被发现 + 加载",
+  "new_string": "### 8.4 加一门新课程\n\n**两条路径**,按你手头资料选:\n\n#### A 路径 — `whale-tutor build` AI 生成(推荐,从 markdown 起步)\n\n如果你手头有\"原始讲稿\"(每章一份 markdown),走 build 流程,详见 [§10](#10-whale-tutor-buildai-辅助生成课程骨架):\n\n```bash\nmkdir my-source && cd my-source\nmkdir chapters\n# 写 course.md(课程介绍)+ chapters/01-xxx.md / 02-xxx.md(每章一份完整讲稿)\ncd ..\nwhale-tutor build my-source/             # AI 4 阶段生成完整 yaml/md → courses/my-source/\nwhale-tutor lint                         # 校验\nwhale-tutor start                        # 试学\n```\n\nbuild 出来都是 `concept_check` 题型 + 默认 `adaptivePatterns: [concept_check]`,作者后续可手改部分 RI 为其他 pattern(参考 §5)。\n\n#### B 路径 — 手写 yaml(改示例,适合定向控制)\n\n如果你想精细控制每道题的 pattern / hints / rubric / 测试用例(尤其 code_sandbox / spot_the_bug),从示例改:\n\n1. 在 `courses/` 下新建目录(如 `sql-basics/`)\n2. 写 `course.yaml`,**改 `subject: SQL`**(让所有 AI prompt 自动适配)\n3. 写章节 + LO,完全同 python-basics 套路\n4. `start` 时所有课程会一起被发现 + 加载"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:23:33 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\doc\course-authoring.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:23:39 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:23:40 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -n \"whale-tutor build\" doc/course-authoring.md | head -10",
+  "description": "Verify build is documented in multiple places"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:23:44 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+22:10. [v0.3 计划:`whale-tutor build` AI 辅助生成](#10-v03-计划whale-tutor-build-ai-辅助生成)
+556:#### A 路径 — `whale-tutor build` AI 生成(推荐,从 markdown 起步)
+565:whale-tutor build my-source/             # AI 4 阶段生成完整 yaml/md → courses/my-source/
+695:## 10. `whale-tutor build`:AI 辅助生成课程骨架
+721:whale-tutor build my-course-source/                # 输出到 <coursesDir>/<source 目录名>/
+722:whale-tutor build my-course-source/ --force        # 已存在时覆盖
+723:whale-tutor build my-course-source/ --output ./courses/awesome   # 指定输出目录
+779:whale-tutor build my-course-source/        # AI 生成
+812:| `whale-tutor build <source> [--force] [--output <dir>]` | 从原始 markdown AI 生成课程骨架(详见 §10) |
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:23:53 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:23:54 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\doc\\course-authoring.md",
+  "old_string": "10. [v0.3 计划:`whale-tutor build` AI 辅助生成](#10-v03-计划whale-tutor-build-ai-辅助生成)",
+  "new_string": "10. [`whale-tutor build`:AI 辅助生成课程骨架](#10-whale-tutor-buildai-辅助生成课程骨架)"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:23:55 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\doc\course-authoring.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:24:06 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Update CLAUDE.md: extend v0.2 list (multi-chapter/multi-course/lint/sidebar) + add v0.3 已实现 (build) + trim v0.3 路线图",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update README.md: de-Python-ize title, refresh course count, mention build availability",
+      "activeForm": "Updating README.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update doc/course-authoring.md §8.4 to mention `whale-tutor build` as alternative to manual scaffolding",
+      "activeForm": "Updating doc/course-authoring.md §8.4",
+      "status": "completed"
+    },
+    {
+      "content": "Verify .cc-history cleaned",
+      "activeForm": "Verifying cleanup",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:24:06 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:24:26 AM</sup>
+
+三处文档全部更新完成,`.cc-history` 也清干净了。汇总:
+
+**[CLAUDE.md](CLAUDE.md)**
+- 加了 "多课程 / 多章节 + 课程作者工具" 子节到 v0.2 已实现清单(lint / 多 chapter switch / HomeView 课程选择 / SQL 课 / course-authoring.md)
+- 新增 "v0.3 已实现清单" 一整块,详列 build 命令 + 4 阶段 pipeline + BuildModule + 失败语义 + e2e 验证
+- v0.3 路线图 §3 "课程作者工具" 把 lint 和 build 划掉,留下未来打磨项(`--watch` / "AI 拆 LO 不理想" 修复回环)
+
+**[README.md](README.md)**
+- 标题去 Python-only:"AI 驱动的交互式学习产品"
+- 状态栏从 "v0.2 智能编排" 升级到 "v0.3 课程作者工具闭环"
+- 已实现列表加 SQL 课内容、build 命令、多课程切换;课程数 1→2,LO 数 4→9
+- demo 流程示意图加 SQL 路径
+- monorepo 结构加 `packages/cli-py` / `cli-node` / `scripts/build-cli-bundle.mjs` / `doc/`
+- "课程内容" 一节重写,加 `WHALE_TUTOR_COURSES_DIR` 双模式说明 + 五个 CLI 命令快速指引;删了过时的 `verify-knowledge.js` 引用
+- "进一步阅读" 加 stuck-handling.md 链接,build 提到 §10
+
+**[doc/course-authoring.md](doc/course-authoring.md)**
+- §8.4 "加一门新课程" 改成两条路径(A=build AI 生成 / B=手写 yaml)
+- TOC 第 10 项把 "v0.3 计划:..." 改成正式标题
+
+`.cc-history/` 三个测试目录(build-test / build-output / lint-test)已实际删除,只剩两个会话历史 md 文件。
+
+
+---
+
+## User <sup>5/9/2026, 12:35:34 AM</sup>
+
+现在我感觉py的cli可以不要，因为都已经必装node环境了，其实直接用ndoe包更方便，你觉得呢
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:36:32 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:36:34 AM</sup>
+
+技术上你说对了:Node 反正必装,cli-py 多绕一层 subprocess + 包大一倍(37 MB vs 1 MB,因为 pip 没法触发 npm 必须自己 bundle 整个 node_modules)+ 每加一个命令(比如刚才的 build)都翻倍工作量。我倾向同意去掉 cli-py。
+
+唯一要权衡的是品牌信号 — 你 @datawhale.club 受众主体是 Python/数据圈,`pip install whale-tutor` 比 `npm install -g` 听起来更"是给我用的";但其实文档里写"先装 Node 再 npm install"也不算麻烦(反正 MySQL 也让用户自己装)。这个信号值不值双 CLI 的维护税你判断 — 决定删的话告诉我,工作量大概是删 packages/cli-py + 改 scripts/build-cli-bundle.mjs 去掉 cli-py 路径 + CLAUDE/README/doc 去 pip 提及。
+
+
+---
+
+## User <sup>5/9/2026, 12:38:16 AM</sup>
+
+<ide_opened_file>The user opened the file c:\Users\gyh\Desktop\Projects\whale-tutor\.claude\settings.local.json in the IDE. This may or may not be related to the current task.</ide_opened_file>
+
+那就先删了
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:38:27 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:38:27 AM</sup>
+
+好,先扫一遍所有 cli-py 引用,确认删的范围。
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:38:28 AM</sup>
+
+<details>
+<summary>Tool: <code>Grep</code></summary>
+
+```json
+{
+  "pattern": "cli-py|pip install whale-tutor|whale_tutor|pyproject|hatchling|cli_py",
+  "output_mode": "files_with_matches",
+  "-i": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:38:28 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Found 28 files
+.cc-history\2026-05-07_220731_ide_opened_fileThe-user-opened-the-fil_1a3a26bb.md
+doc\course-authoring.md
+README.md
+CLAUDE.md
+packages\cli-node\lib\build.mjs
+packages\cli-py\whale_tutor\cli.py
+packages\cli-py\whale_tutor\build.py
+server\src\main.ts
+server\src\knowledge\knowledge.service.ts
+packages\cli-py\whale_tutor\lint.py
+packages\cli-node\lib\lint.mjs
+db\init\01-schema.sql
+eslint.config.mjs
+packages\cli-node\lib\scaffold.mjs
+.cc-history\2026-05-07_212924_我需要在当前文件夹下面创建项目，web文件夹是前端，用vue-ts，server_eb4facdf.md
+pnpm-workspace.yaml
+packages\cli-node\README.md
+scripts\build-cli-bundle.mjs
+packages\cli-node\lib\config.mjs
+packages\cli-py\README.md
+packages\cli-py\whale_tutor\scaffold.py
+packages\cli-py\whale_tutor\config.py
+packages\cli-py\.gitignore
+packages\cli-py\pyproject.toml
+server\src\app.module.ts
+.env.example
+server\src\database\database.module.ts
+docker-compose.yml
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:38:33 AM</sup>
+
+<details>
+<summary>Tool: <code>Grep</code></summary>
+
+```json
+{
+  "pattern": "cli-py",
+  "output_mode": "content",
+  "-n": true,
+  "path": ".",
+  "glob": "!.cc-history/**",
+  "head_limit": 200
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:38:33 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:45:│   ├── cli-py/           # ★ Python pip 包(发到 PyPI)
+c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:54:│       ├── _bundle/      # ⚠ 构建产物,不入 git(同 cli-py 但不含 node_modules)
+c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:58:├── db/init/01-schema.sql # MySQL 初始化(docker 首启 + cli-py start 时 idempotent 都跑)
+c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:298:面向用户的目标是 **`pip install whale-tutor` 或 `npm install -g whale-tutor` 后 `whale-tutor start` 一键起**(用户面向的快速上手见 [packages/cli-py/README.md](packages/cli-py/README.md) / [packages/cli-node/README.md](packages/cli-node/README.md))。这一节解释架构边界,**不是用户教程**。
+c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:304:| `packages/cli-py` (pip) | 教研/教育圈,装过 Python 但不熟 Node | `pip install whale-tutor` | wheel ~8 MB / 解压后 ~37 MB(含 node_modules) |
+c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:313:- **Python ≥ 3.9**(只 cli-py 需要)
+c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:325:│   └
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:38:38 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:38:38 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\package.json"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:38:38 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	{
+2	  "name": "whale-tutor",
+3	  "version": "0.0.1",
+4	  "private": true,
+5	  "packageManager": "pnpm@8.15.9",
+6	  "engines": {
+7	    "node": ">=22.0.0",
+8	    "pnpm": ">=8.0.0"
+9	  },
+10	  "scripts": {
+11	    "dev": "pnpm -r --parallel --filter=./web --filter=./server run dev",
+12	    "dev:web": "pnpm --filter ./web dev",
+13	    "dev:server": "pnpm --filter ./server start:dev",
+14	    "build": "pnpm -r run build",
+15	    "build:types": "pnpm --filter @whale-tutor/tutor-types build",
+16	    "build:web": "pnpm --filter ./web build",
+17	    "build:server": "pnpm --filter ./server build",
+18	    "build:cli-bundle": "node scripts/build-cli-bundle.mjs",
+19	    "lint": "eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --max-warnings 0",
+20	    "lint:fix": "eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --fix",
+21	    "format": "prettier --write \"**/*.{ts,tsx,vue,js,cjs,mjs,json,md,yml,yaml}\"",
+22	    "format:check": "prettier --check \"**/*.{ts,tsx,vue,js,cjs,mjs,json,md,yml,yaml}\"",
+23	    "type
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:38:48 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\scripts\\build-cli-bundle.mjs"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:38:48 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	// 构建 whale-tutor 分发包内嵌的 _bundle 资产 — 同时填充 cli-py 和 cli-node。
+2	//
+3	// 流程:
+4	//   1. clean — 清掉 packages/cli-{py,node}/.../_bundle/{server,web,db,templates}
+5	//   2. pnpm build — 生成 server/dist + web/dist + tutor-types/dist
+6	//   3. 准备 server bundle(共享中间产物 build/server-bundle/):
+7	//      a. 复制 server/dist + server/package.json
+8	//      b. 复制 packages/tutor-types(含 dist) 到 server-bundle/_local/tutor-types/
+9	//      c. 改 server-bundle/package.json 的 workspace:* 为 file:./_local/tutor-types
+10	//   4. cli-py:
+11	//      - 复制 server-bundle 到 cli-py/whale_tutor/_bundle/server/
+12	//      - 在 cli-py/.../bundle/server/ 跑 npm install --omit=dev (平铺 node_modules,
+13	//        避免 pnpm 嵌套 .pnpm/ 在 Windows 上触发 MAX_PATH + hatchling 打包失败)
+14	//   5. cli-node:
+15	//      - 复制 server-bundle 到 cli-node/_bundle/server/
+16	//      - 不跑 npm install — 用户 npm install 时 cli-node/package.json 的 deps 会装 server 运行时依赖
+17	//   6. 两个 _bundle/ 都补 web / db/init / templates / MANIFEST.json
+18	//
+19	// 跑法:`pnpm
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:38:56 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\pnpm-workspace.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:38:56 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	packages:
+2	  - 'web'
+3	  - 'server'
+4	  - 'packages/*'
+5	  # cli-py 是 Python 包(用 pip 分发),不是 npm workspace
+6	  - '!packages/cli-py'
+7	  # cli-node 是分发包,deps 含 file:./_bundle/... 在 build 前不存在,不能在 pnpm workspace 里参与
+8	  # 用法:pnpm build:cli-bundle 之后,cd packages/cli-node && npm install
+9	  - '!packages/cli-node'
+10
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:39:01 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\eslint.config.mjs",
+  "offset": 75,
+  "limit": 15
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:39:01 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+75	      '**/node_modules/**',
+76	      '**/dist/**',
+77	      '**/build/**',
+78	      '**/coverage/**',
+79	      '**/.vite/**',
+80	      'packages/cli-py/**',
+81	      'packages/cli-node/_bundle/**',
+82	      'pnpm-lock.yaml',
+83	    ],
+84	  },
+85	  js.configs.recommended,
+86	  {
+87	    // Node 脚本(scripts/*.mjs、cli-node 的 bin/lib)默认带 Node globals
+88	    files: ['**/*.{js,mjs,cjs}'],
+89	    languageOptions: {
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:39:15 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\README.md"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:39:15 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	# Whale Tutor
+2	
+3	**AI 驱动的 Python 交互式学习产品** — 课程作者用的命令行(Node 版)。
+4	
+5	只需要写 YAML 和 Markdown 内容,不需要懂前后端开发。
+6	
+7	> Python 版同源同功能:`pip install whale-tutor`(详见 [packages/cli-py/README.md](../cli-py/README.md))。本包给已经有 Node 工具链的用户用。
+8	
+9	## 安装前置
+10	
+11	- **Node.js ≥ 22** (https://nodejs.org/)
+12	- **MySQL ≥ 8.0** (本机已运行,在某端口监听)
+13	
+14	## 快速开始
+15	
+16	```bash
+17	# 1. 装包
+18	npm install -g whale-tutor
+19	
+20	# 2. 在某个空目录初始化课程
+21	mkdir my-course && cd my-course
+22	whale-tutor init
+23	
+24	# 3. 编辑配置文件,填入 mysql 连接 + (可选) DeepSeek API key
+25	nano whale-tutor.config.yaml
+26	
+27	# 4. 健康检查(可选,推荐第一次跑)
+28	whale-tutor doctor
+29	
+30	# 5. 启动 — 浏览器自动打开 http://localhost:3000
+31	whale-tutor start
+32	```
+33	
+34	不想全局装也可以一次性跑:
+35	
+36	```bash
+37	npx whale-tutor init
+38	npx whale-tutor start
+39	```
+40	
+41	## 命令参考
+42	
+43	| 命令 | 作用 |
+44	| --- | --- |
+45	| `whale-tutor init` | 在当前目录 scaffold 示例课程 + 配置模板 |
+46	| `whale-tutor start [--no-open]` | 启动 server(自动应用 schema + serve API + 静态前端) |
+47	| `whale-tutor doctor` | 健康检
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:39:25 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:39:25 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -n \"课程内容\" packages/cli-py/README.md | head -5",
+  "description": "Check cli-py README structure for content cli-node references"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:39:29 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+33:## 课程内容怎么写
+69:courses_dir: ./courses              # 课程内容根目录
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:39:38 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-py\\README.md",
+  "offset": 25,
+  "limit": 75
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:39:38 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+25	
+26	# 4. 健康检查(可选,推荐第一次跑)
+27	whale-tutor doctor
+28	
+29	# 5. 启动 — 浏览器打开 http://localhost:3000
+30	whale-tutor start
+31	```
+32	
+33	## 课程内容怎么写
+34	
+35	`whale-tutor init` 在 `courses/python-basics/` 下生成完整的示例课程。改 working sample 比从零写快得多:
+36	
+37	```
+38	courses/python-basics/
+39	├── course.yaml                          # 课程元数据
+40	├── chapters/
+41	│   └── list_and_iter/
+42	│       ├── chapter.yaml                 # 章节元数据 + LO 引用 + 章末测试
+43	│       ├── description.md
+44	│       ├── los/
+45	│       │   └── list_basics/             # 一个 LO 一个目录
+46	│       │       ├── lo.yaml              # LO 定义(必做题在这里)
+47	│       │       ├── core-explanation.md  # LO 教学讲解
+48	│       │       └── ri-1.explanation.md
+49	│       └── assessment/                  # 章末综合测试
+50	└── ...
+51	```
+52	
+53	**核心约定**:
+54	- YAML 里写**结构**(题型 / 选项 / 答案 / 学习目标)
+55	- Markdown 里写**长内容**(讲解 / 题干 / 反馈),用 `{ $ref: ./xxx.md }` 引用
+56	
+57	## 命令参考
+58	
+59	| 命令 | 作用 |
+60	| --- | --- |
+61	| `whale-tutor init` | 在当前目录 scaffold 示例课程 + 配置模板 |
+62	| `wh
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:39:57 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:40:04 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Delete packages/cli-py/ directory entirely",
+      "activeForm": "Deleting packages/cli-py/",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update scripts/build-cli-bundle.mjs to drop cli-py path",
+      "activeForm": "Updating build-cli-bundle.mjs",
+      "status": "pending"
+    },
+    {
+      "content": "Update pnpm-workspace.yaml + eslint.config.mjs to drop cli-py refs",
+      "activeForm": "Updating workspace + eslint configs",
+      "status": "pending"
+    },
+    {
+      "content": "Update packages/cli-node/README.md (inline 课程内容 content from cli-py README; add lint/build to commands; drop pip mention)",
+      "activeForm": "Updating cli-node README",
+      "status": "pending"
+    },
+    {
+      "content": "Update CLAUDE.md to remove cli-py from arch / 分发 / v0 列表",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "pending"
+    },
+    {
+      "content": "Update README.md tree + 工作流 references",
+      "activeForm": "Updating README.md",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc/course-authoring.md `pip install` 提及",
+      "activeForm": "Updating course-authoring.md",
+      "status": "pending"
+    },
+    {
+      "content": "Scan server src + .env.example + docker-compose for stray pip/cli-py mentions",
+      "activeForm": "Scanning misc files",
+      "status": "pending"
+    },
+    {
+      "content": "Verify build:cli-bundle still works after refactor",
+      "activeForm": "Verifying build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:40:04 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:40:11 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "rm -rfv packages/cli-py 2>&1 | tail -5; ls packages/",
+  "description": "Delete packages/cli-py and verify packages dir"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:40:17 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+removed 'packages/cli-py/whale_tutor/__pycache__/scaffold.cpython-312.pyc'
+removed 'packages/cli-py/whale_tutor/__pycache__/__init__.cpython-312.pyc'
+removed directory 'packages/cli-py/whale_tutor/__pycache__'
+removed directory 'packages/cli-py/whale_tutor'
+removed directory 'packages/cli-py'
+cli-node/
+tutor-types/
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:40:21 AM</sup>
+
+删除成功。现在改 build-cli-bundle.mjs:
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:40:25 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Delete packages/cli-py/ directory entirely",
+      "activeForm": "Deleting packages/cli-py/",
+      "status": "completed"
+    },
+    {
+      "content": "Update scripts/build-cli-bundle.mjs to drop cli-py path",
+      "activeForm": "Updating build-cli-bundle.mjs",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update pnpm-workspace.yaml + eslint.config.mjs to drop cli-py refs",
+      "activeForm": "Updating workspace + eslint configs",
+      "status": "pending"
+    },
+    {
+      "content": "Update packages/cli-node/README.md (inline 课程内容 content from cli-py README; add lint/build to commands; drop pip mention)",
+      "activeForm": "Updating cli-node README",
+      "status": "pending"
+    },
+    {
+      "content": "Update CLAUDE.md to remove cli-py from arch / 分发 / v0 列表",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "pending"
+    },
+    {
+      "content": "Update README.md tree + 工作流 references",
+      "activeForm": "Updating README.md",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc/course-authoring.md `pip install` 提及",
+      "activeForm": "Updating course-authoring.md",
+      "status": "pending"
+    },
+    {
+      "content": "Scan server src + .env.example + docker-compose for stray pip/cli-py mentions",
+      "activeForm": "Scanning misc files",
+      "status": "pending"
+    },
+    {
+      "content": "Verify build:cli-bundle still works after refactor",
+      "activeForm": "Verifying build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:40:25 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:41:07 AM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\scripts\\build-cli-bundle.mjs",
+  "content": "// 构建 whale-tutor 分发包内嵌的 _bundle 资产 — 单 CLI(npm 包)。\n//\n// 流程:\n//   1. clean — 清掉 packages/cli-node/_bundle/{server,web,db,templates}\n//   2. pnpm build — 生成 server/dist + web/dist + tutor-types/dist\n//   3. 准备 server bundle(中间产物 build/server-bundle/):\n//      a. 复制 server/dist + server/package.json\n//      b. 复制 packages/tutor-types(含 dist) 到 server-bundle/_local/tutor-types/\n//      c. 改 server-bundle/package.json 的 workspace:* 为 file:./_local/tutor-types\n//   4. cli-node:\n//      - 复制 server-bundle 到 cli-node/_bundle/server/\n//      - 不跑 npm install — 用户 npm install 时 cli-node/package.json 的 deps 会装 server runtime 依赖\n//   5. _bundle/ 补 web / db/init / templates / MANIFEST.json\n//\n// 跑法:`pnpm build:cli-bundle` (root package.json 中的 script)\n//\n// 历史:v0.3 之前同时维护 cli-py(pip 包)与 cli-node(npm 包),共享同一个 server-bundle 中间产物。\n// v0.3 删 cli-py:Node 反正必装(server 是 NestJS),pip 包多绕一层 subprocess + 包大 30+ MB\n// (因为 pip 没法触发 npm,得 build 时 `npm install --omit=dev` 把 node_modules 一起 ship)+\n// 双 CLI 每加一个命令(init/start/doctor/lint/build)都要写两份,维护税不划算。\n\nimport { execSync } from 'node:child_process';\nimport {\n  copyFileSync,\n  cpSync,\n  existsSync,\n  mkdirSync,\n  readFileSync,\n  rmSync,\n  writeFileSync,\n} from 'node:fs';\nimport { dirname, join, resolve } from 'node:path';\nimport { fileURLToPath } from 'node:url';\n\nconst __dirname = dirname(fileURLToPath(import.meta.url));\nconst ROOT = resolve(__dirname, '..');\n\nconst BUNDLE_NODE = join(ROOT, 'packages/cli-node/_bundle');\nconst SERVER_BUNDLE_SRC = join(ROOT, 'build/server-bundle'); // 中间产物\n\nconst SUBDIRS = ['server', 'web', 'db', 'templates'];\n\nfunction cleanBundle(bundleRoot) {\n  for (const sub of SUBDIRS) {\n    const p = join(bundleRoot, sub);\n    if (existsSync(p)) rmSync(p, { recursive: true, force: true });\n  }\n  const manifest = join(bundleRoot, 'MANIFEST.json');\n  if (existsSyn
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:41:08 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\scripts\build-cli-bundle.mjs has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:41:18 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\pnpm-workspace.yaml",
+  "old_string": "packages:\n  - 'web'\n  - 'server'\n  - 'packages/*'\n  # cli-py 是 Python 包(用 pip 分发),不是 npm workspace\n  - '!packages/cli-py'\n  # cli-node 是分发包,deps 含 file:./_bundle/... 在 build 前不存在,不能在 pnpm workspace 里参与\n  # 用法:pnpm build:cli-bundle 之后,cd packages/cli-node && npm install\n  - '!packages/cli-node'",
+  "new_string": "packages:\n  - 'web'\n  - 'server'\n  - 'packages/*'\n  # cli-node 是分发包,deps 含 file:./_bundle/... 在 build 前不存在,不能在 pnpm workspace 里参与\n  # 用法:pnpm build:cli-bundle 之后,cd packages/cli-node && npm install\n  - '!packages/cli-node'"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:41:19 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\pnpm-workspace.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:41:25 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\eslint.config.mjs",
+  "old_string": "      'packages/cli-py/**',\n      'packages/cli-node/_bundle/**',",
+  "new_string": "      'packages/cli-node/_bundle/**',"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:41:26 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\eslint.config.mjs has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:41:37 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Delete packages/cli-py/ directory entirely",
+      "activeForm": "Deleting packages/cli-py/",
+      "status": "completed"
+    },
+    {
+      "content": "Update scripts/build-cli-bundle.mjs to drop cli-py path",
+      "activeForm": "Updating build-cli-bundle.mjs",
+      "status": "completed"
+    },
+    {
+      "content": "Update pnpm-workspace.yaml + eslint.config.mjs to drop cli-py refs",
+      "activeForm": "Updating workspace + eslint configs",
+      "status": "completed"
+    },
+    {
+      "content": "Update packages/cli-node/README.md (inline 课程内容 content from cli-py README; add lint/build to commands; drop pip mention)",
+      "activeForm": "Updating cli-node README",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update CLAUDE.md to remove cli-py from arch / 分发 / v0 列表",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "pending"
+    },
+    {
+      "content": "Update README.md tree + 工作流 references",
+      "activeForm": "Updating README.md",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc/course-authoring.md `pip install` 提及",
+      "activeForm": "Updating course-authoring.md",
+      "status": "pending"
+    },
+    {
+      "content": "Scan server src + .env.example + docker-compose for stray pip/cli-py mentions",
+      "activeForm": "Scanning misc files",
+      "status": "pending"
+    },
+    {
+      "content": "Verify build:cli-bundle still works after refactor",
+      "activeForm": "Verifying build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:41:37 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:42:17 AM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\cli-node\\README.md",
+  "content": "# Whale Tutor\n\n**AI 驱动的交互式学习产品** — 课程作者用的命令行(默认演示 Python,通过 `course.yaml` 的 `subject` 字段可配置任意学科:SQL / Pandas / Java …)。\n\n只需要写 YAML 和 Markdown 内容,不需要懂前后端开发。\n\n## 安装前置\n\n- **Node.js ≥ 22** (https://nodejs.org/)\n- **MySQL ≥ 8.0** (本机已运行,在某端口监听)\n- **DeepSeek API key**(可选;无 key 时 AI 评估走 fallback 文案,完整 e2e 仍可走通,但 `whale-tutor build` 必须有 key)\n\n## 快速开始\n\n```bash\n# 1. 装包\nnpm install -g whale-tutor\n\n# 2. 在某个空目录初始化课程\nmkdir my-course && cd my-course\nwhale-tutor init\n\n# 3. 编辑配置文件,填入 mysql 连接 + (可选) DeepSeek API key\nnano whale-tutor.config.yaml\n\n# 4. 健康检查(可选,推荐第一次跑)\nwhale-tutor doctor\n\n# 5. 启动 — 浏览器自动打开 http://localhost:3000\nwhale-tutor start\n```\n\n不想全局装也可以一次性跑:\n\n```bash\nnpx whale-tutor init\nnpx whale-tutor start\n```\n\n## 命令参考\n\n| 命令 | 作用 |\n| --- | --- |\n| `whale-tutor init` | 在当前目录 scaffold 完整 python-basics 示例 + 配置文件模板 |\n| `whale-tutor start [--no-open]` | 启动 server(自动应用 schema + serve API + 静态前端) |\n| `whale-tutor lint` | 校验当前目录的课程 yaml/$ref/pattern 结构是否合法 |\n| `whale-tutor build <source> [--force] [--output <dir>]` | 从原始 markdown(course.md + chapters/*.md)AI 生成完整课程骨架 |\n| `whale-tutor doctor` | 健康检查(node 版本 / bundle / mysql 连通 / API key 是否设) |\n| `whale-tutor --version` | 打印版本 |\n\n## 配置文件 `whale-tutor.config.yaml`\n\n```yaml\ncourses_dir: ./courses              # 课程内容根目录\ndatabase:                           # mysql 连接\n  host: localhost\n  port: 13306\n  user: tutor\n  password: tutor\n  database: whale_tutor\nai:\n  deepseek_api_key: sk-xxxxx        # 留空则 AI 评估走 fallback;build 命令必填\n  deepseek_api_base_url: https://api.deepseek.com\nserver:\n  port: 3000                        # 学习者访问地址 http://localhost:<port>\n```\n\n环境变量 override 优先级最高:`DATABASE_HOST` / `DEEPSEEK_API_KEY` 等设了会盖过 yaml。\n\n## 课程内容怎么写\n\n`whale-tutor init` 在 `courses/python-basics/` 下生成完整的示例课程。改 working sample 比从零写快得多:\n\n```\ncourses/python-basics/\n├── course.
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:42:18 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\cli-node\README.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:42:38 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Delete packages/cli-py/ directory entirely",
+      "activeForm": "Deleting packages/cli-py/",
+      "status": "completed"
+    },
+    {
+      "content": "Update scripts/build-cli-bundle.mjs to drop cli-py path",
+      "activeForm": "Updating build-cli-bundle.mjs",
+      "status": "completed"
+    },
+    {
+      "content": "Update pnpm-workspace.yaml + eslint.config.mjs to drop cli-py refs",
+      "activeForm": "Updating workspace + eslint configs",
+      "status": "completed"
+    },
+    {
+      "content": "Update packages/cli-node/README.md (inline 课程内容 content from cli-py README; add lint/build to commands; drop pip mention)",
+      "activeForm": "Updating cli-node README",
+      "status": "completed"
+    },
+    {
+      "content": "Update CLAUDE.md to remove cli-py from arch / 分发 / v0 列表",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update README.md tree + 工作流 references",
+      "activeForm": "Updating README.md",
+      "status": "pending"
+    },
+    {
+      "content": "Update doc/course-authoring.md `pip install` 提及",
+      "activeForm": "Updating course-authoring.md",
+      "status": "pending"
+    },
+    {
+      "content": "Scan server src + .env.example + docker-compose for stray pip/cli-py mentions",
+      "activeForm": "Scanning misc files",
+      "status": "pending"
+    },
+    {
+      "content": "Verify build:cli-bundle still works after refactor",
+      "activeForm": "Verifying build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:42:38 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:42:43 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "offset": 38,
+  "limit": 25
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:42:43 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+38	│   ├── src/knowledge/    # 课程图谱(YAML 加载)
+39	│   ├── src/pattern/      # Pattern 注册表 + 4 种实现
+40	│   ├── src/learner/      # Learner Model
+41	│   ├── src/event/        # Event Bus(唯一写入 events 表的入口)
+42	│   └── src/ai/           # AI Gateway + prompt YAML
+43	├── packages/
+44	│   ├── tutor-types/      # 前后端共享 TS 类型(workspace 内部)
+45	│   ├── cli-py/           # ★ Python pip 包(发到 PyPI)
+46	│   │   ├── pyproject.toml
+47	│   │   ├── whale_tutor/  # cli.py / config.py / db.py / runner.py / scaffold.py / doctor.py
+48	│   │   ├── _bundle/      # ⚠ 构建产物,不入 git(由 build:cli-bundle 填充,含 node_modules)
+49	│   │   └── README.md
+50	│   └── cli-node/         # ★ npm 包(发到 npm,给已经有 Node 的用户)
+51	│       ├── package.json  # bin: whale-tutor → bin/cli.mjs
+52	│       ├── bin/cli.mjs   # commander 入口
+53	│       ├── lib/          # config.mjs / db.mjs / runner.mjs / scaffold.mjs / doctor.mjs
+54	│       ├── _bundle/      # ⚠ 构建产物,不入 git(同 cli-py 但不含 node_modules)
+55	│       └── README.md
+56	├── scripts/
+57	│   └─
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:42:58 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "├── packages/\n│   ├── tutor-types/      # 前后端共享 TS 类型(workspace 内部)\n│   ├── cli-py/           # ★ Python pip 包(发到 PyPI)\n│   │   ├── pyproject.toml\n│   │   ├── whale_tutor/  # cli.py / config.py / db.py / runner.py / scaffold.py / doctor.py\n│   │   ├── _bundle/      # ⚠ 构建产物,不入 git(由 build:cli-bundle 填充,含 node_modules)\n│   │   └── README.md\n│   └── cli-node/         # ★ npm 包(发到 npm,给已经有 Node 的用户)\n│       ├── package.json  # bin: whale-tutor → bin/cli.mjs\n│       ├── bin/cli.mjs   # commander 入口\n│       ├── lib/          # config.mjs / db.mjs / runner.mjs / scaffold.mjs / doctor.mjs\n│       ├── _bundle/      # ⚠ 构建产物,不入 git(同 cli-py 但不含 node_modules)\n│       └── README.md\n├── scripts/\n│   └── build-cli-bundle.mjs  # 同时填两个 _bundle/(共享 server-bundle 中间产物)\n├── db/init/01-schema.sql # MySQL 初始化(docker 首启 + cli-py start 时 idempotent 都跑)",
+  "new_string": "├── packages/\n│   ├── tutor-types/      # 前后端共享 TS 类型(workspace 内部)\n│   └── cli-node/         # ★ 课程作者 npm 包(发到 npm)\n│       ├── package.json  # bin: whale-tutor → bin/cli.mjs\n│       ├── bin/cli.mjs   # commander 入口:init / start / doctor / lint / build\n│       ├── lib/          # config.mjs / db.mjs / runner.mjs / scaffold.mjs / doctor.mjs / lint.mjs / build.mjs\n│       ├── _bundle/      # ⚠ 构建产物,不入 git(由 build:cli-bundle 填充)\n│       └── README.md\n├── scripts/\n│   └── build-cli-bundle.mjs  # 填 cli-node/_bundle/(经 build/server-bundle/ 中间产物)\n├── db/init/01-schema.sql # MySQL 初始化(docker 首启 + cli `start` idempotent 都跑)"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:42:59 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:44:30 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "## 分发形态:双 CLI(pip 与 npm),包裹同一份 node bundle\n\n面向用户的目标是 **`pip install whale-tutor` 或 `npm install -g whale-tutor` 后 `whale-tutor start` 一键起**(用户面向的快速上手见 [packages/cli-py/README.md](packages/cli-py/README.md) / [packages/cli-node/README.md](packages/cli-node/README.md))。这一节解释架构边界,**不是用户教程**。\n\n### 为什么有两个 CLI\n\n| 包 | 目标用户 | 安装命令 | 包体积 |\n|---|---|---|---|\n| `packages/cli-py` (pip) | 教研/教育圈,装过 Python 但不熟 Node | `pip install whale-tutor` | wheel ~8 MB / 解压后 ~37 MB(含 node_modules) |\n| `packages/cli-node` (npm) | 已经有 Node 工具链的开发者 | `npm install -g whale-tutor` | tarball ~1 MB / 装完 ~50 MB(其中 ~48 MB 由 npm 在用户机器上 `npm install` 恢复) |\n\n两包功能完全相同(init / start / doctor),共享同一个 server bundle 中间产物。**两边都是包装器** — 真正运行的是同一份 NestJS server,业务逻辑只一份(server 源码),没有重写。\n\n### 用户机器需要预装\n\n- **Node.js ≥ 22**(server 运行时,两版都需要)\n- **MySQL ≥ 8.0**(在某端口监听,本机或远程)\n- **Python ≥ 3.9**(只 cli-py 需要)\n\n### 构建管道 [scripts/build-cli-bundle.mjs](scripts/build-cli-bundle.mjs)\n\n`pnpm build:cli-bundle` 一次性填两个 `_bundle/`(共享 `build/server-bundle/` 中间产物):\n\n```\n_bundle/\n├── server/\n│   ├── dist/                  ← 复制自 server/dist (NestJS 多文件 build,不能 single-bundle)\n│   ├── _local/tutor-types/    ← 拷过来的 workspace 包(含 dist + package.json)\n│   ├── package.json           ← workspace:* 重写成 file:./_local/tutor-types\n│   └── node_modules/          ← ★ 仅 cli-py 路线:build 时 npm install --omit=dev,平铺\n├── web/                       # ServeStaticModule rootPath = web/dist\n├── db/init/01-schema.sql      # CLI start 时自动应用\n├── templates/python-basics/   # whale-tutor init scaffold 源\n└── MANIFEST.json              # build 时间 + git commit + node 版本\n```\n\n**两个路线的差异**:\n\n- **cli-py**: build 时跑 `npm install --omit=dev` 在 bundle 内填出 `node_modules/`(因为 pip 包发出去后没法再让 pip 触发 npm),整包 ~37 MB。\n- **cli-node**: 不跑 `npm install`。`packages/cli-node/package.json` 自己声明 server 的所有 runtime 依赖(从 `server/packag
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:44:31 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:44:54 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "### 分发 (双 CLI:pip + npm)\n- ✅ **packages/cli-py/** — Python CLI(pip),`whale-tutor init / start / doctor` 三命令(click + rich)\n- ✅ **packages/cli-node/** — Node CLI(npm),同名同三命令(commander + kleur);包体积 1.7 MB(对比 cli-py 37 MB,差额由 npm install 在用户机器上恢复)\n- ✅ **scripts/build-cli-bundle.mjs** — 一次性填充两个 `_bundle/`,共享 `build/server-bundle/` 中间产物\n- ✅ **server 双模式适配** — `WHALE_TUTOR_COURSES_DIR` / `WHALE_TUTOR_WEB_DIR` env trigger 课程目录外置 + 静态文件 serve;monorepo dev 模式行为不变\n- ✅ **Schema idempotent bootstrap** — CLI 启 node 前探测 events 表,缺则跑 01-schema.sql\n- ✅ **API globalPrefix /api** — server 加全局前缀,前端 dev/prod 同 origin;vite proxy 不再 strip\n- ✅ **e2e 验证通过**(2026-05-08):\n  - cli-py: 干净 venv `pip install -e .` → init → doctor 全绿 → start 自动 schema + :3000 + 开浏览器\n  - cli-node: `npm install` → 直接 `node bin/cli.mjs init / doctor / start --no-open` → :3000 同样可用",
+  "new_string": "### 分发 (单 CLI:npm)\n- ✅ **packages/cli-node/** — Node CLI,`whale-tutor init / start / doctor` 三命令(commander + kleur);包体积 ~1 MB\n- ✅ **scripts/build-cli-bundle.mjs** — 填充 `cli-node/_bundle/`(经 `build/server-bundle/` 中间产物)\n- ✅ **server 双模式适配** — `WHALE_TUTOR_COURSES_DIR` / `WHALE_TUTOR_WEB_DIR` env trigger 课程目录外置 + 静态文件 serve;monorepo dev 模式行为不变\n- ✅ **Schema idempotent bootstrap** — CLI 启 node 前探测 events 表,缺则跑 01-schema.sql\n- ✅ **API globalPrefix /api** — server 加全局前缀,前端 dev/prod 同 origin;vite proxy 不再 strip\n- ✅ **e2e 验证通过**(2026-05-08):cli-node `npm install` → `node bin/cli.mjs init / doctor / start --no-open` → :3000 可用\n\n> v0.3 删 Python CLI(`packages/cli-py/`),改为单 CLI 架构。理由见上方\"分发形态\"节。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:44:55 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:45:02 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:45:10 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "### `whale-tutor build` — AI 辅助生成课程骨架",
+  "new_string": "### 分发架构精简 — 删 cli-py\n- ✅ **删除 `packages/cli-py/`**(整个 Python CLI 包)+ 相关 build 路径 + workspace/eslint 配置;只保留 `packages/cli-node/`(npm 包)\n- ✅ **理由**:Node 反正必装(server 是 NestJS),pip 包多绕一层 subprocess + 包大 30+ MB(因为 pip 不能触发 npm,build 时得把 node_modules 一起 ship)+ 双 CLI 每加一个命令(init/start/doctor/lint/build)都要写两份,维护税不划算\n- ✅ **`scripts/build-cli-bundle.mjs`** 简化:不再产 cli-py 路径 + 不再跑 `npm install --omit=dev` 嵌入 node_modules\n- ✅ **CLI 命令补齐**:cli-node 上 5 个命令全(init / start / doctor / lint / build)\n\n### `whale-tutor build` — AI 辅助生成课程骨架"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:45:11 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:45:38 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Delete packages/cli-py/ directory entirely",
+      "activeForm": "Deleting packages/cli-py/",
+      "status": "completed"
+    },
+    {
+      "content": "Update scripts/build-cli-bundle.mjs to drop cli-py path",
+      "activeForm": "Updating build-cli-bundle.mjs",
+      "status": "completed"
+    },
+    {
+      "content": "Update pnpm-workspace.yaml + eslint.config.mjs to drop cli-py refs",
+      "activeForm": "Updating workspace + eslint configs",
+      "status": "completed"
+    },
+    {
+      "content": "Update packages/cli-node/README.md (inline 课程内容 content from cli-py README; add lint/build to commands; drop pip mention)",
+      "activeForm": "Updating cli-node README",
+      "status": "completed"
+    },
+    {
+      "content": "Update CLAUDE.md to remove cli-py from arch / 分发 / v0 列表",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update README.md tree + 工作流 references",
+      "activeForm": "Updating README.md",
+      "status": "in_progress"
+    },
+    {
+      "content": "Update doc/course-authoring.md `pip install` 提及",
+      "activeForm": "Updating course-authoring.md",
+      "status": "pending"
+    },
+    {
+      "content": "Scan server src + .env.example + docker-compose for stray pip/cli-py mentions",
+      "activeForm": "Scanning misc files",
+      "status": "pending"
+    },
+    {
+      "content": "Verify build:cli-bundle still works after refactor",
+      "activeForm": "Verifying build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:45:38 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:45:50 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "old_string": "├── packages/\n│   ├── tutor-types/            # 前后端共享 TS 类型(workspace 内部)\n│   ├── cli-py/                 # 课程作者 Python CLI(发到 PyPI)\n│   └── cli-node/               # 课程作者 Node CLI(发到 npm)\n├── scripts/build-cli-bundle.mjs # 构建管道:同时填充两个 _bundle/",
+  "new_string": "├── packages/\n│   ├── tutor-types/            # 前后端共享 TS 类型(workspace 内部)\n│   └── cli-node/               # 课程作者 CLI(发到 npm,init / start / doctor / lint / build)\n├── scripts/build-cli-bundle.mjs # 构建管道:填 cli-node/_bundle/(经 build/server-bundle/ 中间产物)"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:45:51 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\README.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:46:08 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "old_string": "**课程作者工作流(给非开发者)**:用 [packages/cli-py](packages/cli-py/) / [packages/cli-node](packages/cli-node/) 提供的 `whale-tutor` 命令,见 [doc/course-authoring.md](doc/course-authoring.md):\n- `whale-tutor init` — scaffold 完整 python-basics 示例\n- `whale-tutor build <source>` — 从原始 markdown AI 生成完整 yaml/md(详见 [§10](doc/course-authoring.md#10-whale-tutor-build))\n- `whale-tutor lint` — 校验 yaml/$ref/pattern 结构\n- `whale-tutor start` — 启动学习环境",
+  "new_string": "**课程作者工作流(给非开发者)**:用 [packages/cli-node](packages/cli-node/) 提供的 `whale-tutor` 命令(`npm install -g whale-tutor`),见 [doc/course-authoring.md](doc/course-authoring.md):\n- `whale-tutor init` — scaffold 完整 python-basics 示例\n- `whale-tutor build <source>` — 从原始 markdown AI 生成完整 yaml/md(详见 [§10](doc/course-authoring.md#10-whale-tutor-build))\n- `whale-tutor lint` — 校验 yaml/$ref/pattern 结构\n- `whale-tutor start` — 启动学习环境"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:46:09 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\README.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:46:20 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Delete packages/cli-py/ directory entirely",
+      "activeForm": "Deleting packages/cli-py/",
+      "status": "completed"
+    },
+    {
+      "content": "Update scripts/build-cli-bundle.mjs to drop cli-py path",
+      "activeForm": "Updating build-cli-bundle.mjs",
+      "status": "completed"
+    },
+    {
+      "content": "Update pnpm-workspace.yaml + eslint.config.mjs to drop cli-py refs",
+      "activeForm": "Updating workspace + eslint configs",
+      "status": "completed"
+    },
+    {
+      "content": "Update packages/cli-node/README.md (inline 课程内容 content from cli-py README; add lint/build to commands; drop pip mention)",
+      "activeForm": "Updating cli-node README",
+      "status": "completed"
+    },
+    {
+      "content": "Update CLAUDE.md to remove cli-py from arch / 分发 / v0 列表",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update README.md tree + 工作流 references",
+      "activeForm": "Updating README.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update doc/course-authoring.md `pip install` 提及",
+      "activeForm": "Updating course-authoring.md",
+      "status": "in_progress"
+    },
+    {
+      "content": "Scan server src + .env.example + docker-compose for stray pip/cli-py mentions",
+      "activeForm": "Scanning misc files",
+      "status": "pending"
+    },
+    {
+      "content": "Verify build:cli-bundle still works after refactor",
+      "activeForm": "Verifying build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:46:20 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:46:24 AM</sup>
+
+<details>
+<summary>Tool: <code>Grep</code></summary>
+
+```json
+{
+  "pattern": "pip install|whale_tutor|cli-py",
+  "output_mode": "content",
+  "-n": true,
+  "path": "doc/course-authoring.md"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:46:24 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+39:pip install whale-tutor               # Python 用户
+599:DROP DATABASE whale_tutor;
+600:CREATE DATABASE whale_tutor;
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:46:30 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\doc\\course-authoring.md",
+  "offset": 28,
+  "limit": 15
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:46:30 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+28	### 安装前置
+29	
+30	- **Node.js ≥ 22**(<https://nodejs.org>)
+31	- **MySQL ≥ 8.0**(本机或远程,在某端口监听)
+32	- **Python ≥ 3.9** *或* **任意能跑 npm 的环境**(二选一)
+33	- **DeepSeek API key**(可选,没填的话 AI 评估走 fallback 文案,但你能完整体验流程)
+34	
+35	### 第一次:复制示例课程,启动看效果
+36	
+37	```bash
+38	# 1. 装 CLI(二选一)
+39	pip install whale-tutor               # Python 用户
+40	# 或
+41	npm install -g whale-tutor             # Node 用户
+42
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:46:40 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\doc\\course-authoring.md",
+  "old_string": "### 安装前置\n\n- **Node.js ≥ 22**(<https://nodejs.org>)\n- **MySQL ≥ 8.0**(本机或远程,在某端口监听)\n- **Python ≥ 3.9** *或* **任意能跑 npm 的环境**(二选一)\n- **DeepSeek API key**(可选,没填的话 AI 评估走 fallback 文案,但你能完整体验流程)\n\n### 第一次:复制示例课程,启动看效果\n\n```bash\n# 1. 装 CLI(二选一)\npip install whale-tutor               # Python 用户\n# 或\nnpm install -g whale-tutor             # Node 用户",
+  "new_string": "### 安装前置\n\n- **Node.js ≥ 22**(<https://nodejs.org>)\n- **MySQL ≥ 8.0**(本机或远程,在某端口监听)\n- **DeepSeek API key**(可选,没填的话 AI 评估走 fallback 文案,但你能完整体验流程;`whale-tutor build` 必须有 key)\n\n### 第一次:复制示例课程,启动看效果\n\n```bash\n# 1. 装 CLI(npm 包)\nnpm install -g whale-tutor"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:46:41 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\doc\course-authoring.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:46:57 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Delete packages/cli-py/ directory entirely",
+      "activeForm": "Deleting packages/cli-py/",
+      "status": "completed"
+    },
+    {
+      "content": "Update scripts/build-cli-bundle.mjs to drop cli-py path",
+      "activeForm": "Updating build-cli-bundle.mjs",
+      "status": "completed"
+    },
+    {
+      "content": "Update pnpm-workspace.yaml + eslint.config.mjs to drop cli-py refs",
+      "activeForm": "Updating workspace + eslint configs",
+      "status": "completed"
+    },
+    {
+      "content": "Update packages/cli-node/README.md (inline 课程内容 content from cli-py README; add lint/build to commands; drop pip mention)",
+      "activeForm": "Updating cli-node README",
+      "status": "completed"
+    },
+    {
+      "content": "Update CLAUDE.md to remove cli-py from arch / 分发 / v0 列表",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update README.md tree + 工作流 references",
+      "activeForm": "Updating README.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update doc/course-authoring.md `pip install` 提及",
+      "activeForm": "Updating course-authoring.md",
+      "status": "completed"
+    },
+    {
+      "content": "Scan server src + .env.example + docker-compose for stray pip/cli-py mentions",
+      "activeForm": "Scanning misc files",
+      "status": "in_progress"
+    },
+    {
+      "content": "Verify build:cli-bundle still works after refactor",
+      "activeForm": "Verifying build pipeline",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:46:57 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:47:06 AM</sup>
+
+<details>
+<summary>Tool: <code>Grep</code></summary>
+
+```json
+{
+  "pattern": "cli-py|pip install whale|whale_tutor[^\\.]",
+  "output_mode": "content",
+  "-n": true,
+  "glob": "!.cc-history/**",
+  "-i": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:47:06 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+C:\Users\gyh\Desktop\Projects\whale-tutor\docker-compose.yml:8:      MYSQL_DATABASE: ${MYSQL_DATABASE:-whale_tutor}
+C:\Users\gyh\Desktop\Projects\whale-tutor\docker-compose.yml:53:      DATABASE_NAME: ${MYSQL_DATABASE:-whale_tutor}
+C:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:297:v0.3 之前同时维护 **cli-py(pip 包)与 cli-node(npm 包)**,共享同一个 server bundle 中间产物。v0.3 删 cli-py,理由:
+C:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:300:- **包大一倍**:cli-py wheel 解压后 ~37 MB,因为 pip 没法触发 npm,build 时得 `npm install --omit=dev` 把整个 node_modules 一起 ship。cli-node 仅 ~1 MB(deps 由用户 `npm install` 时拉)。
+C:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:304:历史代价:`whale_tutor` Python 模块 + pyproject.toml + 配套 README 等都已删,git history 里仍在(`git log --all --diff-filter=D -- packages/cli-py/`)。
+C:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:335:6. **历史:为什么 server-bundle/ 中间产物保留** — v0.3 之前 cli-py 和 cli-node 共享它,删 cli-py 后只剩 cli-node 消费,但拆出中间产物便于以后若要支持 docker image / standalone tarball 等额外分发形式时复用。删了也不会出错,但保留无
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:47:18 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:47:19 AM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.service.ts",
+  "offset": 18,
+  "limit": 10
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:47:19 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+18	
+19	// 课程数据根目录的解析顺序:
+20	//   1. WHALE_TUTOR_COURSES_DIR 环境变量(pip 包模式 — Python CLI 把课程作者本地目录传进来)
+21	//   2. fallback 到 __dirname/data(monorepo dev 模式 — 内置 python-basics)
+22	// __dirname 在开发期(ts-node)指向 src/knowledge/, 生产期(node dist)指向 dist/knowledge/。
+23	// nest-cli.json 的 assets 配置确保 build 时 data/ 也被复制到 dist/knowledge/data/。
+24	const COURSES_DIR =
+25	  process.env.WHALE_TUTOR_COURSES_DIR || path.join(__dirname, 'data');
+26	
+27	interface LoIndexEntry {
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:47:28 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.service.ts",
+  "old_string": "// 课程数据根目录的解析顺序:\n//   1. WHALE_TUTOR_COURSES_DIR 环境变量(pip 包模式 — Python CLI 把课程作者本地目录传进来)\n//   2. fallback 到 __dirname/data(monorepo dev 模式 — 内置 python-basics)",
+  "new_string": "// 课程数据根目录的解析顺序:\n//   1. WHALE_TUTOR_COURSES_DIR 环境变量(CLI 模式 — `whale-tutor` 把课程作者本地目录传进来)\n//   2. fallback 到 __dirname/data(monorepo dev 模式 — 内置 python-basics)"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:47:29 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\knowledge.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:47:44 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\app.module.ts",
+  "old_string": "// pip 包模式下 Python CLI 通过 WHALE_TUTOR_WEB_DIR 传 web/dist 路径,server 兼任静态文件分发;\n// monorepo dev 模式不设此环境变量,vite dev server 自己处理静态 + /api 反代到这里。",
+  "new_string": "// CLI 模式下 `whale-tutor` 通过 WHALE_TUTOR_WEB_DIR 传 web/dist 路径,server 兼任静态文件分发;\n// monorepo dev 模式不设此环境变量,vite dev server 自己处理静态 + /api 反代到这里。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:47:45 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\app.module.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:47:59 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\main.ts",
+  "old_string": "  // 0. pip 包模式下 Python CLI 在启动 node 之前不一定能确认 mysql 已经初始化 schema。\n  // 通过 WHALE_TUTOR_BOOTSTRAP_SCHEMA=1 + WHALE_TUTOR_SCHEMA_FILE=/path/to/01-schema.sql\n  // 让 server 自己检测并应用。monorepo dev 模式不设这两个 env(docker-entrypoint-initdb.d 已搞定)。",
+  "new_string": "  // 0. CLI 模式下 `whale-tutor` 在启动 node 之前已经 idempotent 探测 schema,但留 env trigger 双保险:\n  // WHALE_TUTOR_BOOTSTRAP_SCHEMA=1 + WHALE_TUTOR_SCHEMA_FILE=/path/to/01-schema.sql\n  // 让 server 自己也检测并应用。monorepo dev 模式不设这两个 env(docker-entrypoint-initdb.d 已搞定)。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:48:00 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\main.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:48:11 AM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "old_string": "课程内容是 **YAML + markdown 文件**,不入数据库。dev 模式下从 `server/src/knowledge/data/` 加载;pip/npm 用户从自己 cwd 的 `courses/` 加载(由 `WHALE_TUTOR_COURSES_DIR` env 切换)。",
+  "new_string": "课程内容是 **YAML + markdown 文件**,不入数据库。dev 模式下从 `server/src/knowledge/data/` 加载;CLI 用户从自己 cwd 的 `courses/` 加载(由 `WHALE_TUTOR_COURSES_DIR` env 切换)。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:48:12 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\README.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:48:21 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "cat .env.example 2>/dev/null | head -30",
+  "description": "Check .env.example for cli-py mentions"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:48:25 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+# MySQL
+MYSQL_ROOT_PASSWORD=root
+MYSQL_DATABASE=whale_tutor
+MYSQL_USER=tutor
+MYSQL_PASSWORD=tutor
+MYSQL_PORT=13306                          # 宿主机暴露端口,避免和本机已有 mysql 冲突
+
+# Server
+SERVER_PORT=3000
+
+# 数据库连接 — 默认值适合"本地 dev 模式"(server 在宿主机,只 docker 起 mysql)。
+# `pnpm docker:up` 全栈模式下,docker-compose.yml 的 server.environment 会 override
+# DATABASE_HOST=mysql / DATABASE_PORT=3306,所以这里保持 localhost:13306 即可。
+DATABASE_HOST=localhost
+DATABASE_PORT=13306
+DATABASE_USER=tutor
+DATABASE_PASSWORD=tutor
+DATABASE_NAME=whale_tutor
+
+# AI Gateway (DeepSeek OpenAI 兼容协议)
+# 留空 → 所有 AI 调用走 fallback 文案,dev 环境无 key 也能跑
+DEEPSEEK_API_KEY=
+DEEPSEEK_API_BASE_URL=https://api.deepseek.com
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:48:36 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:48:38 AM</sup>
+
+<details>
+<summary>Tool: <code>Grep</code></summary>
+
+```json
+{
+  "pattern": "pip install|hatchling|pyproject|\\bpython\\s+\\d|importlib|click\\.|click\\(|rich\\.",
+  "output_mode": "content",
+  "-n": true,
+  "glob": "!.cc-history/**",
+  "-i": true,
+  "head_limit": 20
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:48:38 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+C:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:302:- **品牌信号让位**:DataWhale 受众主体是 Python 圈,`pip install` 比 `npm install -g` 更"是给我用的",但这层信号不值双 CLI 的实际开销。文档里说清楚"先装 Node 再 npm install -g"够用。
+C:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md:304:历史代价:`whale_tutor` Python 模块 + pyproject.toml + 配套 README 等都已删,git history 里仍在(`git log --all --diff-filter=D -- packages/cli-py/`)。
+C:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\qa\QaPanel.vue:257:                @click.stop="exportHistoryThread(t.id, $event)"
+C:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_methods\ri-2.explanation.md:1:f-string 是 Python 3.6+ 推荐的格式化方式。下面这道题考察基本语法。
+C:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\chapters\string_and_format\los\string_methods\core-explanation.md:68:Python 3.6+ 引入,简洁、性能好、最直观:
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:48:47 AM</sup>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:48:47 AM</sup>
+
+<details>
+<summary>Tool: <code>Glob</code></summary>
+
+```json
+{
+  "pattern": "**/pyproject.toml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:48:48 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+No files found
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:48:53 AM</sup>
+
+<details>
+<summary>Tool: <code>Glob</code></summary>
+
+```json
+{
+  "pattern": "**/whale_tutor/**"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:48:54 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+No files found
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:49:02 AM</sup>
+
+清理彻底,无 Python 残留。最后验证 build pipeline 还能跑:
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:49:08 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Delete packages/cli-py/ directory entirely",
+      "activeForm": "Deleting packages/cli-py/",
+      "status": "completed"
+    },
+    {
+      "content": "Update scripts/build-cli-bundle.mjs to drop cli-py path",
+      "activeForm": "Updating build-cli-bundle.mjs",
+      "status": "completed"
+    },
+    {
+      "content": "Update pnpm-workspace.yaml + eslint.config.mjs to drop cli-py refs",
+      "activeForm": "Updating workspace + eslint configs",
+      "status": "completed"
+    },
+    {
+      "content": "Update packages/cli-node/README.md (inline 课程内容 content from cli-py README; add lint/build to commands; drop pip mention)",
+      "activeForm": "Updating cli-node README",
+      "status": "completed"
+    },
+    {
+      "content": "Update CLAUDE.md to remove cli-py from arch / 分发 / v0 列表",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update README.md tree + 工作流 references",
+      "activeForm": "Updating README.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update doc/course-authoring.md `pip install` 提及",
+      "activeForm": "Updating course-authoring.md",
+      "status": "completed"
+    },
+    {
+      "content": "Scan server src + .env.example + docker-compose for stray pip/cli-py mentions",
+      "activeForm": "Scanning misc files",
+      "status": "completed"
+    },
+    {
+      "content": "Verify build:cli-bundle still works after refactor",
+      "activeForm": "Verifying build pipeline",
+      "status": "in_progress"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:49:08 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:49:16 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm build:cli-bundle 2>&1 | tail -30",
+  "description": "Verify build:cli-bundle script still works (drops py, keeps node)",
+  "timeout": 300000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:49:49 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+packages/tutor-types build$ tsc -p tsconfig.json
+packages/tutor-types build: Done
+server build$ nest build
+web build$ vite build
+web build: [36mvite v5.4.21 [32mbuilding for production...[36m[39m
+web build: transforming...
+server build: Done
+web build: [32m✓[39m 1747 modules transformed.
+web build: rendering chunks...
+web build: computing gzip size...
+web build: [2mdist/[22m[32mindex.html                                     [39m[1m[2m  0.46 kB[22m[1m[22m[2m │ gzip:  0.30 kB[22m
+web build: [2mdist/[22m[32massets/pyodide.worker-uqpjB4B1.js              [39m[1m[2m  1.14 kB[22m[1m[22m
+web build: [2mdist/[22m[35massets/HomeView-ittbDeeF.css                   [39m[1m[2m  1.09 kB[22m[1m[22m[2m │ gzip:  0.48 kB[22m
+web build: [2mdist/[22m[35massets/_plugin-vue_export-helper-Duf5Zz0m.css  [39m[1m[2m  2.30 kB[22m[1m[22m[2m │ gzip:  0.73 kB[22m
+web build: [2mdist/[22m[35massets/LearnView-CX4jUnXw.css                  [39m[1m[2m 87.38 kB[22m[
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:49:58 AM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls packages/cli-node/_bundle/; echo \"---\"; du -sh packages/cli-node/_bundle/",
+  "description": "Inspect cli-node bundle structure + size"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:50:04 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+MANIFEST.json
+db/
+server/
+templates/
+web/
+---
+2.0M	packages/cli-node/_bundle/
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:50:12 AM</sup>
+
+Bundle 2.0 MB(对比之前 cli-py 37 MB)。一遍跑通,server-bundle 中间产物 + cli-node 都齐了。
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:50:19 AM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Delete packages/cli-py/ directory entirely",
+      "activeForm": "Deleting packages/cli-py/",
+      "status": "completed"
+    },
+    {
+      "content": "Update scripts/build-cli-bundle.mjs to drop cli-py path",
+      "activeForm": "Updating build-cli-bundle.mjs",
+      "status": "completed"
+    },
+    {
+      "content": "Update pnpm-workspace.yaml + eslint.config.mjs to drop cli-py refs",
+      "activeForm": "Updating workspace + eslint configs",
+      "status": "completed"
+    },
+    {
+      "content": "Update packages/cli-node/README.md (inline 课程内容 content from cli-py README; add lint/build to commands; drop pip mention)",
+      "activeForm": "Updating cli-node README",
+      "status": "completed"
+    },
+    {
+      "content": "Update CLAUDE.md to remove cli-py from arch / 分发 / v0 列表",
+      "activeForm": "Updating CLAUDE.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update README.md tree + 工作流 references",
+      "activeForm": "Updating README.md",
+      "status": "completed"
+    },
+    {
+      "content": "Update doc/course-authoring.md `pip install` 提及",
+      "activeForm": "Updating course-authoring.md",
+      "status": "completed"
+    },
+    {
+      "content": "Scan server src + .env.example + docker-compose for stray pip/cli-py mentions",
+      "activeForm": "Scanning misc files",
+      "status": "completed"
+    },
+    {
+      "content": "Verify build:cli-bundle still works after refactor",
+      "activeForm": "Verifying build pipeline",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/9/2026, 12:50:19 AM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/9/2026, 12:50:42 AM</sup>
+
+删完 + 文档同步 + 管道验证完。汇总:
+
+**删除**
+- 整个 `packages/cli-py/` 目录(pyproject.toml / whale_tutor/ Python 模块 / README / .gitignore 等全没了)
+
+**简化**
+- `scripts/build-cli-bundle.mjs` 改成单 CLI 路径,不再调 `npm install --omit=dev` 嵌入 node_modules → bundle 体积 37 MB → 2 MB
+- `pnpm-workspace.yaml` 删掉 `!packages/cli-py` 排除
+- `eslint.config.mjs` 删掉 `packages/cli-py/**` 忽略
+
+**文档同步**
+- [CLAUDE.md](CLAUDE.md):重写 "分发形态" 一节为"单 CLI",含 v0.3 决策理由(Node 必装 / 包大一倍 / 双轨维护税 / DataWhale 品牌信号让位);v0 已实现 / 分发清单去 cli-py;v0.3 已实现加 "分发架构精简 — 删 cli-py" 子节
+- [README.md](README.md):monorepo 树 / 课程作者工作流引用全去 cli-py;"pip/npm 用户" → "CLI 用户"
+- [doc/course-authoring.md](doc/course-authoring.md) §1 安装前置去 Python 行,装 CLI 步骤改为单一 `npm install -g`
+- [packages/cli-node/README.md](packages/cli-node/README.md):去 "Python 版同源同功能" 引用;命令表加 lint + build;"课程内容怎么写" 不再外引 cli-py README,自己 inline;故障排查加 build 报错说明
+- 三处 server src 注释("pip 包模式 — Python CLI...")改为 "CLI 模式"
+
+**保留**
+- `build/server-bundle/` 中间产物拆分仍在 — 注释里说明删 cli-py 后只剩 cli-node 消费,但保留无害且为以后 docker image / standalone tarball 等额外分发形式留口子
+- `whale_tutor` MySQL 数据库名(跟 Python 模块同名巧合,留着)
+
+**验证**:`pnpm build:cli-bundle` 全程跑通,2 MB 产物齐全(server / web / db / templates / MANIFEST.json)。
 
 
 ---

@@ -61,8 +61,9 @@ export class AiGatewayService implements OnModuleInit {
   private readonly apiKey: string | undefined;
   private readonly apiBaseUrl: string;
 
+  // db 在 build 模式下是 null(BuildModule 不依赖 mysql),所有 ai_calls 写入要 guard
   constructor(
-    @Inject(KYSELY) private readonly db: Database,
+    @Inject(KYSELY) private readonly db: Database | null,
     private readonly config: ConfigService,
   ) {
     this.apiKey = this.config.get<string>('DEEPSEEK_API_KEY');
@@ -262,6 +263,8 @@ export class AiGatewayService implements OnModuleInit {
     callerTag: string | null;
     errorMessage: string | null;
   }): Promise<void> {
+    // build 模式无 DB,跳过 ai_calls 写入
+    if (!this.db) return;
     await this.db
       .insertInto('ai_calls')
       .values({

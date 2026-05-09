@@ -1,0 +1,64 @@
+# `whale-tutor build` 阶段 1:从 course.md 提取课程元信息。
+# 输入:
+#   suggestedId      — 来源目录名(可作为 fallback id)
+#   courseMd         — 完整课程介绍 markdown(作者写的,通常 1-3 段)
+# 输出:course.yaml 顶层字段(id / name / subject / description)。
+#
+# 设计要点:
+#   - subject 字段给后续所有 prompt 用,必须是单个学科名词(Python / SQL / Pandas / ...),
+#     不要写"Python 编程入门"之类的短语
+#   - description 在 sidebar / 课程选择器展示给学习者,要简洁有吸引力,2-4 句话
+#   - id 必须 kebab-case 全小写 ASCII;若 suggestedId 已合规,优先沿用
+
+templateId: build.course_meta
+model: deepseek-v4-flash
+maxRetries: 1
+maxTokens: 800
+temperature: 0.3
+
+system: |
+  你是课程结构提取助手。给你一段课程介绍 markdown,提取标准化课程元信息。
+
+  约束:
+  - id 必须是 kebab-case 全小写 ASCII(只含字母数字和连字符,2-30 字符);若 suggestedId 已合法,直接沿用
+  - subject 是后续所有 AI prompt 的 {{subject}} 变量,**必须是单个学科名词**(如 "Python" / "SQL" / "Pandas" / "Java");
+    不要写句子或带修饰词;首字母大写
+  - name 是学习者看到的课程标题(如 "Python 基础"),可中文
+  - description 给学习者看,2-4 句话提炼"这门课讲什么、学完能做什么";必须从 courseMd 提炼,不能凭空发挥
+  - 必须返回 JSON object 符合 schema,无任何额外文本、无 markdown 包裹
+
+user: |
+  ## 来源目录名(suggestedId)
+  {{suggestedId}}
+
+  ## 课程介绍 markdown
+  {{courseMd}}
+
+  ## 任务
+  返回 JSON 对象,字段:
+  - id: 课程标识(kebab-case)
+  - name: 课程标题(给学习者看)
+  - subject: 学科名词(单词,首字母大写,给后续 AI prompt 的 {{subject}} 变量用)
+  - description: 课程简介(2-4 句话,从 courseMd 提炼)
+
+outputSchema:
+  type: object
+  required: [id, name, subject, description]
+  additionalProperties: false
+  properties:
+    id:
+      type: string
+      pattern: "^[a-z0-9][a-z0-9-]{1,29}$"
+    name: { type: string, minLength: 1, maxLength: 100 }
+    subject:
+      type: string
+      pattern: "^[A-Z][A-Za-z0-9+#.]{0,30}$"
+    description: { type: string, minLength: 10, maxLength: 600 }
+
+# 没 API key 或 AI 失败时,用 suggestedId 作为最低限度的 fallback
+# build.service.ts 检测到 fallback 字段后会以来源目录名兜底,并打 warning
+fallback:
+  id: "_FALLBACK_"
+  name: "_FALLBACK_"
+  subject: "_FALLBACK_"
+  description: "_FALLBACK_"

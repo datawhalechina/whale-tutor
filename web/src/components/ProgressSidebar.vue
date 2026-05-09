@@ -16,6 +16,10 @@ const emit = defineEmits<{
 const sessionStore = useSessionStore();
 const { progress } = storeToRefs(sessionStore);
 
+async function onSwitchChapter(chapterId: string): Promise<void> {
+  await sessionStore.switchChapter(chapterId);
+}
+
 const masteryEmoji: Record<MasteryLevel, string> = {
   untouched: '⚪',
   exposed: '🔵',
@@ -52,8 +56,40 @@ const phaseTagType: Record<ChapterPhase, 'info' | 'warning' | 'success'> = {
       </el-tag>
     </div>
 
+    <!-- v0.2 多 chapter:本课程全部章节概览,当前章高亮;点其他章可切换 focus -->
+    <div v-if="progress.allChapters.length > 1" class="section">
+      <div class="section-title">课程全部章节</div>
+      <div class="chapter-outline">
+        <button
+          v-for="(ch, idx) in progress.allChapters"
+          :key="ch.id"
+          :class="[
+            'chapter-row',
+            {
+              current: ch.isCurrent,
+              completed: ch.phase === 'completed',
+              'not-started': !ch.started && !ch.isCurrent,
+            },
+          ]"
+          :disabled="ch.isCurrent"
+          :title="ch.isCurrent ? '当前章节' : `点击切换到「${ch.name}」`"
+          @click="onSwitchChapter(ch.id)"
+        >
+          <span class="chapter-idx">{{ idx + 1 }}.</span>
+          <span class="chapter-row-name">{{ ch.name }}</span>
+          <el-tag
+            :type="ch.started || ch.isCurrent ? phaseTagType[ch.phase] : 'info'"
+            size="small"
+            class="chapter-row-phase"
+          >
+            {{ ch.started || ch.isCurrent ? phaseLabel[ch.phase] : '未开始' }}
+          </el-tag>
+        </button>
+      </div>
+    </div>
+
     <div class="section">
-      <div class="section-title">学习目标</div>
+      <div class="section-title">学习目标(当前章)</div>
       <div class="lo-list">
         <div
           v-for="lo in progress.los"
@@ -140,6 +176,8 @@ const phaseTagType: Record<ChapterPhase, 'info' | 'warning' | 'success'> = {
   background: white;
   border-right: 1px solid #ebeef5;
   padding: 20px 16px;
+  /* ★ box-sizing: 把 padding 算进 height:100vh,否则实际 = 100vh + 40px,底部被视口剪 */
+  box-sizing: border-box;
   overflow-y: auto;
   height: 100vh;
   position: sticky;
@@ -181,6 +219,61 @@ const phaseTagType: Record<ChapterPhase, 'info' | 'warning' | 'success'> = {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 10px;
+}
+.chapter-outline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chapter-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #606266;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.chapter-row:hover:not(:disabled) {
+  background: #fafafa;
+  border-color: #ebeef5;
+}
+.chapter-row.current {
+  background: #ecf5ff;
+  border-color: #b3d8ff;
+  color: #303133;
+  font-weight: 600;
+  cursor: default;
+}
+.chapter-row.completed:not(.current) {
+  color: #909399;
+}
+.chapter-row.not-started:not(.current) {
+  color: #909399;
+}
+.chapter-row:disabled {
+  cursor: default;
+}
+.chapter-idx {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #909399;
+}
+.chapter-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chapter-row-phase {
+  flex-shrink: 0;
 }
 .lo-list {
   display: flex;

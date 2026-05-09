@@ -1,0 +1,16 @@
+id: ca.ch.select_and_filter
+name: "SELECT 与 WHERE:综合检验"
+requiredInteractions:
+  - id: ca.select_and_filter.1
+    patternId: concept_check
+    prompt:
+      explanationMd: ""
+      question:
+        stem: "已知 employees 表含 name / salary / department 三列。**找出 marketing 部门工资 ≥ 10000 的员工姓名,按工资降序**。下列哪条 SQL 完整且正确?"
+        options:
+          - "SELECT name FROM employees WHERE department == 'marketing' AND salary >= 10000 ORDER BY salary"
+          - "SELECT name FROM employees WHERE department = 'marketing' AND salary >= 10000 ORDER BY salary DESC"
+          - "SELECT name FROM employees ORDER BY salary DESC WHERE department = 'marketing' AND salary >= 10000"
+          - "GET name FROM employees WHERE department = 'marketing' AND salary >= 10000 ORDER BY salary DESC"
+        answerIndex: 1
+        rationale: "正确写法 = (a) `=` 不是 `==`;(b) ORDER BY 排在 WHERE **之后**(SQL 子句固定顺序 SELECT/FROM/WHERE/ORDER BY);(c) 降序需要 `DESC` 关键字。选项 A 用了 ==,C 顺序反了,D 用了 GET 不是 SELECT。"

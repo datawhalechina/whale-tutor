@@ -6,3 +6,4 @@ subject: Python
 description: { $ref: ./course-description.md }
 chapters:
   - { $ref: ./chapters/list_and_iter/chapter.yaml }
+  - { $ref: ./chapters/string_and_format/chapter.yaml }

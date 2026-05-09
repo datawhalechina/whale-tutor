@@ -1,0 +1,1 @@
+SQL 优先级:`NOT > AND > OR`。`a OR b AND c` 等价 `a OR (b AND c)`。题目要"VIP 用户 OR (中国用户 AND 18 岁以上)" → 写法 B 用括号显式分组,语义清晰。写法 A 没括号,等价于 `vip = 1 OR country = 'CN' AND age >= 18`,实际是 `vip = 1 OR (country = 'CN' AND age >= 18)`,**碰巧也对**,但可读性差,生产代码强烈推荐括号。

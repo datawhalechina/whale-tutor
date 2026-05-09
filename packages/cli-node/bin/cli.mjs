@@ -7,9 +7,11 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import kleur from 'kleur';
+import { runBuild } from '../lib/build.mjs';
 import { findConfig, loadConfig } from '../lib/config.mjs';
 import { ensureSchema } from '../lib/db.mjs';
 import { runDoctor } from '../lib/doctor.mjs';
+import { runLint } from '../lib/lint.mjs';
 import { startServer } from '../lib/runner.mjs';
 import { scaffoldInit } from '../lib/scaffold.mjs';
 
@@ -90,6 +92,45 @@ program
     }
     const cfg = loadConfig(configPath);
     await runDoctor(cfg, bundleRoot());
+  });
+
+program
+  .command('lint')
+  .description('校验当前目录的课程 yaml/markdown 结构是否合法($ref / pattern / hints / 等)。')
+  .action(async () => {
+    let configPath;
+    try {
+      configPath = findConfig();
+    } catch (e) {
+      console.error(kleur.red(`✗ ${e.message}`));
+      process.exit(1);
+    }
+    const cfg = loadConfig(configPath);
+    const code = await runLint(bundleRoot(), cfg.coursesDir);
+    process.exit(code);
+  });
+
+program
+  .command('build')
+  .argument('<source>', '源目录(必须含 course.md + chapters/*.md)')
+  .description('从原始 markdown 通过 AI 生成完整 yaml/md 课程结构。\n' +
+    '4 阶段:course meta → 每章拆 LO → 每个 LO 出 misconceptions+RIs → 每章出 assessment。')
+  .option('--output <dir>', '输出目录,默认 <coursesDir>/<source 目录名>')
+  .option('--force', '输出目录已存在时整个覆盖(否则报错退出)', false)
+  .action(async (source, opts) => {
+    let configPath;
+    try {
+      configPath = findConfig();
+    } catch (e) {
+      console.error(kleur.red(`✗ ${e.message}`));
+      process.exit(1);
+    }
+    const cfg = loadConfig(configPath);
+    const code = await runBuild(bundleRoot(), cfg, source, {
+      output: opts.output,
+      force: !!opts.force,
+    });
+    process.exit(code);
   });
 
 program.parseAsync(process.argv);

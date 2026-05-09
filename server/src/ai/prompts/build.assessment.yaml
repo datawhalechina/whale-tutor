@@ -1,0 +1,90 @@
+# `whale-tutor build` 阶段 4:为单个 chapter 生成章末综合测试。
+# 输入:
+#   subject               — 学科名
+#   chapterName / chapterDescription — 章节信息
+#   losJson               — 该章所有 LO 的 [{name, description, commonMisconceptions}] 字符串
+# 输出:
+#   - name:章末测试名称
+#   - requiredInteractions:5-7 道 concept_check 题(覆盖该章所有 LO,综合性)
+#
+# 设计要点(教育学,跟 LO 必做题不同):
+#   - **覆盖广度**:必须覆盖该章每个 LO 至少 1 题,不要把 5 道题都集中在 1 个 LO
+#   - **难度更高**:章末测试比 LO 必做题略难,允许跨 LO 综合(如"以下哪个场景同时涉及 X 和 Y")
+#   - **不出引导题**:章末是检验,所有 explanationMd 默认空字符串
+#   - **没有 hint / 没有 retry**:学习者答错就算错(章末机制),所以陷阱不要太刁钻 — 中等难度即可
+#   - **rationale 仍然写**:答完后学习者看反馈用,要解释为什么对
+
+templateId: build.assessment
+model: deepseek-v4-flash
+maxRetries: 1
+maxTokens: 6000
+temperature: 0.4
+
+system: |
+  你是 {{subject}} 章末综合测试出题助手。给你一章的 LO 列表(name + description + commonMisconceptions),
+  生成 5-7 道 concept_check 题作为章末测试。
+
+  关键准则:
+  - **覆盖广度**:必须覆盖该章每个 LO 至少 1 题;不要全部集中在某 1 个 LO
+  - **综合性**:可以出跨 LO 综合题(如"下列代码同时涉及 LO_A 和 LO_B 的哪个特性"),但不强制
+  - **难度中等**:比 LO 必做题略难一档,但**不要刁钻** — 章末没有 hint 没有 retry,刁钻题会让学习者卡死
+  - **explanationMd 默认空字符串**:章末是检验环节,不在题前给提示
+  - **rationale 仍要写**:学习者答完看反馈用,1-2 句话说明为什么正确
+  - **题干自包含**:不要引用"刚学的内容" / "上一题"
+  - **正确选项 index 分散**:5-7 道题至少 3 个不同 index 出现
+  - **使用 commonMisconceptions 设陷阱**:错误选项尽量从 LO 的 commonMisconceptions 中找灵感
+  - 必须返回 JSON object 符合 schema,无任何额外文本、无 markdown 包裹
+
+user: |
+  ## 学科
+  {{subject}}
+
+  ## 章节
+  名称:{{chapterName}}
+  描述:{{chapterDescription}}
+
+  ## 该章所有 LO(JSON,含每个 LO 的 commonMisconceptions)
+  {{losJson}}
+
+  ## 任务
+  生成章末综合测试,返回 JSON 对象:
+  - name: 章末测试名称(例:"列表与迭代:章末综合")
+  - requiredInteractions: 5-7 道 concept_check 必做题数组,每项:
+    - explanationMd: 题前引子(默认空字符串)
+    - question: { stem, options(4 个), answerIndex(0-3), rationale }
+    - coverLoSlug: 该题主要考核的 LO slug(从 losJson 中选)— **必须填**,用来后续追踪覆盖率
+
+outputSchema:
+  type: object
+  required: [name, requiredInteractions]
+  additionalProperties: false
+  properties:
+    name: { type: string, minLength: 1, maxLength: 80 }
+    requiredInteractions:
+      type: array
+      minItems: 4
+      maxItems: 8
+      items:
+        type: object
+        required: [explanationMd, question, coverLoSlug]
+        additionalProperties: false
+        properties:
+          explanationMd: { type: string, maxLength: 600 }
+          coverLoSlug: { type: string, minLength: 1, maxLength: 30 }
+          question:
+            type: object
+            required: [stem, options, answerIndex, rationale]
+            additionalProperties: false
+            properties:
+              stem: { type: string, minLength: 5, maxLength: 400 }
+              options:
+                type: array
+                minItems: 4
+                maxItems: 4
+                items: { type: string, minLength: 1, maxLength: 200 }
+              answerIndex: { type: integer, minimum: 0, maximum: 3 }
+              rationale: { type: string, minLength: 5, maxLength: 300 }
+
+fallback:
+  name: "_FALLBACK_"
+  requiredInteractions: []

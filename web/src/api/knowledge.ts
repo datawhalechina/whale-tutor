@@ -1,8 +1,15 @@
 import type {
+  CourseSummary,
   GetCourseResponse,
   GetLearningObjectiveResponse,
+  ListCoursesResponse,
 } from '@whale-tutor/tutor-types';
 import { http } from './http';
+
+export async function listCourses(): Promise<CourseSummary[]> {
+  const res = await http.get<ListCoursesResponse>('/courses');
+  return res.data.courses;
+}
 
 export async function getCourse(
   courseId: string,

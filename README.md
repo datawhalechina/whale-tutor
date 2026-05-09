@@ -1,41 +1,49 @@
 # Whale Tutor
 
-**AI 驱动的 Python 交互式学习产品**。区别于传统课程的"读文本+做题",学习路径是动态的、个体化的、可重新进入的。
+**AI 驱动的交互式学习产品**(默认演示 Python,通过 `course.yaml` 的 `subject` 字段可配置任意学科)。区别于传统课程的"读文本+做题",学习路径是动态的、个体化的、可重新进入的。
 
-详细产品理念见 [notes/](notes/);开发者文档(架构 / 边界 / 约定)见 [CLAUDE.md](CLAUDE.md)。
+详细产品理念见 [notes/](notes/);开发者文档(架构 / 边界 / 约定)见 [CLAUDE.md](CLAUDE.md);课程作者文档见 [doc/course-authoring.md](doc/course-authoring.md)。
 
-## 当前状态:v0.2 智能编排闭环 ✅
+## 当前状态:v0.3 课程作者工具闭环 ✅
 
-> v0.2 跑通了,智能 PathOrchestrator + StuckProtocol 都已上线。下一步 v0.3(Diagnostic / Archive / 课程作者工具),详见 [CLAUDE.md](CLAUDE.md) 末尾路线图。
+> v0.2 智能编排已跑通(StuckProtocol + PathOrchestrator);v0.3 把焦点切到课程作者侧 — `whale-tutor lint` / `whale-tutor build`(AI 从原始 markdown 生成完整课程)/ 多课程支持都已上线。剩余 v0.3 工作(Diagnostic / Archive)详见 [CLAUDE.md](CLAUDE.md) 末尾路线图。
 
 **已实现**
 
-- 1 个课程 / 1 章节 / 4 个学习目标(LO)/ 13 道必做交互 / 1 道章末综合测试
+- 内置 2 门课程 / 4 章节 / 9 个学习目标(LO)/ ~30 道必做交互 / 4 道章末测试:
+  - **Python 基础**(`python-basics`):列表与迭代(4 LO) + 字符串与格式化(2 LO)
+  - **SQL 入门**(`sql-basics`):查询与过滤(2 LO) + 连接(1 LO),验证学科参数化跨语种生效
 - 4 种交互模式:**概念检验** / **找 bug** / **代码沙盒**(浏览器跑 Python)/ **自由回忆**
-- AI Gateway(DeepSeek)用于:答错时 AI 出"换说法"题 / 章末 free_recall 评估 / spot_the_bug 解释评估 / QA 答疑 / hint 兜底生成
+- AI Gateway(DeepSeek)用于:答错时 AI 出"换说法"题 / 章末 free_recall 评估 / spot_the_bug 解释评估 / QA 答疑 / hint 兜底生成 / **`whale-tutor build` 4 阶段课程生成**
 - LO 教学开场页(进入新 LO 显示核心讲解 → 学习者点"开始练习"再答题)
 - **梯度提示(StuckProtocol)** — 题目上方"求提示",作者可在 RI 写 1-5 级,缺省走 AI 3 级 + cache
 - **智能 PathOrchestrator** — 答错触发 AI 出同 LO 换说法题(`source='adaptive'`);连续错 3 次自动 review_lo 兜底回讲解;hint > 0 答对计入必做但不增 mastery
 - **学科参数化** — course.yaml 的 `subject` 字段灌进所有 prompt,加新课程(SQL / Java)无需改 prompt
+- **多课程 / 多章节切换** — HomeView 课程卡片选课,LearnView 左侧 sidebar 列全部章节并允许跨章浏览
 - QA 侧支(右侧 drawer 提问 + 多轮追问 + 结束回到原位)
 - mastery 状态机(untouched → exposed → practicing → mastered),mastered 连续错 2 次回归
-- 多 LO 自动推进 + 章末测试解锁(章末测试不进 retry)
+- **课程作者 CLI**(双发行:pip + npm)— `init / start / doctor / lint / build` 五命令,完整文档 [doc/course-authoring.md](doc/course-authoring.md)
 
 **演示流程**
 
-打开 `http://localhost:5173` → 点"开始学习" → 走 4 个 LO → 章末综合 → 章节完成。任意时刻可以点头部"💬 问问题"提问,题目上方"💡 求提示"兜底卡住时。
+打开 `http://localhost:5173` → 选课程(Python 或 SQL)→ 点"开始学习" → 走完该课所有 LO → 章末综合 → 章节完成。任意时刻可以点头部"💬 问问题"提问,题目上方"💡 求提示"兜底卡住时。
 
 ```
-list.basics → list.indexing → list.mutation → iter.for_over_list → 章末综合 → 🎉
+[Python] list.basics → list.indexing → list.mutation → iter.for_over_list → 章末 → 字符串与格式化 → 🎉
+[SQL]    select 子句 → where 过滤 → 章末 → inner join → 🎉
 ```
 
 ```
 Monorepo (pnpm workspaces)
 ├── web/                        # Vue 3 + Vite + TS + Element Plus + Pinia
-├── server/                     # NestJS + Kysely + mysql2 + AI Gateway
-├── packages/tutor-types/       # 前后端共享 TS 类型
+├── server/                     # NestJS + Kysely + mysql2 + AI Gateway + BuildModule
+├── packages/
+│   ├── tutor-types/            # 前后端共享 TS 类型(workspace 内部)
+│   └── cli-node/               # 课程作者 CLI(发到 npm,init / start / doctor / lint / build)
+├── scripts/build-cli-bundle.mjs # 构建管道:填 cli-node/_bundle/(经 build/server-bundle/ 中间产物)
 ├── db/init/                    # MySQL schema(容器首启执行)
 ├── notes/                      # 产品理念 + 完整架构文档
+├── doc/course-authoring.md     # 给课程作者的教程
 ├── CLAUDE.md                   # 开发者必读:架构边界、约定、路线图
 └── docker-compose.yml
 ```
@@ -118,31 +126,31 @@ server 镜像通过 [server/Dockerfile](server/Dockerfile) 构建。
 
 ## 课程内容
 
-课程内容是 **YAML + markdown 文件**,不入数据库。位置:
+课程内容是 **YAML + markdown 文件**,不入数据库。dev 模式下从 `server/src/knowledge/data/` 加载;CLI 用户从自己 cwd 的 `courses/` 加载(由 `WHALE_TUTOR_COURSES_DIR` env 切换)。
 
 ```
-server/src/knowledge/data/python-basics/
-├── course.yaml                          # 课程元数据
-├── chapters/list_and_iter/
-│   ├── chapter.yaml
-│   ├── description.md
-│   ├── los/<lo-name>/                   # 每个 LO 一个目录
-│   │   ├── lo.yaml                      # 元数据 + 必做题列表
-│   │   ├── core-explanation.md          # LO 教学讲解
-│   │   ├── ri-1.explanation.md          # 第 1 题题前引子
-│   │   └── ri-1.rationale.md            # 第 1 题答案解析
-│   └── assessment/                      # 章末综合测试
-└── ...
+server/src/knowledge/data/
+├── python-basics/                       # 内置 Python 课
+│   ├── course.yaml                      # 课程元数据(含 subject: Python)
+│   └── chapters/<chapter-slug>/
+│       ├── chapter.yaml
+│       ├── description.md
+│       ├── los/<lo-name>/               # 每个 LO 一个目录
+│       │   ├── lo.yaml                  # 元数据 + 必做题列表
+│       │   ├── core-explanation.md      # LO 教学讲解
+│       │   ├── ri-1.explanation.md      # 第 1 题题前引子
+│       │   └── ri-1.rationale.md        # 第 1 题答案解析
+│       └── assessment/                  # 章末综合测试
+└── sql-basics/                          # 内置 SQL 课(同结构,subject: SQL)
 ```
 
-修改 .md 内容后 `pnpm db:reset && pnpm dev:server` 让 schema 重建 + 内容重载。
+只改内容不改代码:`pnpm dev:server` 重启即可(YAML/MD 内存加载,不涉及 schema)。改了 schema 才需要 `pnpm db:reset`。
 
-校验内容能否通过 schema:
-
-```bash
-pnpm --filter @whale-tutor/server build
-node server/scripts/verify-knowledge.js
-```
+**课程作者工作流(给非开发者)**:用 [packages/cli-node](packages/cli-node/) 提供的 `whale-tutor` 命令(`npm install -g whale-tutor`),见 [doc/course-authoring.md](doc/course-authoring.md):
+- `whale-tutor init` — scaffold 完整 python-basics 示例
+- `whale-tutor build <source>` — 从原始 markdown AI 生成完整 yaml/md(详见 [§10](doc/course-authoring.md#10-whale-tutor-build))
+- `whale-tutor lint` — 校验 yaml/$ref/pattern 结构
+- `whale-tutor start` — 启动学习环境
 
 ## 共享类型 `@whale-tutor/tutor-types`
 
@@ -160,4 +168,5 @@ import type { LearningObjective, ServedInteraction } from '@whale-tutor/tutor-ty
 - **运行时业务逻辑(状态机 / decideNext / DB 写入语义,跨模块改动前必读)** — [notes/orchestrator.md](notes/orchestrator.md)
 - **产品理念、教育学原则、交互模式库设计** — [notes/background_1.md](notes/background_1.md) → [notes/background_2.md](notes/background_2.md) → [notes/background_3.md](notes/background_3.md)
 - **完整工程架构(4 层 18 模块)** — [notes/plan.md](notes/plan.md)
-- **课程作者文档(写课程内容、CLI 工作流、文件引用、hint / 评价机制)** — [doc/](doc/)(待写,v0.3 任务)
+- **课程作者指南(yaml/$ref、4 种题型、hint、评价、CLI 工作流、`whale-tutor build` AI 生成)** — [doc/course-authoring.md](doc/course-authoring.md)
+- **stuck 处理协议(hint / adaptive / review_lo 三机制如何串成兜底)** — [notes/stuck-handling.md](notes/stuck-handling.md)

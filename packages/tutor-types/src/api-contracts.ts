@@ -26,6 +26,20 @@ import type {
 // /api/courses
 // ============================================================
 
+// HomeView 课程选择器用的轻量摘要(不含 LO/RI 详情,只列章节数 + LO 总数)。
+// 详情用 GET /api/courses/:id 拿。
+export interface CourseSummary {
+  id: string;
+  name: string;
+  description: string;
+  chapterCount: number;
+  loCount: number;
+}
+
+export interface ListCoursesResponse {
+  courses: CourseSummary[];
+}
+
 export interface GetCourseResponse {
   course: Course;
 }
@@ -97,6 +111,21 @@ export interface EndSessionResponse {
 // ============================================================
 
 export interface AcknowledgeReviewLoResponse {
+  decision: PathDecision;
+  interaction: ServedInteraction | null;
+}
+
+// ============================================================
+// /api/sessions/:id/switch-chapter
+// v0.2 多 chapter:学习者从 sidebar 点其他章节,session.current_lo_id 切到该章首 LO。
+// 不限制(任何章都能切,包括已完成的回看 / 未达 prereq 的提前看)。
+// ============================================================
+
+export interface SwitchChapterRequest {
+  chapterId: string;
+}
+
+export interface SwitchChapterResponse {
   decision: PathDecision;
   interaction: ServedInteraction | null;
 }
@@ -255,10 +284,25 @@ export interface SessionProgressChapter {
   assessmentCompletedCount: number;
 }
 
+// 课程内所有章节的轻量摘要(让 sidebar 显示"全部章节"概览,知道当前在哪、还有哪些)
+export interface SessionProgressChapterOutline {
+  id: string;
+  name: string;
+  phase: ChapterPhase;
+  isCurrent: boolean; // 当前 session 正在学的那一章
+  // 是否真的开始学了:有 learner_chapter_progress 行 OR 该章任意 LO 有 learner_state 行。
+  // 区分"未开始"(started=false)vs "学习中"(started=true, phase='learning')。
+  // 必要,因为 ChapterPhase 默认 'learning' 没有"未开始"概念。
+  started: boolean;
+}
+
 export interface GetSessionProgressResponse {
   course: { id: string; name: string };
   chapter: SessionProgressChapter;
   los: SessionProgressLoEntry[];
+  // v0.2 多 chapter 支持:课程全部章节的概览,带 phase + isCurrent。
+  // 学习者跨章浏览(目前 sidebar 只展示,不允许点跳;下一版可加跳转)
+  allChapters: SessionProgressChapterOutline[];
 }
 
 // ============================================================

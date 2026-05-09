@@ -1,0 +1,63 @@
+id: lo.string.methods
+name: 字符串方法与 f-string
+description: split / join / strip / replace 等核心方法 + f-string 格式化的基本语法
+prerequisites:
+  - lo.string.basics
+estimatedDurationMin: 25
+difficultyBand: beginner
+coreExplanation: { $ref: ./core-explanation.md }
+commonMisconceptions:
+  - "`split(' ')` 和 `split()` 行为相同(实际后者按任意空白切并去空段,前者按一个空格切)"
+  - "`replace` 只替换第一个出现(实际默认替换所有,要限制次数加第三参数)"
+  - "f-string 的 `{}` 里只能放变量名(实际可以放任意表达式)"
+  - "`.join` 调用方是要拼的内容,参数是分隔符(实际相反:调用方是分隔符,参数是 iterable)"
+masteryCriteria: 能解释 split() vs split(' ') 差异;能用 f-string 写表达式 + 格式说明;能用 join 高效拼接
+requiredInteractions:
+  - id: ri.string.methods.1
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-1.explanation.md }
+      question:
+        stem: "执行 `'  a  b  c '.split()` 和 `'  a  b  c '.split(' ')`,得到的结果**最准确**的描述是?"
+        options:
+          - 完全相同,都得 `['a', 'b', 'c']`
+          - "`split()` 得 `['a', 'b', 'c']`;`split(' ')` 得 `['', '', 'a', '', 'b', '', '', 'c', '']` 之类含空字符串"
+          - 都抛 ValueError,字符串包含连续空白时不能切
+          - "`split()` 得 `['  a  b  c ']`(因为没指定分隔符);`split(' ')` 得 `['a', 'b', 'c']`"
+        answerIndex: 1
+        rationale: { $ref: ./ri-1.rationale.md }
+    hints:
+      - "试着在脑子里跑:对 `'  a  b  c '` 用 `' '` 作为分隔符切,连续两个空格之间会产生什么?"
+      - "`split()` 不传参数时是个'智能模式':按任意空白切 + 自动忽略空段。`split(' ')` 是严格按 1 个空格切,空格连着会切出空字符串"
+  - id: ri.string.methods.2
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-2.explanation.md }
+      question:
+        stem: "已知 `name = 'Ada'`、`age = 28`。下列哪个表达式得到字符串 `'Ada is 29 next year'`?"
+        options:
+          - "`'Ada is {age + 1} next year'`"
+          - "`f'{name} is {age + 1} next year'`"
+          - "`'%s is %d next year' % (name, age)`(等于 'Ada is 28 next year')"
+          - "`f'name is age + 1 next year'`"
+        answerIndex: 1
+        rationale: { $ref: ./ri-2.rationale.md }
+  - id: ri.string.methods.3
+    patternId: code_sandbox
+    prompt:
+      promptMd: { $ref: ./ri-3.prompt.md }
+      starterCode: |
+        def clean_csv_row(line: str) -> list[str]:
+            # TODO: 切分 + 去首尾空白
+            pass
+      testCases:
+        - description: 一般情况(含空白)
+          setupCode: print(clean_csv_row('  apple , banana  ,cherry'))
+          expectedOutput: "['apple', 'banana', 'cherry']"
+        - description: 空字段保留
+          setupCode: print(clean_csv_row('a,,b'))
+          expectedOutput: "['a', '', 'b']"
+        - description: 空字符串
+          setupCode: print(clean_csv_row(''))
+          expectedOutput: "['']"
+adaptivePatterns: [concept_check, code_sandbox, free_recall]

@@ -1,0 +1,101 @@
+# `whale-tutor build` 阶段 2:从一份 chapter md 拆出 LO outline。
+# 输入:
+#   subject               — 学科名("Python" / "SQL" / ...)
+#   chapterSlug           — 来自文件名的 slug(`01-list-and-iter.md` → `list_and_iter`)
+#   chapterMd             — 完整章节 markdown(作者写的,通常是该章的完整讲稿)
+# 输出:章节元信息 + 2-5 个 LO outline,每个 LO 含:
+#   - slug:LO 短名,蛇形小写
+#   - name / description / estimatedDurationMin / difficultyBand
+#   - coreExplanationMd:LO 教学讲解,**直接来自 chapterMd 的对应段落**(不能凭空发挥,
+#     可以做轻度整理:补 markdown 标题 / 调整段落顺序 / 补一两句过渡,但核心内容必须保留作者原文)
+#   - prerequisites:本章内的依赖(用 slug 引用,不要跨章)
+#
+# 设计要点:
+#   - LO 划分粒度:每个 LO 应该是 15-30 分钟能学完 + 答完 3-5 道必做题的认知单元
+#   - 不要为了凑数硬拆 — 一份 chapter 通常 2-5 个 LO,质量优先
+#   - difficultyBand 在章内通常递进:beginner → beginner → intermediate
+#   - prerequisites 用 LO slug 引用同章前面的 LO(数组顺序也是学习顺序,但 prereq 是显式锁)
+
+templateId: build.chapter_outline
+model: deepseek-v4-flash
+maxRetries: 1
+maxTokens: 8000
+temperature: 0.3
+
+system: |
+  你是 {{subject}} 课程结构设计助手。给你一份章节 markdown,把它拆成 2-5 个学习目标(LO)。
+
+  关键准则(教学法):
+  1. LO 是"学完能做到 X"的具体技能,不是"了解 X"。每个 LO 表述应该让学习者答完该 LO 必做题后**能做到**某件事
+  2. 拆分按**认知单元**而非段落:相互依赖的概念合并为同一 LO;独立可考核的能力分开
+  3. 每个 LO 学习时长 15-30 分钟(对应 3-5 道必做题)。再大就拆,再小就并
+  4. **coreExplanationMd 必须主要来自 chapterMd 原文**:
+     - 你的工作是**整理与归位**:把 chapterMd 中属于该 LO 主题的段落摘出 + 拼接 + 必要时加 markdown 小标题
+     - 不要凭空发挥写讲解,不要凭空举例(作者已经写好了)
+     - 可以补 1-2 句过渡,可以补关键术语的简短定义(若作者漏掉),但量必须很少
+  5. LO 数组顺序 = 学习顺序;后面的 LO 可在 prerequisites 里引用前面 LO 的 slug
+  6. difficultyBand 通常递进:章内第一个 LO beginner,之后可上升到 intermediate
+
+  约束:
+  - LO slug 蛇形小写 ASCII(只含字母数字和下划线,2-20 字符,不要连续下划线)
+  - LO name 是学习者看到的(可中文),简洁,不带"学习"二字
+  - description 1-2 句话:学完能做到什么
+  - estimatedDurationMin 整数,15 / 20 / 25 / 30 之一
+  - difficultyBand 必须是 beginner / intermediate / advanced
+  - coreExplanationMd 长度 200-3000 字符;markdown 格式
+  - prerequisites 是同 chapter 内**前面**LO 的 slug 数组(不能引用尚未声明的 slug)
+  - 必须返回 JSON object 符合 schema,无任何额外文本、无 markdown 包裹
+
+user: |
+  ## 学科
+  {{subject}}
+
+  ## 章节文件 slug(可作为命名参考)
+  {{chapterSlug}}
+
+  ## 章节原始 markdown(作者写的讲稿)
+  {{chapterMd}}
+
+  ## 任务
+  把这份章节拆成 2-5 个 LO,返回 JSON 对象,字段:
+  - name: 章节标题(从 markdown 中第一个 # 标题提取,或基于内容总结)
+  - description: 章节简介(2-3 句话)
+  - los: LO 数组,每项含 slug / name / description / estimatedDurationMin / difficultyBand / coreExplanationMd / prerequisites
+
+  **再次强调**:每个 LO 的 coreExplanationMd 必须是 chapterMd 中对应主题的段落整理,不要凭空写新内容。
+
+outputSchema:
+  type: object
+  required: [name, description, los]
+  additionalProperties: false
+  properties:
+    name: { type: string, minLength: 1, maxLength: 80 }
+    description: { type: string, minLength: 10, maxLength: 400 }
+    los:
+      type: array
+      minItems: 1
+      maxItems: 6
+      items:
+        type: object
+        required: [slug, name, description, estimatedDurationMin, difficultyBand, coreExplanationMd, prerequisites]
+        additionalProperties: false
+        properties:
+          slug:
+            type: string
+            pattern: "^[a-z0-9](?:_?[a-z0-9])*$"
+            minLength: 2
+            maxLength: 20
+          name: { type: string, minLength: 1, maxLength: 60 }
+          description: { type: string, minLength: 5, maxLength: 200 }
+          estimatedDurationMin: { type: integer, enum: [10, 15, 20, 25, 30, 40] }
+          difficultyBand: { type: string, enum: [beginner, intermediate, advanced] }
+          coreExplanationMd: { type: string, minLength: 100, maxLength: 6000 }
+          prerequisites:
+            type: array
+            items: { type: string }
+
+# AI 失败时返回单个"占位 LO",build.service.ts 检测后改为提示用户手动拆
+fallback:
+  name: "_FALLBACK_"
+  description: "_FALLBACK_"
+  los: []

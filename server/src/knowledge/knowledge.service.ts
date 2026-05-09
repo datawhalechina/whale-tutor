@@ -17,7 +17,7 @@ import { loadCourse } from './knowledge.loader';
 import { validateCourseDefinition } from './knowledge.schema';
 
 // 课程数据根目录的解析顺序:
-//   1. WHALE_TUTOR_COURSES_DIR 环境变量(pip 包模式 — Python CLI 把课程作者本地目录传进来)
+//   1. WHALE_TUTOR_COURSES_DIR 环境变量(CLI 模式 — `whale-tutor` 把课程作者本地目录传进来)
 //   2. fallback 到 __dirname/data(monorepo dev 模式 — 内置 python-basics)
 // __dirname 在开发期(ts-node)指向 src/knowledge/, 生产期(node dist)指向 dist/knowledge/。
 // nest-cli.json 的 assets 配置确保 build 时 data/ 也被复制到 dist/knowledge/data/。
@@ -175,6 +175,26 @@ export class KnowledgeService implements OnModuleInit {
 
   getLearningObjective(loId: string): LearningObjective {
     return toPublicLo(this.getLoDefinition(loId));
+  }
+
+  // HomeView 课程选择器用 — 列所有已加载课程的轻量摘要
+  listCourseSummaries(): Array<{
+    id: string;
+    name: string;
+    description: string;
+    chapterCount: number;
+    loCount: number;
+  }> {
+    return Array.from(this.courses.values()).map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      chapterCount: c.chapters.length,
+      loCount: c.chapters.reduce(
+        (sum, ch) => sum + ch.learningObjectives.length,
+        0,
+      ),
+    }));
   }
 }
 

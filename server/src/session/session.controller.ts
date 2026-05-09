@@ -16,6 +16,8 @@ import type {
   StartSessionResponse,
   SubmitResponseBody,
   SubmitResponseResult,
+  SwitchChapterRequest,
+  SwitchChapterResponse,
 } from '@whale-tutor/tutor-types';
 import { SessionService } from './session.service';
 
@@ -60,6 +62,14 @@ export class SessionController {
     @Param('id', ParseIntPipe) sessionId: number,
   ): Promise<AcknowledgeReviewLoResponse> {
     return this.sessions.acknowledgeReviewLo(sessionId);
+  }
+
+  @Post(':id/switch-chapter')
+  switchChapter(
+    @Param('id', ParseIntPipe) sessionId: number,
+    @Body() body: SwitchChapterRequest,
+  ): Promise<SwitchChapterResponse> {
+    return this.sessions.switchChapter(sessionId, body);
   }
 
   @Get(':id/progress')

@@ -1,0 +1,7 @@
+id: ch.select_and_filter
+name: SELECT 与 WHERE
+description: { $ref: ./description.md }
+learningObjectives:
+  - { $ref: ./los/select_clauses/lo.yaml }
+  - { $ref: ./los/where_filtering/lo.yaml }
+assessment: { $ref: ./assessment/assessment.yaml }

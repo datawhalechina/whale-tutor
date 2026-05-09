@@ -28,6 +28,8 @@ import type {
   StartSessionResponse,
   SubmitResponseBody,
   SubmitResponseResult,
+  SwitchChapterRequest,
+  SwitchChapterResponse,
 } from '@whale-tutor/tutor-types';
 import { KYSELY, type Database } from '../database/database.module';
 import { EventService } from '../event/event.service';
@@ -80,30 +82,31 @@ export class SessionService {
       payload: { courseId: input.courseId },
     });
 
-    // v0:从课程第一章第一个 LO 开始（无诊断时）
+    // v0.2 多 chapter 支持:从该 learner 还没完成的第一个 chapter 开始,
+    // 而不是总从 chapter[0]。这样跑完 chapter 1 后,新 session 自动从 chapter 2 起。
+    // 章节"已完成"判定:学习者在该 chapter 的所有 LO 必做都做完 + 章末测试 phase='completed'。
     const course = this.knowledge.getCourseDefinition(input.courseId);
-    const firstChapter = course.chapters[0];
-    const firstLo = firstChapter.learningObjectives[0];
+    const startLo = await this.pickStartingLo(input.learnerId, course);
 
     await this.db
       .updateTable('sessions')
-      .set({ current_lo_id: firstLo.id })
+      .set({ current_lo_id: startLo.id })
       .where('id', '=', sessionId)
       .execute();
 
     await this.events.emit({
       sessionId,
       learnerId: input.learnerId,
-      loId: firstLo.id,
+      loId: startLo.id,
       type: 'lo.entered',
       payload: {},
     });
 
-    let decision = await this.decideNext(sessionId, input.learnerId, firstLo.id);
+    let decision = await this.decideNext(sessionId, input.learnerId, startLo.id);
     let interaction = await this.maybeServeFromDecision(
       sessionId,
       input.learnerId,
-      firstLo.id,
+      startLo.id,
       decision,
     );
     // 同 submit:adaptive 服务失败 → 把 decision 降级为 review_lo
@@ -115,7 +118,7 @@ export class SessionService {
       decision = {
         primary: {
           type: 'review_lo',
-          loId: firstLo.id,
+          loId: startLo.id,
           reason: '换说法生成失败,先回到讲解再来',
         },
         alternatives: [],
@@ -390,6 +393,74 @@ export class SessionService {
   }
 
   // ========================================================
+  // v0.2 多 chapter:学习者主动切章
+  // ------------------------------------------------------------
+  // 把 session.current_lo_id 切到目标 chapter 的第一个 LO,decideNext 重算。
+  // 不限制(任意章可切,包括已完成的回看 / 未学过的提前看)。
+  // 不影响 mastery / mandatory 状态 — 只是切换"focus"。
+  // ========================================================
+
+  async switchChapter(
+    sessionId: number,
+    body: SwitchChapterRequest,
+  ): Promise<SwitchChapterResponse> {
+    const session = await this.db
+      .selectFrom('sessions')
+      .selectAll()
+      .where('id', '=', sessionId)
+      .executeTakeFirst();
+    if (!session) throw new NotFoundException(`Session not found: ${sessionId}`);
+
+    const course = this.knowledge.getCourseDefinition(session.course_id);
+    const targetChapter = course.chapters.find((c) => c.id === body.chapterId);
+    if (!targetChapter) {
+      throw new NotFoundException(
+        `Chapter ${body.chapterId} not found in course ${session.course_id}`,
+      );
+    }
+    const targetLo = targetChapter.learningObjectives[0];
+    const fromLoId = session.current_lo_id;
+
+    await this.db
+      .updateTable('sessions')
+      .set({ current_lo_id: targetLo.id })
+      .where('id', '=', sessionId)
+      .execute();
+
+    await this.events.emit({
+      sessionId,
+      learnerId: session.learner_id,
+      loId: targetLo.id,
+      type: 'lo.entered',
+      payload: { from: fromLoId, reason: 'switch_chapter' },
+    });
+
+    let decision = await this.decideNext(sessionId, session.learner_id, targetLo.id);
+    let interaction = await this.maybeServeFromDecision(
+      sessionId,
+      session.learner_id,
+      targetLo.id,
+      decision,
+    );
+    // 同 submit:adaptive 服务失败 → review_lo 兜底
+    if (
+      decision.primary.type === 'serve_interaction' &&
+      decision.primary.source === 'adaptive' &&
+      interaction === null
+    ) {
+      decision = {
+        primary: {
+          type: 'review_lo',
+          loId: targetLo.id,
+          reason: '换说法生成失败,先回到讲解再来',
+        },
+        alternatives: [],
+      };
+    }
+    return { decision, interaction };
+  }
+
+  // ========================================================
   // 静态梯度提示(StuckProtocol)
   // 作者写了 RI.hints → 直接返;没写 → AI 兜底生成 3 级 + cache
   // ========================================================
@@ -480,8 +551,12 @@ export class SessionService {
     }
 
     const course = this.knowledge.getCourseDefinition(session.course_id);
-    // v0 课程仅 1 个 chapter;后续多 chapter 时这里需要由 sessions.current_chapter_id 决定
-    const chapter = course.chapters[0];
+    // v0.2 多 chapter 支持:从 session.current_lo_id 反查所属 chapter。
+    // current_lo_id 由 start() / decideNext Rule 2 维护,反映"学习者现在在哪一章"。
+    // 如果 current_lo_id 为空(理论上 start() 后总有,这里防御),回退到第一章。
+    const chapter = session.current_lo_id
+      ? this.knowledge.getChapterByLoId(session.current_lo_id)
+      : course.chapters[0];
     const chapterProgress = await this.getChapterProgressOrDefault(
       session.learner_id,
       chapter.id,
@@ -512,6 +587,38 @@ export class SessionService {
       });
     }
 
+    // 课程全部章节概览 — 给 sidebar 显示"还有哪些章" + 区分未开始 / 学习中
+    const allChapters = [];
+    for (const ch of course.chapters) {
+      const chProgress = await this.getChapterProgressOrDefault(
+        session.learner_id,
+        ch.id,
+      );
+      // started 判定 — 必须真答过题:
+      //   - phase 已 assessment / completed 显然 started
+      //   - 否则查该章任一 LO 是否有 attempts > 0 的 row
+      // 仅"有 row"不算(start / switch_chapter 都会通过 getOrInitLoState 插行,但 attempts=0 仍属未答)
+      const loIds = ch.learningObjectives.map((lo) => lo.id);
+      let started = chProgress.phase !== 'learning';
+      if (!started && loIds.length > 0) {
+        const attemptedRow = await this.db
+          .selectFrom('learner_state')
+          .select(['lo_id'])
+          .where('learner_id', '=', session.learner_id)
+          .where('lo_id', 'in', loIds)
+          .where('attempts', '>', 0)
+          .executeTakeFirst();
+        started = !!attemptedRow;
+      }
+      allChapters.push({
+        id: ch.id,
+        name: ch.name,
+        phase: chProgress.phase,
+        isCurrent: ch.id === chapter.id,
+        started,
+      });
+    }
+
     return {
       course: { id: course.id, name: course.name },
       chapter: {
@@ -522,6 +629,7 @@ export class SessionService {
         assessmentCompletedCount: chapterProgress.assessmentCompletedIds.length,
       },
       los,
+      allChapters,
     };
   }
 
@@ -542,6 +650,31 @@ export class SessionService {
       phase: row.phase,
       assessmentCompletedIds: parseJsonArray(row.assessment_completed_ids),
     };
+  }
+
+  /**
+   * v0.2 多 chapter 支持:
+   * 找出该 learner 在该 course 中"还没完成"的第一个 chapter,返回其第一个 LO。
+   * 章节"完成"判定:phase === 'completed'(章末测试也通过)。
+   *
+   * 全完成时(把整门课走完了又开新 session) → 返回最后一章第一 LO,让 decideNext 走到 chapter_complete。
+   */
+  private async pickStartingLo(
+    learnerId: number,
+    course: { chapters: Array<{ id: string; learningObjectives: Array<{ id: string }> }> },
+  ): Promise<{ id: string }> {
+    for (const chapter of course.chapters) {
+      const progress = await this.getChapterProgressOrDefault(
+        learnerId,
+        chapter.id,
+      );
+      if (progress.phase !== 'completed') {
+        return chapter.learningObjectives[0];
+      }
+    }
+    // 全完成:落到最后一章第一 LO,decideNext 会走到 chapter_complete
+    const last = course.chapters[course.chapters.length - 1];
+    return last.learningObjectives[0];
   }
 
   private async allPrereqsSatisfiedReadonly(

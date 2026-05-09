@@ -1,0 +1,57 @@
+id: lo.string.basics
+name: 字符串字面量与不可变性
+description: 单/双/三引号写法、转义与 raw string、字符串不可变性带来的性能含义
+prerequisites: []
+estimatedDurationMin: 15
+difficultyBand: beginner
+coreExplanation: { $ref: ./core-explanation.md }
+commonMisconceptions:
+  - 单引号和双引号 Python 区别对待(实际等价,纯写法选择)
+  - "raw string `r'...'` 创建的是不一样的对象类型(实际仍是 str,只是字面量解析时不解释 \\)"
+  - "`s += 'x'` 是在原字符串上修改(实际:str 不可变,这是创建新字符串再赋值)"
+  - 字符串切片返回 char 类型(实际 Python 没 char,切片返还是 str)
+masteryCriteria: 能区分三种字面量;能预测含 \\ 的字符串长度;能解释 s += 'x' 实际行为
+requiredInteractions:
+  - id: ri.string.basics.1
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-1.explanation.md }
+      question:
+        stem: 关于 Python 单引号 / 双引号 / 三引号字面量,下列说法**正确**的是?
+        options:
+          - 单引号和双引号 Python 解析行为不同,双引号解析转义,单引号不解析
+          - 单引号和双引号完全等价,只是写法选择;三引号特殊在能直接含未转义的换行
+          - 三引号字符串自带 docstring 属性,运行时可以读取
+          - 单引号字符串占用内存比双引号小
+        answerIndex: 1
+        rationale: { $ref: ./ri-1.rationale.md }
+    hints:
+      - 想想 `'a'` 和 `"a"` 这两个表达式得到的对象有任何区别吗?如果都是 str 且内容相同,它们就完全等价
+      - "三引号 `\"\"\"...\"\"\"` 跟前两种主要区别在哪里? 多一个'能不能跨行直接写'"
+  - id: ri.string.basics.2
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-2.explanation.md }
+      question:
+        stem: "下面哪两个表达式的结果**一定不相等**?"
+        options:
+          - "`'a' + 'b'` 与 `'ab'`"
+          - "`'\\n'` 与 `r'\\n'`"
+          - "`\"hello\"` 与 `'hello'`"
+          - "`'a' * 3` 与 `'aaa'`"
+        answerIndex: 1
+        rationale: { $ref: ./ri-2.rationale.md }
+  - id: ri.string.basics.3
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-3.explanation.md }
+      question:
+        stem: "执行 `s = 'hello'` 后,再执行 `s += '!'`。下列描述**最准确**的是?"
+        options:
+          - "'hello' 字符串对象在内存中被原地修改成 'hello!',s 仍指向同一个对象"
+          - "Python 创建一个新字符串 'hello!',让 s 指向它;原 'hello' 对象等待被回收"
+          - "Python 把 '!' 追加到 s 引用的字符串末尾(类似 list.append)"
+          - "TypeError,字符串不支持 += 操作"
+        answerIndex: 1
+        rationale: { $ref: ./ri-3.rationale.md }
+adaptivePatterns: [concept_check, free_recall]

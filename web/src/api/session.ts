@@ -8,6 +8,8 @@ import type {
   StartSessionResponse,
   SubmitResponseBody,
   SubmitResponseResult,
+  SwitchChapterRequest,
+  SwitchChapterResponse,
 } from '@whale-tutor/tutor-types';
 import { http } from './http';
 
@@ -61,6 +63,17 @@ export async function acknowledgeReviewLo(
 ): Promise<AcknowledgeReviewLoResponse> {
   const res = await http.post<AcknowledgeReviewLoResponse>(
     `/sessions/${sessionId}/acknowledge-review-lo`,
+  );
+  return res.data;
+}
+
+export async function switchChapter(
+  sessionId: number,
+  body: SwitchChapterRequest,
+): Promise<SwitchChapterResponse> {
+  const res = await http.post<SwitchChapterResponse>(
+    `/sessions/${sessionId}/switch-chapter`,
+    body,
   );
   return res.data;
 }

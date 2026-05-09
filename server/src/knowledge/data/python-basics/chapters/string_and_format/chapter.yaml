@@ -1,0 +1,7 @@
+id: ch.string_and_format
+name: 字符串与格式化
+description: { $ref: ./description.md }
+learningObjectives:
+  - { $ref: ./los/string_basics/lo.yaml }
+  - { $ref: ./los/string_methods/lo.yaml }
+assessment: { $ref: ./assessment/assessment.yaml }

@@ -77,7 +77,6 @@ export default [
       '**/build/**',
       '**/coverage/**',
       '**/.vite/**',
-      'packages/cli-py/**',
       'packages/cli-node/_bundle/**',
       'pnpm-lock.yaml',
     ],

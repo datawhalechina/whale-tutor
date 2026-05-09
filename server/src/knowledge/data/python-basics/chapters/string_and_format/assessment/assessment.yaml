@@ -1,0 +1,29 @@
+id: ca.ch.string_and_format
+name: "字符串与格式化:综合检验"
+requiredInteractions:
+  - id: ca.string_and_format.1
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ca-1.explanation.md }
+      question:
+        stem: "已知 `s = 'hello'`,执行 `s.replace('l', 'L')` 之后,**`s` 自身**的值是?"
+        options:
+          - "'heLLo'(原对象被修改)"
+          - "'hello'(replace 返回新字符串,s 没变)"
+          - "TypeError,字符串不支持 replace"
+          - "None(replace 返回 None)"
+        answerIndex: 1
+        rationale: "字符串不可变,所有方法都返**新字符串**而不是修改原对象。要让 s 变,得 `s = s.replace(...)`。这是 list 用户经常被坑的地方(list.append 是 in-place,字符串方法都不是)。"
+  - id: ca.string_and_format.2
+    patternId: concept_check
+    prompt:
+      explanationMd: ""
+      question:
+        stem: "下列代码 `f'{2 + 3:>5}'` 输出是?"
+        options:
+          - "    5"
+          - "5    "
+          - "00005"
+          - "f'{2 + 3:>5}'  (f-string 不能这么用,会报错)"
+        answerIndex: 0
+        rationale: "f-string 里 `{...:format_spec}` 中,`:` 后是格式说明。`>5` 表示宽度 5 + 右对齐(默认填空格)。`2 + 3` 求值为 5,占 1 字符,前面补 4 个空格 = `'    5'`。"

@@ -1,0 +1,52 @@
+id: lo.sql.select_clauses
+name: SELECT 子句基础
+description: SELECT / FROM / DISTINCT / 列别名 / 计算列 / ORDER BY 的基本写法
+prerequisites: []
+estimatedDurationMin: 20
+difficultyBand: beginner
+coreExplanation: { $ref: ./core-explanation.md }
+commonMisconceptions:
+  - "SELECT 关键字大小写敏感(实际不敏感,关键字大写只是社区惯例)"
+  - "SELECT 后必须是列名,不能是表达式(实际可以是任意 SQL 表达式,如 `salary * 12`)"
+  - "DISTINCT 只对单列去重(实际是对 SELECT 列表里所有列**组合**去重)"
+  - "ORDER BY 必须排在 SELECT 之前(实际 SQL 子句顺序固定:SELECT → FROM → WHERE → ORDER BY)"
+masteryCriteria: 能写带列别名 + 计算列的 SELECT;能用 ORDER BY 多列排序;能解释 DISTINCT 行为
+requiredInteractions:
+  - id: ri.sql.select_clauses.1
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-1.explanation.md }
+      question:
+        stem: "下列哪个 SQL 语句**最准确**地完成「从 employees 表选出所有员工的姓名」?"
+        options:
+          - "GET name FROM employees"
+          - "SELECT name FROM employees"
+          - "FROM employees SELECT name"
+          - "QUERY employees.name"
+        answerIndex: 1
+        rationale: { $ref: ./ri-1.rationale.md }
+    hints:
+      - "SQL 查询的最基本结构是两个关键字:一个说'选什么',一个说'从哪个表'"
+      - "关键字顺序固定:**先 SELECT 写要选的列,后 FROM 写表名**"
+  - id: ri.sql.select_clauses.2
+    patternId: concept_check
+    prompt:
+      explanationMd: { $ref: ./ri-2.explanation.md }
+      question:
+        stem: "已知 employees 表有 salary 列(月薪)。下列哪条 SQL 返回**每个员工的年薪**(月薪 × 12),且把结果列名为 `annual_salary`?"
+        options:
+          - "SELECT annual_salary FROM employees WHERE salary * 12"
+          - "SELECT salary * 12 AS annual_salary FROM employees"
+          - "SELECT annual_salary = salary * 12 FROM employees"
+          - "SELECT salary FROM employees AS annual_salary"
+        answerIndex: 1
+        rationale: { $ref: ./ri-2.rationale.md }
+  - id: ri.sql.select_clauses.3
+    patternId: free_recall
+    prompt:
+      promptMd: { $ref: ./ri-3.prompt.md }
+      rubricKeyPoints:
+        - "提到完整 SELECT 语句:`SELECT name, price * 1.1 AS new_price FROM products`(允许细微变体如 price * 1.10)"
+        - "解释 `price * 1.1` 是计算列 / 表达式,对每行算"
+        - "说明 `AS new_price` 给结果列起别名,后续输出该列名为 new_price 而非 'price * 1.1'"
+adaptivePatterns: [concept_check, free_recall]

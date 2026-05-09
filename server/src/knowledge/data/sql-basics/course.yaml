@@ -1,0 +1,7 @@
+id: sql-basics
+name: SQL 基础
+subject: SQL                       # ★ 影响所有 AI prompt:"你是 SQL 教学助手..."
+description: { $ref: ./course-description.md }
+chapters:
+  - { $ref: ./chapters/select_and_filter/chapter.yaml }
+  - { $ref: ./chapters/joins/chapter.yaml }
