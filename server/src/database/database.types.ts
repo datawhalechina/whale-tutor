@@ -76,6 +76,8 @@ export interface InteractionsTable {
   pattern_id: string;
   source: 'static' | 'adaptive';
   required_interaction_id: string | null;
+  // v0.2:adaptive 题对原 RI 的引用,答对此题视为原 RI 通关
+  parent_required_interaction_id: string | null;
   prompt_payload: Json;
   expected: JsonNullable;
   created_at: Datetime;
@@ -118,6 +120,8 @@ export interface LearnerStateTable {
   consecutive_correct: number;
   consecutive_wrong: number;
   mandatory_completed_ids: JsonNullable<string[]>;
+  // v0.2:在 retry 模式时记录原 RI;非空 → decideNext 优先出 adaptive
+  pending_retry_ri_id: string | null;
   last_seen_at: DatetimeNullable;
   updated_at: Datetime;
 }

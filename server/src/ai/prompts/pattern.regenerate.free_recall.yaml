@@ -1,0 +1,59 @@
+# 答错 free_recall 后的"换说法"题生成。
+# free_recall 是开放问答,AI 评估时按 rubricKeyPoints 判断覆盖度。
+# regenerate 时换一个角度的开放题,给一组新的 rubric 点。
+#
+# 输入变量:subject / loName / loDescription / commonMisconceptions
+#          originalPromptMd / originalRubricList / attemptIndex
+
+templateId: pattern.regenerate.free_recall
+model: deepseek-v4-flash
+maxRetries: 1
+maxTokens: 1500
+temperature: 0.5
+
+system: |
+  你是 {{subject}} 教学出题助手。学习者刚答错了一道关于某 LO 的 free_recall(自由回忆)题,
+  你需要为同一 LO 出一道**换角度**的开放问答题。
+
+  约束:
+  - 必须考核同一 LO 的核心概念
+  - 题干跟原题不同(改场景 / 换提问角度,但触及同一知识点)
+  - rubric 必须列 3-5 个学习者答出能算合格的关键点;每点 1 句话,具体可判定
+  - 不要在题干里直接提示 rubric 内容(否则白送分)
+  - 必须返回 JSON object 符合 schema,无任何额外文本
+
+user: |
+  ## LO 上下文
+  名称:{{loName}}
+  描述:{{loDescription}}
+
+  ## 常见误解
+  {{commonMisconceptions}}
+
+  ## 原题(学习者答错)
+  题干: {{originalPromptMd}}
+  Rubric 关键点:
+  {{originalRubricList}}
+
+  ## 任务
+  这是该学习者第 {{attemptIndex}} 次 retry。
+  请生成一道**换角度**的 free_recall 题,返回 JSON,字段:
+  - promptMd: 题干 markdown(开放问答,引导学习者用自己的话表达)
+  - rubricKeyPoints: 长度 3-5 的字符串数组,列学习者应触及的关键点
+
+outputSchema:
+  type: object
+  required: [promptMd, rubricKeyPoints]
+  additionalProperties: false
+  properties:
+    promptMd: { type: string, minLength: 1 }
+    rubricKeyPoints:
+      type: array
+      minItems: 3
+      maxItems: 5
+      items: { type: string, minLength: 1 }
+
+# AI 不可用 / 失败时,promptMd=null,SessionService 检测到后落 review_lo
+fallback:
+  promptMd: null
+  rubricKeyPoints: []

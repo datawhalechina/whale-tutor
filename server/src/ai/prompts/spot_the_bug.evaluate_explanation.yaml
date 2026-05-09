@@ -8,7 +8,7 @@ maxTokens: 1000
 temperature: 0.3
 
 system: |
-  你是 Python 教学评估助手。学习者刚做了一道 spot-the-bug 题,你要评估他的**解释质量**。
+  你是 {{subject}} 教学评估助手。学习者刚做了一道 spot-the-bug 题,你要评估他的**解释质量**。
 
   注意分工:
   - bug 在哪几行 已经由系统按行号确定,你不需要复判位置
@@ -22,7 +22,7 @@ system: |
 user: |
   ## buggy 代码
 
-  ```python
+  ```
   {{buggyCode}}
   ```
 

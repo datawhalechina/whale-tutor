@@ -1,0 +1,81 @@
+# 答错 code_sandbox 后的"换说法"题生成。
+# code_sandbox 出题最难(starterCode + testCases 必须 e2e 可跑),
+# 输出过 server-side sanity check;失败就走 review_lo。
+#
+# 输入变量:subject / loName / loDescription / commonMisconceptions
+#          originalPromptMd / originalStarterCode / originalTestCases / attemptIndex
+
+templateId: pattern.regenerate.code_sandbox
+model: deepseek-v4-flash
+maxRetries: 1
+maxTokens: 2000
+temperature: 0.4
+
+system: |
+  你是 {{subject}} 教学出题助手。学习者刚答错了一道 code_sandbox 编程题,
+  你需要为同一 LO 出一道**换情境**的编程题。
+
+  约束(严格):
+  - promptMd:题目描述,markdown 格式,简洁说明要写什么函数/逻辑(2-4 句)
+  - starterCode:学习者起手代码,包含函数签名/变量框架,但学习者要填的部分用 `pass` 或注释
+  - starterCode 必须只包含 {{subject}} 代码,不要额外的解释
+  - testCases:1-3 个测试用例,每个 testCase:
+      * setupCode:**学习者代码执行后**会执行的片段,**必须用 `print(...)` 输出结果**
+      * expectedOutput:**精确匹配** `setupCode` 应输出的字符串(trim 后比较)
+      * setupCode 必须假定学习者代码已经定义好函数/变量,直接调用即可
+  - description 字段可选(展示给学习者看的测试名)
+  - 不要在 starterCode 里直接写答案
+  - 必须返回 JSON object 符合 schema,无任何额外文本
+
+user: |
+  ## LO 上下文
+  名称:{{loName}}
+  描述:{{loDescription}}
+
+  ## 常见误解
+  {{commonMisconceptions}}
+
+  ## 原题(学习者答错)
+  ### 题面
+  {{originalPromptMd}}
+
+  ### starter code
+  ```
+  {{originalStarterCode}}
+  ```
+
+  ### 测试用例
+  {{originalTestCases}}
+
+  ## 任务
+  这是该学习者第 {{attemptIndex}} 次 retry。生成一道**换情境**的 code_sandbox 题,
+  返回 JSON,字段:
+  - promptMd: 题面(markdown)
+  - starterCode: 起手代码(纯代码字符串,带 `\n` 换行)
+  - testCases: 数组,每项 { setupCode: 含 print() 的调用代码, expectedOutput: 期望字符串, description?: 测试名 }
+
+outputSchema:
+  type: object
+  required: [promptMd, starterCode, testCases]
+  additionalProperties: false
+  properties:
+    promptMd: { type: string, minLength: 1 }
+    starterCode: { type: string, minLength: 1 }
+    testCases:
+      type: array
+      minItems: 1
+      maxItems: 3
+      items:
+        type: object
+        required: [setupCode, expectedOutput]
+        additionalProperties: false
+        properties:
+          description: { type: string }
+          setupCode: { type: string, minLength: 1 }
+          expectedOutput: { type: string, minLength: 1 }
+
+# AI 失败 / sanity check 不过 → starterCode=null → review_lo 兜底
+fallback:
+  promptMd: ""
+  starterCode: null
+  testCases: []

@@ -83,6 +83,7 @@ export class LearnerService {
       consecutiveWrong: 0,
       mandatoryCompletedIds: [],
       mandatoryAllCompleted: false,
+      pendingRetryRiId: null,
       lastSeenAt: null,
       updatedAt: new Date().toISOString(),
     };
@@ -100,6 +101,8 @@ export class LearnerService {
     consecutiveCorrect: number;
     consecutiveWrong: number;
     mandatoryCompletedIds: string[];
+    // v0.2:retry 模式上下文。null 表示清空(脱离 retry,正常前进)
+    pendingRetryRiId: string | null;
     requiredInteractionTotal: number;
   }): Promise<LearnerLoState> {
     await this.db
@@ -113,6 +116,7 @@ export class LearnerService {
         consecutive_correct: input.consecutiveCorrect,
         consecutive_wrong: input.consecutiveWrong,
         mandatory_completed_ids: JSON.stringify(input.mandatoryCompletedIds),
+        pending_retry_ri_id: input.pendingRetryRiId,
         last_seen_at: sql`CURRENT_TIMESTAMP(3)`,
       })
       .where('learner_id', '=', input.learnerId)
@@ -147,6 +151,7 @@ function rowToLoState(
     mandatoryAllCompleted:
       requiredInteractionTotal > 0 &&
       mandatoryIds.length >= requiredInteractionTotal,
+    pendingRetryRiId: row.pending_retry_ri_id,
     lastSeenAt: row.last_seen_at ? row.last_seen_at.toISOString() : null,
     updatedAt: row.updated_at.toISOString(),
   };

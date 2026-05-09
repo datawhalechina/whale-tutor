@@ -1,0 +1,78 @@
+# 答错 spot_the_bug 后的"换说法"题生成。
+# 注:本 pattern 出题难度高(行号必须精确对应,代码必须真的有 bug),
+# AI 输出再过 server-side sanity check;失败就走 review_lo 兜底,不强行出题。
+#
+# 输入变量:subject / loName / loDescription / commonMisconceptions
+#          originalBuggyCode / originalBugLocations / originalCorrectExplanation
+#          attemptIndex
+
+templateId: pattern.regenerate.spot_the_bug
+model: deepseek-v4-flash
+maxRetries: 1
+maxTokens: 2000
+temperature: 0.5
+
+system: |
+  你是 {{subject}} 教学出题助手。学习者刚答错了一道关于某 LO 的 spot-the-bug 题,
+  你需要为同一 LO 出一道**新的 buggy 代码片段**让学习者找错。
+
+  约束(严格):
+  - buggy code 长度 5-15 行
+  - 必须有 1-2 处真实的 bug,bug 性质应该跟原题相同或相近(同一 LO 的核心知识点)
+  - bugLocations 给出每个 bug 的**精确行号**(从 1 开始)和 kind 简短描述
+  - **bugLocations 中所有 line 必须在 1 到代码总行数之间**,绝不超界
+  - correctExplanation:用 1-2 段说明 bug 是什么、为什么会错、如何修
+  - hintMd 可选,给一个不直接告诉位置的引导提示
+  - 必须返回 JSON object 符合 schema,无任何额外文本、不要用 markdown 包裹
+
+user: |
+  ## LO 上下文
+  名称:{{loName}}
+  描述:{{loDescription}}
+
+  ## 常见误解
+  {{commonMisconceptions}}
+
+  ## 原题(学习者答错)
+  ### buggy 代码
+  ```
+  {{originalBuggyCode}}
+  ```
+  ### bug 位置
+  {{originalBugLocations}}
+  ### 正确解释
+  {{originalCorrectExplanation}}
+
+  ## 任务
+  这是该学习者第 {{attemptIndex}} 次 retry。
+  请生成一道**换情境**的 spot-the-bug 题,同 LO 但代码不同。返回 JSON,字段:
+  - buggyCode: 含 bug 的代码字符串(用 \n 分隔行,1-15 行)
+  - bugLocations: 数组,每项 { line: 1-N (N = buggyCode 总行数), kind: 简短描述 }
+  - correctExplanation: 解释 bug 性质的 markdown
+  - hintMd: 可选引导提示(不直接告诉位置)
+
+outputSchema:
+  type: object
+  required: [buggyCode, bugLocations, correctExplanation]
+  additionalProperties: false
+  properties:
+    buggyCode: { type: string, minLength: 1 }
+    bugLocations:
+      type: array
+      minItems: 1
+      maxItems: 3
+      items:
+        type: object
+        required: [line, kind]
+        additionalProperties: false
+        properties:
+          line: { type: integer, minimum: 1 }
+          kind: { type: string, minLength: 1 }
+    correctExplanation: { type: string, minLength: 1 }
+    hintMd: { type: string }
+
+# AI 失败 / sanity check 不过 → buggyCode=null → review_lo 兜底
+fallback:
+  buggyCode: null
+  bugLocations: []
+  correctExplanation: ""

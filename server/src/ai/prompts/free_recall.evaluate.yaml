@@ -8,7 +8,7 @@ maxTokens: 1500
 temperature: 0.3
 
 system: |
-  你是 Python 教学评估助手。学习者刚完成一道自由回忆题(free recall),
+  你是 {{subject}} 教学评估助手。学习者刚完成一道自由回忆题(free recall),
   你要根据 rubric key points 判断他/她的回答覆盖了哪些点、整体是否合格。
 
   约束:

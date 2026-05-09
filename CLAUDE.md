@@ -6,9 +6,9 @@
 
 Whale Tutor 是一个 **AI 驱动的交互式学习陪伴产品**,不是 "AI 生成的课程"。核心差异：动态路径、个体化记忆、可重新进入、产物可带走。
 
-完整产品理念与教育学第一性原理见 [notes/background_1.md](notes/background_1.md) / [notes/background_2.md](notes/background_2.md) / [notes/background_3.md](notes/background_3.md)。完整工程架构（4 层 18 模块）见 [notes/plan.md](notes/plan.md)。
+完整产品理念与教育学第一性原理见 [notes/background_1.md](notes/background_1.md) / [notes/background_2.md](notes/background_2.md) / [notes/background_3.md](notes/background_3.md)。完整工程架构（4 层 18 模块）见 [notes/plan.md](notes/plan.md)。**v0.2 完成后的运行时业务逻辑详解(状态机 / decideNext / DB 写入语义 / event 映射)见 [notes/orchestrator.md](notes/orchestrator.md)** — 跨模块改动前必读。
 
-**当前阶段:v0 骨架闭环 ✅ 已跑通**(单人开发)。前后端 + AI Gateway + Pyodide + QA 全部 e2e 验证通过。范围、决策、分阶段设计见 [plan 文件](C:/Users/gyh/.claude/plans/readme-md-mvp-notes-3-background-md-luminous-shannon.md);**实际实现清单与 v0.2 路线图见本文件末尾**。
+**当前阶段:v0.2 智能编排闭环 ✅ 已跑通**(单人开发,2026-05-08)。在 v0 基础上接通 PathOrchestrator 答错→换说法 / review_lo 兜底 / hint 折扣 / `subject` 学科参数化,4 种 pattern 全部支持 adaptive `generate`。范围、决策、分阶段设计见 [plan 文件](C:/Users/gyh/.claude/plans/readme-md-mvp-notes-3-background-md-luminous-shannon.md);**v0 / v0.2 实际实现清单与 v0.3 路线图见本文件末尾**。
 
 ## 技术栈
 
@@ -406,8 +406,10 @@ bundle 自身不入 git(`.gitignore` 各自排除 `_bundle/`)。cli-py 用 hatch
 - ✅ **LO Intro 教学环节** — 进入新 LO 先显示核心讲解,点"开始练习"才进题
 - ✅ **4 种 Pattern Card** — ConceptCheckCard / CodeSandboxCard / SpotTheBugCard / FreeRecallCard
 - ✅ **Pyodide Web Worker** — classic worker + importScripts 加载 CDN,HomeView 进入时预热
-- ✅ **答错重做 UX** — "再试一次"文案 + warning 色 + retry hint(server 行为不变,纯 UI)
+- ✅ **答错重做 UX** — 按 next decision 分流文案("换种说法再试一道" / "去看讲解" / "查看结果" / "下一题")+ warning 色
 - ✅ **QA Drawer** — 右侧滑出,markdown 消息 + Ctrl+Enter 发送 + 单 thread 追问 + 结束此次提问
+- ✅ **HintBar(v0.2)** — 题目上方"求提示"按钮,展开折叠展示已用 hints,章末测试隐藏
+- ✅ **Review-LO overlay(v0.2)** — server 返 review_lo decision 时全屏 LoIntroCard 兜底,"我看完了" → ack endpoint
 
 ### 内容
 - ✅ Python 基础 / 列表与迭代 — 4 个 LO 全部完整内容(YAML + 含教学讲解的 .md):`list.basics` / `list.indexing` / `list.mutation` / `iter.for_over_list`
@@ -423,62 +425,82 @@ bundle 自身不入 git(`.gitignore` 各自排除 `_bundle/`)。cli-py 用 hatch
   - cli-py: 干净 venv `pip install -e .` → init → doctor 全绿 → start 自动 schema + :3000 + 开浏览器
   - cli-node: `npm install` → 直接 `node bin/cli.mjs init / doctor / start --no-open` → :3000 同样可用
 
-### 跳过 / 占位的(v0.2 路线图)
+## v0.2 已实现清单(2026-05-08 更新)
 
-下一段路线图详列。
+详细业务逻辑(状态机 / decideNext / DB 写入 / event 映射)见 [notes/orchestrator.md](notes/orchestrator.md)。
 
-## v0.2 路线图
+### StuckProtocol(梯度提示)
+- ✅ **新 endpoint** `POST /api/sessions/:id/hints { interactionId, targetLevel }`
+- ✅ **静态优先 + AI 兜底**:作者在 RI yaml 写 `hints: [...]`(1-5 元素)直接返;没写则 AI Gateway `pattern.hint` 一次生成 3 级,按 RI id `Map<riId, Promise<string[]>>` in-memory cache 防并发重复
+- ✅ **`responses.hint_level`** 由 submit 自动接入(前端 store `currentHintLevel` 注入 body)
+- ✅ **章末测试 UI 隐藏 hint button**(server 不强制,前端按 chapter phase 切)
+- ✅ **events 发射** `hint.requested` / `hint.served`
+
+### PathOrchestrator 智能化
+- ✅ **Schema 变更**(改 [01-schema.sql](db/init/01-schema.sql) + db:reset):`learner_state.pending_retry_ri_id` + `interactions.parent_required_interaction_id`
+- ✅ **Mastery 状态机重写** — hint 折扣(用 hint 答对不增 cc) + adaptive 答对归属原 RI(parent → mandatoryCompletedIds) + retry 状态推进 + chapter assessment 不参与 retry(`enableRetry: false`)
+- ✅ **decideNext Rule 0** — `pending != null && cw < 3` → adaptive;`cw >= 3` → review_lo
+- ✅ **`Pattern.generate`** 4 个 pattern 全部实现 + 4 个新 prompt yaml(`pattern.regenerate.{concept_check,free_recall,spot_the_bug,code_sandbox}`)
+- ✅ **Sanity check** — spot_the_bug 验 bug line ≤ 代码行数;code_sandbox 验 setupCode 含 `print(`、expectedOutput 非空
+- ✅ **Review-LO 兜底** — `POST /api/sessions/:id/acknowledge-review-lo` 清 cw + pending,decideNext 重算回到原 RI
+- ✅ **AI 失败自动降级** — generate 返 null → `lo.regressed{no_generator}` + decision 降级 review_lo
+- ✅ **events 发射** `lo.regressed`(以前未发,现在两种 reason:`no_generator` / `review_lo_acknowledged`)
+
+### 学科参数化
+- ✅ **`CourseDefinition.subject`** 字段(server-only,Public Course Omit 掉),`course.yaml` 顶层必填
+- ✅ **所有 8 个 prompt yaml** 用 `{{subject}}` 变量(原本 hardcoded "Python");caller 全部从 `KnowledgeService.getSubjectByLoId/RiId` 取
+- ✅ **代码 fence 去 language**(`spot_the_bug.evaluate_explanation` 等),让 prompt 学科无关
+
+### 类型系统
+- ✅ **Public 类型派生**(`Course = Omit<CourseDefinition, 'chapters' | 'subject'> & {chapters: Chapter[]}` 等),Definition 加字段会强迫 reviewer 思考要不要进 Public
+
+## v0.3 路线图
 
 按教学价值排序。带 ⭐ 的是 plan §"留给 v0.2 / v1 的接口"中已铺好接口的项。
 
 ### 高优先级(核心教学价值)
 
-1. **PathOrchestrator 智能化** ⭐
-   - 当前 v0 答错→重发同题。plan §决策表的 `wrong | exposed | practicing | mastered` 各分支均未实现
-   - 需要新 prompt template `concept_check.regenerate`(拿原 ri 的 commonMisconceptions / coreExplanation 上下文,生成"换说法的同 LO 题")
-   - PathOrchestrator 加 `wrong` 分支:`exposed wrong → 换说法` / `practicing wrong → 提示后重试` / `mastered wrong×2 → 降级`
-   - 这一步同时激活 `interactions.source='adaptive'` 完整路径(目前所有 interaction 都是 static)
-
-2. **StuckProtocol 真实实现** ⭐
-   - `responses.hint_level` 字段已铺(0-4),api-contracts 中 `RequestHintRequest/Response` 已设计,无 endpoint
-   - 加 4 级梯度提示(引导问题 → 概念提示 → 部分解答 → 完整解答),前端"求提示"按钮
-
-3. **Diagnostic Engine + Onboarding** ⭐
+1. **Diagnostic Engine + Onboarding** ⭐
    - 进入新 learner 时先做 3-5 道诊断,定起始 LO 状态(避免 mastered 学习者从 untouched 重新走)
    - api-contracts 中 `GetDiagnosticResponse` / `SubmitDiagnosticRequest` 已设计
 
-4. **Archive Generator(章末/课末档案)**
+2. **Archive Generator(章末/课末档案)**
    - 从 events 流派生学习者个人 markdown 档案 — 章末由 AI Gateway 改写为漂亮的"我学了什么"
    - 包含 QA 内容(plan 设计中明确说 QA 进档案)
    - 多种导出格式留 v1(Anki / Cheat Sheet / Notebook)
 
+3. **课程作者工具**
+   - `whale-tutor lint` — 复用 KnowledgeService loader + ajv,在 cli 侧报具体行号 / 字段错误
+   - `whale-tutor build`(可选)— 从原始 markdown + manifest 半自动生成 LO/RI 骨架,留待小白教程定义清楚 input 形式后再做
+
 ### 中优先级(B 端价值)
 
-5. **Educator Dashboard + 班级管理** ⭐
+4. **Educator Dashboard + 班级管理** ⭐
    - 班级 / 班主任 / 学员名单 CSV 上传
    - LO 级 mastery 汇总 + 班级薄弱点
    - 100 人 MVP 真实部署前的关键能力
 
-6. **认证系统** ⭐
+5. **认证系统** ⭐
    - users 表骨架已铺,`learners.user_id` 字段为 v0.2 关联留接口
    - 邮箱登录最简版即可,不做手机/SSO
 
-7. **延迟检验调度 + Notification**
+6. **延迟检验调度 + Notification**
    - 1 周/1 月后的 mini quiz,需要 cron + 邮件
    - `assessments.type = 'delayed'` 字段已就位
 
 ### 低优先级(打磨 / 防漏)
 
-8. **Lazy serve interaction** — 当前 `SessionService.start()` 立即创建第一道 interaction(LO Intro 阶段也创建了 row)。改为前端点"开始练习"才调 `POST /sessions/:id/serve-next` 创建,避免"幽灵 interaction"。v0 临时修复:archive 过滤无 response 的 row + start 时 abandon 之前 active session
-9. **代码沙盒服务端 re-run** — 现在前端 `runResults` 可被伪造,v0 不防作弊;v1 上 docker python sandbox 复跑校验
+7. **Lazy serve interaction** — 当前 `SessionService.start()` 立即创建第一道 interaction(LO Intro 阶段也创建了 row)。改为前端点"开始练习"才调 `POST /sessions/:id/serve-next` 创建,避免"幽灵 interaction"
+8. **代码沙盒服务端 re-run** — 现在前端 `runResults` 可被伪造,不防作弊;v1 上 docker python sandbox 复跑校验
 9. **代码编辑器升级** — textarea → codemirror/monaco(语法高亮 + 缩进辅助)
 10. **跨 session 主动接住** — `lookupLearnerId` 已实现,但"距上次 > 24h 自动插激活题"逻辑未做
 11. **AI 调用关联性补全** — `qa_messages.ai_call_id` 当前全 null;让 AI Gateway 返 callId,补关联
 12. **Pyodide 命名空间隔离改进** — 当前每次跑 testCase 重置 globals,但 import 的 module 残留;考虑 worker reset
+13. **`assessment_completed_ids` 名空间隔离** — 章末 RI id 当前会写进 LO 的 `mandatory_completed_ids`(v0 行为,无害但脏);v0.3 清理
 
-### v1 起规划(不在 v0.2)
+### v1 起规划(不在 v0.3)
 
-- 多课程支持(SQL / Pandas / PyTorch),跨课程能力图谱迁移
+- 多课程支持(SQL / Pandas / PyTorch),跨课程能力图谱迁移 — `subject` 参数化已铺底
 - 群体智能(基于事件流的"哪种路径效果好"分析)
 - Pattern 自动选择策略(基于群体数据训练,替换规则状态机)
 - 多模态(白板 / 视觉化 / 录屏分析)
@@ -490,4 +512,5 @@ bundle 自身不入 git(`.gitignore` 各自排除 `_bundle/`)。cli-py 用 hatch
 - `qa_messages.ai_call_id` 当前总为 null
 - mastery 状态机的 `applied` 等级目前理论存在但无路径触发
 - v0 demo learner 硬编码 `id=1`,加认证后才能去掉
-- `commonMisconceptions` 字段是 server-only 但目前 v0 未在 prompt 中真正利用,要等 PathOrchestrator 智能化才发挥价值
+- adaptive 题不缓存(每次 retry 都重调 AI),成本随 retry 频次线性增长
+- `mandatory_completed_ids` 章末 RI id 名空间污染(见 [notes/orchestrator.md](notes/orchestrator.md) §10)

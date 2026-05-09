@@ -1,11 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type {
+  BugLocation,
   EvaluationResult,
+  LearningObjectiveDefinition,
   SpotTheBugPrompt,
   SpotTheBugPromptForLearner,
   SpotTheBugResponse,
 } from '@whale-tutor/tutor-types';
 import { AiGatewayService } from '../../ai/ai-gateway.service';
+import type { GenerateContext } from '../pattern.registry';
 
 interface SpotBugAiOutput {
   explanationQuality: 'good' | 'partial' | 'wrong';
@@ -13,8 +16,17 @@ interface SpotBugAiOutput {
   feedbackMd: string;
 }
 
+interface SpotBugGenerateOutput {
+  buggyCode: string | null;
+  bugLocations: BugLocation[];
+  correctExplanation: string;
+  hintMd?: string;
+}
+
 @Injectable()
 export class SpotTheBugPattern {
+  private readonly logger = new Logger(SpotTheBugPattern.name);
+
   constructor(private readonly ai: AiGatewayService) {}
 
   toLearnerPrompt(prompt: SpotTheBugPrompt): SpotTheBugPromptForLearner {
@@ -35,7 +47,7 @@ export class SpotTheBugPattern {
   async evaluate(
     prompt: SpotTheBugPrompt,
     response: SpotTheBugResponse,
-    context?: { sessionId?: number },
+    context: { sessionId?: number; subject: string },
   ): Promise<EvaluationResult> {
     // Phase 1: 确定性行号匹配
     const expectedLines = new Set(prompt.bugLocations.map((loc) => loc.line));
@@ -51,6 +63,7 @@ export class SpotTheBugPattern {
     const aiOutput = await this.ai.complete<SpotBugAiOutput>({
       templateId: 'spot_the_bug.evaluate_explanation',
       variables: {
+        subject: context.subject,
         buggyCode: prompt.buggyCode,
         bugKindList,
         correctExplanation: prompt.correctExplanation,
@@ -95,5 +108,66 @@ export class SpotTheBugPattern {
       hintLevelUsed: 0,
       evaluatorKind: 'hybrid',
     };
+  }
+
+  /**
+   * v0.2:答错后生成"换情境"的 spot_the_bug 题。
+   *
+   * 出题门槛高(行号必须精确对应代码,代码必须真有 bug),所以除 AI 输出 schema 校验外,
+   * 还要过 server-side sanity check:bugLocations.line 必须在 1..buggyCode 行数 范围内。
+   * 任一失败 → 返 null → SessionService 落 review_lo。
+   */
+  async generate(
+    originalPrompt: SpotTheBugPrompt,
+    lo: LearningObjectiveDefinition,
+    ctx: GenerateContext,
+  ): Promise<SpotTheBugPrompt | null> {
+    const output = await this.ai.complete<SpotBugGenerateOutput>({
+      templateId: 'pattern.regenerate.spot_the_bug',
+      variables: {
+        subject: ctx.subject,
+        loName: lo.name,
+        loDescription: lo.description,
+        commonMisconceptions:
+          lo.commonMisconceptions.length > 0
+            ? lo.commonMisconceptions.map((m) => `- ${m}`).join('\n')
+            : '(无)',
+        originalBuggyCode: originalPrompt.buggyCode,
+        originalBugLocations: originalPrompt.bugLocations
+          .map((b) => `- 第 ${b.line} 行: ${b.kind}`)
+          .join('\n'),
+        originalCorrectExplanation: originalPrompt.correctExplanation,
+        attemptIndex: ctx.attemptIndex,
+      },
+      sessionId: ctx.sessionId ?? null,
+      callerTag: 'pattern.spot_the_bug.regenerate',
+    });
+
+    if (!output.buggyCode || output.bugLocations.length === 0) {
+      this.logger.log(
+        `spot_the_bug.regenerate for LO ${lo.id}: AI fallback (null/empty) — review_lo`,
+      );
+      return null;
+    }
+
+    // Sanity check:每个 bug line 必须落在代码行数范围内
+    const lineCount = output.buggyCode.replace(/\n$/, '').split('\n').length;
+    const allLinesValid = output.bugLocations.every(
+      (b) => b.line >= 1 && b.line <= lineCount && b.kind.trim().length > 0,
+    );
+    if (!allLinesValid) {
+      this.logger.warn(
+        `spot_the_bug.regenerate sanity check failed: bugLocations out of [1..${lineCount}] for LO ${lo.id} — review_lo`,
+      );
+      return null;
+    }
+
+    const result: SpotTheBugPrompt = {
+      buggyCode: output.buggyCode,
+      bugLocations: output.bugLocations,
+      correctExplanation: output.correctExplanation,
+    };
+    if (output.hintMd) result.hintMd = output.hintMd;
+    return result;
   }
 }

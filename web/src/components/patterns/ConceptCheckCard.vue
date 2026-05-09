@@ -14,8 +14,13 @@ const props = defineProps<{
 }>();
 
 const sessionStore = useSessionStore();
-const { lastEvaluation, showFeedback, pendingNextInteraction, loading } =
-  storeToRefs(sessionStore);
+const {
+  lastEvaluation,
+  showFeedback,
+  pendingNextInteraction,
+  currentDecision,
+  loading,
+} = storeToRefs(sessionStore);
 
 // el-radio-group 的 v-model 类型不接 null,所以用 undefined 表示"未选"
 const selected = ref<number | undefined>(undefined);
@@ -39,14 +44,26 @@ const isLastInChapter = computed(
   () => showFeedback.value && pendingNextInteraction.value === null,
 );
 
-// v0:server PathOrchestrator 答错时返回同一道 ri(因为 mandatoryCompletedIds 不加),
-// 前端通过 evaluation.correct=false 识别"重做"状态。
+// 答错(任何类型) — 反馈区显示 warning 色,按钮也变 warning。
+//   v0:复发同 RI;v0.2:server 改成发 adaptive 换说法题 / review_lo 兜底
+// 保留同名,语义改成"上一道题答错"。
 const isRetrySameRi = computed(
   () => showFeedback.value && lastEvaluation.value?.correct === false,
 );
+// v0.2 细分按钮文案:
+const isAdaptiveRetry = computed(
+  () =>
+    isRetrySameRi.value &&
+    pendingNextInteraction.value?.source === 'adaptive',
+);
+const isReviewLoNext = computed(
+  () =>
+    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
+);
 
 const continueButtonLabel = computed(() => {
-  if (isRetrySameRi.value) return '再试一次';
+  if (isReviewLoNext.value) return '去看讲解';
+  if (isAdaptiveRetry.value) return '换种说法再试一道';
   if (isLastInChapter.value) return '查看结果';
   return '下一题';
 });

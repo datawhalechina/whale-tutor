@@ -16,8 +16,13 @@ const props = defineProps<{
 }>();
 
 const sessionStore = useSessionStore();
-const { lastEvaluation, showFeedback, pendingNextInteraction, loading } =
-  storeToRefs(sessionStore);
+const {
+  lastEvaluation,
+  showFeedback,
+  pendingNextInteraction,
+  currentDecision,
+  loading,
+} = storeToRefs(sessionStore);
 const pyodideStore = usePyodideStore();
 const { status: pyodideStatus, errorMessage: pyodideError } =
   storeToRefs(pyodideStore);
@@ -56,8 +61,18 @@ const isLastInChapter = computed(
 const isRetrySameRi = computed(
   () => showFeedback.value && lastEvaluation.value?.correct === false,
 );
+const isAdaptiveRetry = computed(
+  () =>
+    isRetrySameRi.value &&
+    pendingNextInteraction.value?.source === 'adaptive',
+);
+const isReviewLoNext = computed(
+  () =>
+    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
+);
 const continueButtonLabel = computed(() => {
-  if (isRetrySameRi.value) return '再试一次';
+  if (isReviewLoNext.value) return '去看讲解';
+  if (isAdaptiveRetry.value) return '换种说法再试一道';
   if (isLastInChapter.value) return '查看结果';
   return '下一题';
 });

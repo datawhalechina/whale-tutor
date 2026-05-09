@@ -342,9 +342,17 @@ export class QaService {
             )
             .join('\n\n---\n\n');
 
+    // qa.answer 是 session 级别的对话,subject 来自该 session 的 course。
+    // QA 可以发生在 LO 闲置时(input.loId=null),那时退一步从 session.course_id 取。
+    const subject = await this.resolveSubjectForSession(
+      input.sessionId,
+      input.loId,
+    );
+
     return await this.ai.complete<AiAnswer>({
       templateId: 'qa.answer',
       variables: {
+        subject,
         loContext,
         interactionContext,
         previousDialog,
@@ -353,6 +361,35 @@ export class QaService {
       sessionId: input.sessionId,
       callerTag: 'qa.answer',
     });
+  }
+
+  /**
+   * subject 解析:优先 LO → 课程;LO 缺失时回退到 session.course_id → 课程。
+   */
+  private async resolveSubjectForSession(
+    sessionId: number,
+    loId: string | null,
+  ): Promise<string> {
+    if (loId) {
+      try {
+        return this.knowledge.getSubjectByLoId(loId);
+      } catch {
+        // 落到 session 兜底
+      }
+    }
+    const session = await this.db
+      .selectFrom('sessions')
+      .select(['course_id'])
+      .where('id', '=', sessionId)
+      .executeTakeFirst();
+    if (session) {
+      try {
+        return this.knowledge.getCourseDefinition(session.course_id).subject;
+      } catch {
+        // 课程不存在(理论上不该发生),最终兜底
+      }
+    }
+    return '通用';
   }
 
   private formatLoContext(loId: string): string {

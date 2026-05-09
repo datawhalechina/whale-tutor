@@ -7,6 +7,7 @@ import {
   Post,
 } from '@nestjs/common';
 import type {
+  AcknowledgeReviewLoResponse,
   EndSessionResponse,
   GetSessionProgressResponse,
   RequestHintRequest,
@@ -52,6 +53,13 @@ export class SessionController {
     @Body() body: RequestHintRequest,
   ): Promise<RequestHintResponse> {
     return this.sessions.requestHint(sessionId, body);
+  }
+
+  @Post(':id/acknowledge-review-lo')
+  acknowledgeReviewLo(
+    @Param('id', ParseIntPipe) sessionId: number,
+  ): Promise<AcknowledgeReviewLoResponse> {
+    return this.sessions.acknowledgeReviewLo(sessionId);
   }
 
   @Get(':id/progress')

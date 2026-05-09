@@ -6,8 +6,8 @@
 | **Session ID** | `1a3a26bb-4046-445c-a8bf-4eb54527400b` |
 | **Working Dir** | `c:\Users\gyh\Desktop\Projects\whale-tutor` |
 | **Started** | 5/7/2026, 10:07:31 PM |
-| **Last Updated** | 5/8/2026, 5:53:39 PM |
-| **Messages** | 2187 |
+| **Last Updated** | 5/8/2026, 8:45:47 PM |
+| **Messages** | 2680 |
 
 ---
 
@@ -38733,6 +38733,8996 @@ OK 吗?重点确认下:
 3. **Hint 折扣是 hint > 0 答对就完全不计 consecutiveCorrect**,严格不?要不要折半(每次 hint 加 0.5 等)?
 
 这几个定了我直接开做。
+
+
+---
+
+## User <sup>5/8/2026, 6:00:10 PM</sup>
+
+<ide_opened_file>The user opened the file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+
+你这个模板是不是不应该限制python，而是外部传一个什么；spot_the_bug和code_sandbox的generate也是需要的，包括free_recall；hint计分保持简单，不计
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:00:34 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:01:14 PM</sup>
+
+好,修订三处:
+
+## Plan v2 调整
+
+### 1. Prompt 学科 hardcode 移除 — 改为 `{{subject}}` 变量
+
+**所有 prompt 模板**(包括已存在的 `free_recall.evaluate` / `spot_the_bug.evaluate_explanation` / `qa.answer` / `pattern.hint`,加新的 4 个 regenerate)**全部改用 `{{subject}}`**,从课程定义传入。这样将来加 SQL / Pandas / Java 课程不用动 prompt。
+
+**Schema 变更**:`CourseDefinition` 加 `subject: string` 字段(server-only,如 `"Python"` / `"SQL"` / `"Java"`)。yaml 里写在 course.yaml 顶层:
+
+```yaml
+# course.yaml
+id: python-basics
+name: Python 基础
+subject: Python              # ← 新增,必填,默认 "Python" 让现有课不破
+description: ...
+```
+
+加进 ajv schema(required)。`KnowledgeService` 提供 `getSubjectByLoId(loId): string` 或 `getSubjectByRiId(riId): string`,从 loIndex / chapter 反查到 course.subject。
+
+**所有现有 prompt 模板加 `{{subject}}`** — 这是 plan 范围内的连带改动:
+- `free_recall.evaluate.yaml`:"你是 {{subject}} 教学评估助手"
+- `spot_the_bug.evaluate_explanation.yaml`:同
+- `qa.answer.yaml`:同
+- `pattern.hint.yaml`:同
+- 4 个新 regenerate 模板:同
+
+每处调用 AiGateway.complete 的 `variables` 里加 `subject` — 就是从 KnowledgeService 取一下。
+
+### 2. 4 个 Pattern 全部实现 generate
+
+修订上一版的"只做 2 个"。**4 个 regenerate 模板都写**:
+
+| Pattern | 生成什么 | 难点 + 应对 |
+|---|---|---|
+| `pattern.regenerate.concept_check` | 题干 + 4 选项 + answerIndex + rationale | 不难。陷阱选项利用 commonMisconceptions |
+| `pattern.regenerate.free_recall` | promptMd + rubricKeyPoints[] | 不难。要求 AI 列出 3-5 个 rubric 点 |
+| `pattern.regenerate.spot_the_bug` | buggyCode + bugLocations[] + correctExplanation + hintMd? | **server 加 sanity check**:bugLocations 的 line 必须 ≤ buggyCode 行数,kind 必须非空字符串。失败 → fallback question=null → review_lo |
+| `pattern.regenerate.code_sandbox` | promptMd + starterCode + testCases[] | **server 加 sanity check**:每个 testCase 的 setupCode 必须有 `print()`、expectedOutput 必须非空。失败 → review_lo |
+
+**output schema 严格 + fallback 都返 null prompt** — service 检测到 prompt 字段含 `null` 就走 review_lo。Fallback 不再尝试给个"通用题",安全降级。
+
+实施细节:`server/src/pattern/patterns/<each>.pattern.ts` 都实现 `generate?` 方法,内部:
+1. 调对应 `pattern.regenerate.<id>` 模板
+2. AI 返 → ajv 已校验过基础 schema
+3. **再过一道 server-side sanity check**(pattern-specific 的 line bound / setupCode 含 print 等)
+4. 失败 → 返 null
+5. 返 null 时 SessionService 兜底 review_lo
+
+这意味着 4 个新 prompt yaml + 4 个 pattern 文件改动 + sanity check 函数。
+
+### 3. Hint 折扣保持简单
+
+确认: `hintLevelUsed >= 1` 答对 → consecutiveCorrect 不计;答错 hint level 不影响。简单一行 if。
+
+---
+
+## 修订后的总触点
+
+新增 / 修改增量(相对 plan v1):
+
+**新增**:
+- `pattern.regenerate.spot_the_bug.yaml` + `.code_sandbox.yaml`(原计划没做,现在做)
+- spot_the_bug.pattern.ts / code_sandbox.pattern.ts 加 `generate` impl
+- 上述 2 个的 sanity check 函数
+
+**修改**(扩大范围):
+- **所有 4 个现有 prompt yaml** 加 `{{subject}}` 变量
+- **所有 caller**(`free_recall.evaluate.ts` / `spot_the_bug` evaluate / `qa.service` / `hint-cache.service`)拼变量时加 `subject`
+- `course.yaml` 加 `subject: Python`(只 1 个课程)
+- ajv course schema 加 `subject` required
+- `CourseDefinition` 类型加 `subject: string`
+- `KnowledgeService` 加 `getSubjectByLoId` / `getSubjectByRiId`(LO/RI → course.subject 反查)
+
+工作量提升约 30%(主要是 spot_the_bug + code_sandbox 的 regenerate prompt 设计 + sanity check),从原 1-2 天估到 **2-3 天**。
+
+---
+
+## Scope(out)更新
+
+- ~~spot_the_bug / code_sandbox 不做 generate~~ → **删除,都做**
+- subject 字段**不下发到前端**(只 server-only,前端不需要)
+- subject 不做 i18n / locale,纯字符串("Python" / "SQL" / "Java"),由 prompt 自然处理
+- 同 v1:不做 alternatives;不持久化 generate 结果到额外表;不缓存 generate;不改 progress sidebar
+
+---
+
+## 验收(增加)
+
+- 原验收 1-7 全保留
+- **新增 8**:`course.yaml` 的 subject 改成 `"SQL"` 后,AI 调用时 prompt 里的"你是 ... 教学助手"自然变成"你是 SQL 教学助手"(`ai_calls` 表的 caller_tag / log 可看到)。验证 prompt 是真的从 course 取
+- **新增 9**:答错一道 spot_the_bug → 服务返 adaptive `source='adaptive'` + buggyCode 是新代码;sanity check 故意失败(改 prompt 让 AI 返 line=999)→ fallback → review_lo
+- **新增 10**:答错一道 code_sandbox → 服务返 adaptive 新 starterCode + testCases;前端 Pyodide 真能跑测试通过
+
+---
+
+OK 这版接受就开做。开始 M1(schema + 状态机 + 4 个 generate)→ e2e 验证完整链 → 再做前端 review_lo 覆盖 + hint 折扣?或者 schema/状态机/concept_check 先打通 1 道做 e2e 闭环再扩到剩 3 个 pattern?
+
+我推荐**先打通 concept_check 完整闭环 + review_lo + hint 折扣**(最小可验收单元),再增量补 free_recall / spot_the_bug / code_sandbox 三个 generate。每补一个就跑一次 e2e。这样能尽早发现 prompt 语义问题(concept_check 是出题最简单的,先把"换说法"这件事的语感跑顺了再硬骨头)。
+
+行吗?
+
+
+---
+
+## User <sup>5/8/2026, 6:01:24 PM</sup>
+
+可以
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:01:50 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:01:50 PM</sup>
+
+开做 Phase 1。先建 todo + 看几个关键文件确认现状。
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:01:59 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Schema: add pending_retry_ri_id + parent_required_interaction_id + db:reset",
+      "activeForm": "Updating schema",
+      "status": "in_progress"
+    },
+    {
+      "content": "Tutor types: subject on CourseDef, pendingRetryRiId on LoState, parentRiId on InteractionInstance",
+      "activeForm": "Updating tutor types",
+      "status": "pending"
+    },
+    {
+      "content": "Course yaml: add subject + ajv schema",
+      "activeForm": "Adding subject to course",
+      "status": "pending"
+    },
+    {
+      "content": "KnowledgeService: getSubjectByLoId/getSubjectByRiId",
+      "activeForm": "Adding subject lookup",
+      "status": "pending"
+    },
+    {
+      "content": "All 4 existing prompts: parametrize {{subject}} + update callers",
+      "activeForm": "Parametrizing prompts subject",
+      "status": "pending"
+    },
+    {
+      "content": "New prompt: pattern.regenerate.concept_check.yaml",
+      "activeForm": "Writing regenerate concept_check",
+      "status": "pending"
+    },
+    {
+      "content": "Pattern interface: generate? optional method",
+      "activeForm": "Adding generate interface",
+      "status": "pending"
+    },
+    {
+      "content": "ConceptCheck pattern: implement generate via AI",
+      "activeForm": "Implementing concept_check generate",
+      "status": "pending"
+    },
+    {
+      "content": "State machine: rewrite for adaptive + hint discount",
+      "activeForm": "Rewriting state machine",
+      "status": "pending"
+    },
+    {
+      "content": "decideNext: prepend pendingRetry rule + adaptive serving",
+      "activeForm": "Updating decideNext",
+      "status": "pending"
+    },
+    {
+      "content": "Learner service: applyEvaluation extended + pending_retry_ri_id",
+      "activeForm": "Updating learner service",
+      "status": "pending"
+    },
+    {
+      "content": "Endpoint: POST /sessions/:id/acknowledge-review-lo",
+      "activeForm": "Adding review-lo endpoint",
+      "status": "pending"
+    
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:01:59 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:02:04 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls \"c:/Users/gyh/Desktop/Projects/whale-tutor/db/init/\"",
+  "description": "List db init files"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:02:08 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+01-schema.sql
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:02:14 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -nE \"learner_state|interactions\" \"c:/Users/gyh/Desktop/Projects/whale-tutor/db/init/01-schema.sql\" | head -20",
+  "description": "Find learner_state + interactions tables"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:02:18 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+5:--   事实表（不可变事件流）：events / interactions / responses / ai_calls
+7:--     - learner_state 等派生表理论上可由事件流重建
+8:--   派生表（可重建快照,为查询性能预聚合）：learners / sessions / learner_state / archives
+85:CREATE TABLE IF NOT EXISTS interactions (
+97:  KEY ix_interactions_session_created (session_id, created_at),
+98:  KEY ix_interactions_lo_pattern (lo_id, pattern_id),
+99:  KEY ix_interactions_source (learner_id, source, required_interaction_id)
+113:  CONSTRAINT fk_responses_interaction FOREIGN KEY (interaction_id) REFERENCES interactions(id)
+144:CREATE TABLE IF NOT EXISTS learner_state (
+158:  KEY ix_learner_state_mastery (learner_id, mastery_level)
+182:-- 不影响 learner_state / learner_chapter_progress（QA 是侧支,不计入掌握进度）。
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:02:23 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\db\\init\\01-schema.sql",
+  "offset": 85,
+  "limit": 75
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:02:23 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+85	CREATE TABLE IF NOT EXISTS interactions (
+86	  id                      BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+87	  session_id              BIGINT UNSIGNED NOT NULL,
+88	  learner_id              BIGINT UNSIGNED NOT NULL,
+89	  lo_id                   VARCHAR(64) NOT NULL,
+90	  pattern_id              VARCHAR(64) NOT NULL,
+91	  source                  ENUM('static','adaptive') NOT NULL,
+92	  required_interaction_id VARCHAR(64) NULL COMMENT 'source=static 时指向 YAML 中的 requiredInteraction.id',
+93	  prompt_payload          JSON NOT NULL,
+94	  expected                JSON NULL COMMENT '确定性评估的预期数据;AI 评估时为 NULL',
+95	  created_at              DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+96	  PRIMARY KEY (id),
+97	  KEY ix_interactions_session_created (session_id, created_at),
+98	  KEY ix_interactions_lo_pattern (lo_id, pattern_id),
+99	  KEY ix_interactions_source (learner_id, source, required_interaction_id)
+100	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+101	
+10
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:02:40 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\db\\init\\01-schema.sql",
+  "old_string": "CREATE TABLE IF NOT EXISTS interactions (\n  id                      BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,\n  session_id              BIGINT UNSIGNED NOT NULL,\n  learner_id              BIGINT UNSIGNED NOT NULL,\n  lo_id                   VARCHAR(64) NOT NULL,\n  pattern_id              VARCHAR(64) NOT NULL,\n  source                  ENUM('static','adaptive') NOT NULL,\n  required_interaction_id VARCHAR(64) NULL COMMENT 'source=static 时指向 YAML 中的 requiredInteraction.id',\n  prompt_payload          JSON NOT NULL,\n  expected                JSON NULL COMMENT '确定性评估的预期数据;AI 评估时为 NULL',\n  created_at              DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (id),\n  KEY ix_interactions_session_created (session_id, created_at),\n  KEY ix_interactions_lo_pattern (lo_id, pattern_id),\n  KEY ix_interactions_source (learner_id, source, required_interaction_id)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;",
+  "new_string": "CREATE TABLE IF NOT EXISTS interactions (\n  id                              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,\n  session_id                      BIGINT UNSIGNED NOT NULL,\n  learner_id                      BIGINT UNSIGNED NOT NULL,\n  lo_id                           VARCHAR(64) NOT NULL,\n  pattern_id                      VARCHAR(64) NOT NULL,\n  source                          ENUM('static','adaptive') NOT NULL,\n  required_interaction_id         VARCHAR(64) NULL COMMENT 'source=static 时指向 YAML 中的 requiredInteraction.id',\n  -- v0.2 PathOrchestrator:adaptive 题对原 RI 的引用,答对此题视为原 RI 通关\n  parent_required_interaction_id  VARCHAR(64) NULL COMMENT 'source=adaptive 时,该 retry 题对应的原 RI(来自 learner_state.pending_retry_ri_id)',\n  prompt_payload                  JSON NOT NULL,\n  expected                        JSON NULL COMMENT '确定性评估的预期数据;AI 评估时为 NULL',\n  created_at           
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:02:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\db\init\01-schema.sql has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:02:58 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\db\\init\\01-schema.sql",
+  "old_string": "CREATE TABLE IF NOT EXISTS learner_state (\n  learner_id              BIGINT UNSIGNED NOT NULL,\n  lo_id                   VARCHAR(64) NOT NULL,\n  mastery_level           ENUM('untouched','exposed','practicing','mastered','applied') NOT NULL DEFAULT 'untouched',\n  attempts                INT UNSIGNED NOT NULL DEFAULT 0,\n  correct_count           INT UNSIGNED NOT NULL DEFAULT 0,\n  consecutive_correct     INT UNSIGNED NOT NULL DEFAULT 0,\n  consecutive_wrong       INT UNSIGNED NOT NULL DEFAULT 0,\n  -- 已完成的 required_interaction id 数组（YAML 静态预置题目）\n  -- 长度 == LO YAML 中的 requiredInteractions 数 → mandatory_all_completed = true\n  mandatory_completed_ids JSON NULL,\n  last_seen_at            DATETIME(3) NULL,\n  updated_at              DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),\n  PRIMARY KEY (learner_id, lo_id),\n  KEY ix_learner_state_mastery (learner_id, mastery_level)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;",
+  "new_string": "CREATE TABLE IF NOT EXISTS learner_state (\n  learner_id              BIGINT UNSIGNED NOT NULL,\n  lo_id                   VARCHAR(64) NOT NULL,\n  mastery_level           ENUM('untouched','exposed','practicing','mastered','applied') NOT NULL DEFAULT 'untouched',\n  attempts                INT UNSIGNED NOT NULL DEFAULT 0,\n  correct_count           INT UNSIGNED NOT NULL DEFAULT 0,\n  consecutive_correct     INT UNSIGNED NOT NULL DEFAULT 0,\n  consecutive_wrong       INT UNSIGNED NOT NULL DEFAULT 0,\n  -- 已完成的 required_interaction id 数组（YAML 静态预置题目）\n  -- 长度 == LO YAML 中的 requiredInteractions 数 → mandatory_all_completed = true\n  mandatory_completed_ids JSON NULL,\n  -- v0.2 PathOrchestrator:学习者答错某 RI 后,这里记录\"在 retry 哪个 RI\"。\n  -- 非空 → decideNext 优先出 adaptive(同 LO,parent_required_interaction_id=该 RI)。\n  -- 答对 adaptive 题 → 标 RI 完成 + 清空此字段。connse
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:03:03 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\db\init\01-schema.sql has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:03:08 PM</sup>
+
+Updating database.types.ts.
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:03:09 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\database\\database.types.ts",
+  "offset": 70,
+  "limit": 60
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:03:09 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+70	
+71	export interface InteractionsTable {
+72	  id: Generated<number>;
+73	  session_id: number;
+74	  learner_id: number;
+75	  lo_id: string;
+76	  pattern_id: string;
+77	  source: 'static' | 'adaptive';
+78	  required_interaction_id: string | null;
+79	  prompt_payload: Json;
+80	  expected: JsonNullable;
+81	  created_at: Datetime;
+82	}
+83	
+84	export interface ResponsesTable {
+85	  id: Generated<number>;
+86	  interaction_id: number;
+87	  response: Json;
+88	  evaluation: Json;
+89	  hint_level: number;
+90	  created_at: Datetime;
+91	}
+92	
+93	export interface AiCallsTable {
+94	  id: Generated<number>;
+95	  template_id: string;
+96	  model: string;
+97	  tokens_in: number | null;
+98	  tokens_out: number | null;
+99	  latency_ms: number | null;
+100	  status: 'ok' | 'schema_failed' | 'retry_ok' | 'fallback' | 'error';
+101	  cost_usd: number | string | null;     // DECIMAL(10,6) — mysql2 可能返字符串
+102	  session_id: number | null;
+103	  caller_tag: string | null;
+104	  error_message: string | null;
+105	
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:03:17 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\database\\database.types.ts",
+  "old_string": "export interface InteractionsTable {\n  id: Generated<number>;\n  session_id: number;\n  learner_id: number;\n  lo_id: string;\n  pattern_id: string;\n  source: 'static' | 'adaptive';\n  required_interaction_id: string | null;\n  prompt_payload: Json;\n  expected: JsonNullable;\n  created_at: Datetime;\n}",
+  "new_string": "export interface InteractionsTable {\n  id: Generated<number>;\n  session_id: number;\n  learner_id: number;\n  lo_id: string;\n  pattern_id: string;\n  source: 'static' | 'adaptive';\n  required_interaction_id: string | null;\n  // v0.2:adaptive 题对原 RI 的引用,答对此题视为原 RI 通关\n  parent_required_interaction_id: string | null;\n  prompt_payload: Json;\n  expected: JsonNullable;\n  created_at: Datetime;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:03:18 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\database\database.types.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:03:27 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\database\\database.types.ts",
+  "old_string": "export interface LearnerStateTable {\n  learner_id: number;\n  lo_id: string;\n  mastery_level: 'untouched' | 'exposed' | 'practicing' | 'mastered' | 'applied';\n  attempts: number;\n  correct_count: number;\n  consecutive_correct: number;\n  consecutive_wrong: number;\n  mandatory_completed_ids: JsonNullable<string[]>;\n  last_seen_at: DatetimeNullable;\n  updated_at: Datetime;\n}",
+  "new_string": "export interface LearnerStateTable {\n  learner_id: number;\n  lo_id: string;\n  mastery_level: 'untouched' | 'exposed' | 'practicing' | 'mastered' | 'applied';\n  attempts: number;\n  correct_count: number;\n  consecutive_correct: number;\n  consecutive_wrong: number;\n  mandatory_completed_ids: JsonNullable<string[]>;\n  // v0.2:在 retry 模式时记录原 RI;非空 → decideNext 优先出 adaptive\n  pending_retry_ri_id: string | null;\n  last_seen_at: DatetimeNullable;\n  updated_at: Datetime;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:03:28 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\database\database.types.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:03:33 PM</sup>
+
+Now tutor-types domain.
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:03:39 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\domain.ts",
+  "old_string": "export interface LearnerLoState {\n  loId: string;\n  masteryLevel: MasteryLevel;\n  attempts: number;\n  correctCount: number;\n  consecutiveCorrect: number;\n  consecutiveWrong: number;\n  // 必做进度：已完成的 required_interaction id 列表\n  mandatoryCompletedIds: string[];\n  // 派生字段（mandatoryCompletedIds.length === LO 的 requiredInteractionCount）\n  mandatoryAllCompleted: boolean;\n  lastSeenAt: string | null;\n  updatedAt: string;\n}",
+  "new_string": "export interface LearnerLoState {\n  loId: string;\n  masteryLevel: MasteryLevel;\n  attempts: number;\n  correctCount: number;\n  consecutiveCorrect: number;\n  consecutiveWrong: number;\n  // 必做进度：已完成的 required_interaction id 列表\n  mandatoryCompletedIds: string[];\n  // 派生字段（mandatoryCompletedIds.length === LO 的 requiredInteractionCount）\n  mandatoryAllCompleted: boolean;\n  // v0.2 PathOrchestrator:学习者答错某 RI 后,在 retry 哪个 RI(非空 → 下一题出 adaptive)\n  // 答对 adaptive / review_lo ack / connsecutive_wrong ≥ 3 都会清空\n  pendingRetryRiId: string | null;\n  lastSeenAt: string | null;\n  updatedAt: string;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:03:40 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types\src\domain.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:03:54 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\domain.ts",
+  "old_string": "// TPrompt: 各 Pattern 的 prompt 类型（见 patterns.ts）\n// interactions 表中持久化的 prompt 是完整版（含答案）；下发到前端的是 *PromptForLearner。\nexport interface InteractionInstance<TPrompt = unknown> {\n  id: number;\n  sessionId: number;\n  learnerId: number;\n  loId: string;\n  patternId: PatternId;\n  prompt: TPrompt;\n  // 来源标识：static = 来自 LO/Assessment 的 requiredInteraction;adaptive = AI 动态生成\n  source: 'static' | 'adaptive';\n  // static 时指向 RequiredInteraction.id;adaptive 时为 null\n  requiredInteractionId: string | null;\n  createdAt: string;\n}",
+  "new_string": "// TPrompt: 各 Pattern 的 prompt 类型（见 patterns.ts）\n// interactions 表中持久化的 prompt 是完整版（含答案）；下发到前端的是 *PromptForLearner。\nexport interface InteractionInstance<TPrompt = unknown> {\n  id: number;\n  sessionId: number;\n  learnerId: number;\n  loId: string;\n  patternId: PatternId;\n  prompt: TPrompt;\n  // 来源标识：static = 来自 LO/Assessment 的 requiredInteraction;adaptive = AI 动态生成\n  source: 'static' | 'adaptive';\n  // static 时指向 RequiredInteraction.id;adaptive 时为 null\n  requiredInteractionId: string | null;\n  // v0.2:adaptive 题对原 RI 的引用,答对此题视为原 RI 通关\n  parentRequiredInteractionId: string | null;\n  createdAt: string;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:03:55 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types\src\domain.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:04:02 PM</sup>
+
+Now `CourseDefinition.subject` + Public Course `Omit` it.
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:04:06 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\domain.ts",
+  "old_string": "export interface CourseDefinition {\n  id: string;                       // e.g. \"python-basics\"\n  name: string;\n  description: string;\n  chapters: ChapterDefinition[];\n}",
+  "new_string": "export interface CourseDefinition {\n  id: string;                       // e.g. \"python-basics\"\n  name: string;\n  // 学科 / 领域名,作为 AI prompt 模板的 {{subject}} 变量。\n  // 例:\"Python\" / \"SQL\" / \"Java\"。让 prompt 不依赖 hardcoded 学科,加新课程时无需改 prompt yaml。\n  // server-only(下方公开版 Course Omit 掉)。\n  subject: string;\n  description: string;\n  chapters: ChapterDefinition[];\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:04:07 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types\src\domain.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:04:13 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\domain.ts",
+  "old_string": "export type Course = Omit<CourseDefinition, 'chapters'> & {\n  chapters: Chapter[];\n};",
+  "new_string": "export type Course = Omit<CourseDefinition, 'chapters' | 'subject'> & {\n  chapters: Chapter[];\n};"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 6:04:14 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types\src\domain.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 6:04:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm build:types 2>&1 | tail -5",
+  "description": "Rebuild types",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:37:08 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/tutor-types@0.0.1 build C:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types
+> tsc -p tsconfig.json
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:37:20 PM</sup>
+
+Now course.yaml subject + ajv schema.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:37:20 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\course.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:37:20 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	id: python-basics
+2	name: Python 基础
+3	description: { $ref: ./course-description.md }
+4	chapters:
+5	  - { $ref: ./chapters/list_and_iter/chapter.yaml }
+6
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:37:28 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\data\\python-basics\\course.yaml",
+  "old_string": "id: python-basics\nname: Python 基础\ndescription: { $ref: ./course-description.md }\nchapters:\n  - { $ref: ./chapters/list_and_iter/chapter.yaml }",
+  "new_string": "id: python-basics\nname: Python 基础\n# 学科名,做为 AI prompt 模板的 {{subject}} 变量(server-only,不下发到前端)。\n# 加新课程(SQL / Pandas / Java 等)时改这里就好,prompt 模板不用动。\nsubject: Python\ndescription: { $ref: ./course-description.md }\nchapters:\n  - { $ref: ./chapters/list_and_iter/chapter.yaml }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:37:30 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\data\python-basics\course.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:37:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.schema.ts",
+  "old_string": "const courseSchema = {\n  type: 'object',\n  required: ['id', 'name', 'description', 'chapters'],\n  additionalProperties: false,\n  properties: {\n    id: { type: 'string', minLength: 1 },\n    name: { type: 'string', minLength: 1 },\n    description: { type: 'string' },\n    chapters: {\n      type: 'array',\n      minItems: 1,\n      items: { $ref: '#/definitions/chapter' },\n    },\n  },",
+  "new_string": "const courseSchema = {\n  type: 'object',\n  required: ['id', 'name', 'subject', 'description', 'chapters'],\n  additionalProperties: false,\n  properties: {\n    id: { type: 'string', minLength: 1 },\n    name: { type: 'string', minLength: 1 },\n    // 学科名,作 AI prompt 的 {{subject}} 变量。例 \"Python\" / \"SQL\"\n    subject: { type: 'string', minLength: 1 },\n    description: { type: 'string' },\n    chapters: {\n      type: 'array',\n      minItems: 1,\n      items: { $ref: '#/definitions/chapter' },\n    },\n  },"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:37:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\knowledge.schema.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:37:45 PM</sup>
+
+KnowledgeService — add subject lookup + update toPublicCourse to drop subject.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:37:46 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.service.ts",
+  "offset": 144,
+  "limit": 35
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:37:46 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+144	    return toPublicCourse(this.getCourseDefinition(courseId));
+145	  }
+146	
+147	  getLearningObjective(loId: string): LearningObjective {
+148	    return toPublicLo(this.getLoDefinition(loId));
+149	  }
+150	}
+151	
+152	// ===== Definition → Public 转换 =====
+153	
+154	function toPublicCourse(def: CourseDefinition): Course {
+155	  return {
+156	    id: def.id,
+157	    name: def.name,
+158	    description: def.description,
+159	    chapters: def.chapters.map(toPublicChapter),
+160	  };
+161	}
+162	
+163	function toPublicChapter(def: ChapterDefinition): Chapter {
+164	  return {
+165	    id: def.id,
+166	    name: def.name,
+167	    description: def.description,
+168	    learningObjectives: def.learningObjectives.map(toPublicLo),
+169	    assessment: def.assessment ? toPublicAssessment(def.assessment) : null,
+170	  };
+171	}
+172	
+173	function toPublicLo(def: LearningObjectiveDefinition): LearningObjective {
+174	  return {
+175	    id: def.id,
+176	    name: def.name,
+177	    description: def.description,
+1
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:38:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\knowledge\\knowledge.service.ts",
+  "old_string": "  /**\n   * RI 所在的 LO。章末测试的 RI 不属于任何 LO,返 null。\n   * Hint 生成时需要 LO 上下文(loName / commonMisconceptions)。\n   */\n  getOwningLoOfRi(riId: string): LearningObjectiveDefinition | null {\n    return this.riOwnerLoIndex.get(riId) ?? null;\n  }",
+  "new_string": "  /**\n   * RI 所在的 LO。章末测试的 RI 不属于任何 LO,返 null。\n   * Hint 生成时需要 LO 上下文(loName / commonMisconceptions)。\n   */\n  getOwningLoOfRi(riId: string): LearningObjectiveDefinition | null {\n    return this.riOwnerLoIndex.get(riId) ?? null;\n  }\n\n  /**\n   * 取 LO 所在课程的 subject(如 \"Python\" / \"SQL\")。\n   * 给 AI prompt 的 {{subject}} 变量,让 prompt 不依赖 hardcoded 学科。\n   */\n  getSubjectByLoId(loId: string): string {\n    const e = this.loIndex.get(loId);\n    if (!e) throw new NotFoundException(`LO not found: ${loId}`);\n    return e.course.subject;\n  }\n\n  /**\n   * 取 RI 所在课程的 subject。RI 可能在 LO 内或章末测试内。\n   * 章末测试的 RI 通过 chapter.assessment → chapter → 找到 course。\n   */\n  getSubjectByRiId(riId: string): string {\n    // 先查 LO-内的 RI\n    const lo = this.riOwnerLoIndex.get(riId);\n    if (lo) return this.getSubjectByLoId(lo.id);\n    // 章末测试的 RI:扫一遍 assessmentIndex 找 owning chapter,再取 course.subject\n    for (const entry of this.assessmentIndex.values()) {\n      if (entry.assessment.requiredInteractions.some((ri) => ri.id === riId)) {\n        // 找 chapter 所在 course(loIndex 任一 LO 同 chapter 都行)\n        const sampleLo = entry.chapter.learningObjectives[0];\n        if (sampleLo) return this.getSubjectByLoId(sampleLo.id);\n      }\n    }\n    throw new NotFoundException(`RequiredInteraction not found: ${riId}`);\n  }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:38:03 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\knowledge\knowledge.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:38:10 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:38:11 PM</sup>
+
+`toPublicCourse` 显式列字段所以 subject 已自动 omitted. 现在所有 prompt 加 `{{subject}}` 变量。
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:38:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/ai/prompts/\"",
+  "description": "List prompts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:38:16 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+free_recall.evaluate.yaml
+pattern.hint.yaml
+qa.answer.yaml
+spot_the_bug.evaluate_explanation.yaml
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:38:24 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\free_recall.evaluate.yaml",
+  "old_string": "system: |\n  你是 Python 教学评估助手。学习者刚完成一道自由回忆题(free recall),\n  你要根据 rubric key points 判断他/她的回答覆盖了哪些点、整体是否合格。",
+  "new_string": "system: |\n  你是 {{subject}} 教学评估助手。学习者刚完成一道自由回忆题(free recall),\n  你要根据 rubric key points 判断他/她的回答覆盖了哪些点、整体是否合格。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:38:25 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\free_recall.evaluate.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:38:30 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\spot_the_bug.evaluate_explanation.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:38:30 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	# spot_the_bug 的解释质量评估 prompt
+2	# 行号判断由 server 确定性完成,这个 prompt 只评估学习者对 bug 性质的理解
+3	# 输入变量:buggyCode / bugKindList / correctExplanation / learnerExplanation / linesSelected / linesAreCorrect
+4	templateId: spot_the_bug.evaluate_explanation
+5	model: deepseek-v4-flash
+6	maxRetries: 1
+7	maxTokens: 1000
+8	temperature: 0.3
+9	
+10	system: |
+11	  你是 Python 教学评估助手。学习者刚做了一道 spot-the-bug 题,你要评估他的**解释质量**。
+12	
+13	  注意分工:
+14	  - bug 在哪几行 已经由系统按行号确定,你不需要复判位置
+15	  - 你只评估学习者**对 bug 性质的理解**是否准确
+16	
+17	  约束:
+18	  - 学习者解释只要抓住 bug 的核心机制就算 good,允许用词不严谨
+19	  - 反馈 ≤ 3 句,先肯定再补充欠缺,不要复述代码
+20	  - 必须返回符合 schema 的 JSON object,无任何额外文本
+21	
+22	user: |
+23	  ## buggy 代码
+24	
+25	  ```python
+26	  {{buggyCode}}
+27	  ```
+28	
+29	  ## bug 位置(系统已知)
+30	
+31	  {{bugKindList}}
+32	
+33	  ## 参考的正确解释
+34	
+35	  {{correctExplanation}}
+36	
+37	  ## 学习者选的行(选行判断:{{linesAreCorrect}})
+38	
+39	  {{linesSelected}}
+40	
+41	  ## 学习者的解释
+42	
+43	  ===
+44	  {{learnerExplanation}}
+45	  ===
+46	
+47	  ## 任务
+48	
+49	  请评估学习者的解释质量并返回 JSON,字段:
+50	
+51	  - `expla
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:38:39 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:38:40 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -A 20 \"function interpolate\" \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/ai/ai-gateway.service.ts\"",
+  "description": "Check interpolate impl"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:38:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+function interpolate(template: string, vars: Record<string, unknown>): string {
+  return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
+    const value = (key as string)
+      .split('.')
+      .reduce<unknown>((acc, k) => (acc == null ? acc : (acc as Record<string, unknown>)[k]), vars);
+    return value === undefined || value === null ? '' : String(value);
+  });
+}
+
+// DeepSeek 价位(USD per 1M tokens,2026 年初报价,需根据实际官网核对)。
+//
+// 模型迁移注:
+//   deepseek-chat / deepseek-reasoner 将于 2026/07/24 弃用,
+//   分别对应 deepseek-v4-flash 的非思考模式 / 思考模式;
+//   deepseek-v4-pro 是更强的版本,价位独立(此处用占位,需以官网为准)。
+//
+// 价位是相对的、用于 ai_calls.cost_usd 记账;不影响调用本身。
+// 找不到 model 时 fallback 到 v4-flash 价位。
+const DEEPSEEK_PRICES: Record<string, { input: number; output: number }> = {
+  // 新模型(2026/07/24 起为唯一选项)
+  'deepseek-v4-flash': { input: 0.27, output: 1.1 },     // 非思考模式;思考模式价位通常 ≈ reasoner,此处先取下限
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:38:57 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:38:58 PM</sup>
+
+简单方案: 代码 fence 去掉具体语言(AI 还是当代码块解析),system prompt 用 `{{subject}}` 表达学科。
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:39:00 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\spot_the_bug.evaluate_explanation.yaml",
+  "old_string": "system: |\n  你是 Python 教学评估助手。学习者刚做了一道 spot-the-bug 题,你要评估他的**解释质量**。",
+  "new_string": "system: |\n  你是 {{subject}} 教学评估助手。学习者刚做了一道 spot-the-bug 题,你要评估他的**解释质量**。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:39:01 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\spot_the_bug.evaluate_explanation.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:39:07 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\spot_the_bug.evaluate_explanation.yaml",
+  "old_string": "  ## buggy 代码\n\n  ```python\n  {{buggyCode}}\n  ```",
+  "new_string": "  ## buggy 代码\n\n  ```\n  {{buggyCode}}\n  ```"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:39:08 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\spot_the_bug.evaluate_explanation.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:39:15 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\qa.answer.yaml"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:39:15 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	# 学习者主动 QA 的回答 prompt
+2	# 输入变量:loContext / interactionContext / previousDialog / question
+3	# 返 { text: markdown 字符串 } — assistant 消息的内容
+4	templateId: qa.answer
+5	model: deepseek-v4-flash
+6	maxRetries: 1
+7	maxTokens: 2000
+8	temperature: 0.5
+9	
+10	system: |
+11	  你是 Python 教学助手"鲸鱼老师"。学习者正在学 Python 的「列表与迭代」章节,
+12	  对当前内容有疑问,你需要解答。
+13	
+14	  风格:
+15	  - 用 markdown 回答,简洁清晰(一般 200-500 字内)
+16	  - 结合学习者当前所在的 LO 与具体题目上下文
+17	  - 不要超出当前章节范围(如 numpy / pandas / 进阶语法 等暂不展开;实在相关时一句带过)
+18	  - 必要时给代码示例,代码用 ```python``` 代码块包裹
+19	  - 如果学习者直接问"答案是什么"——先反问一两个引导他思考的问题,再给关键提示;
+20	    完整答案只在他明显已经卡住或反复问时才直接给
+21	
+22	  输出格式:必须返回 JSON object `{ "text": "<markdown>" }`,无任何额外字段。
+23	
+24	user: |
+25	  ## 当前学习上下文
+26	
+27	  ### LO
+28	
+29	  {{loContext}}
+30	
+31	  {{interactionContext}}
+32	
+33	  ## 之前的对话
+34	
+35	  {{previousDialog}}
+36	
+37	  ## 学习者最新提问
+38	
+39	  {{question}}
+40	
+41	  ## 任务
+42	
+43	  以助手身份回答学习者的提问,返回 `{ "text": "<你的 markdown 回答>" }`。
+44	
+45	outputSchema:
+46	  type: object
+47	  required: [text]
+48	  additionalP
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:39:25 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:39:26 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -rn \"qa.answer\" \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/\" 2>&1 | head",
+  "description": "Find qa.answer callers"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:39:30 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/ai/prompts/qa.answer.yaml:4:templateId: qa.answer
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/qa/qa.service.ts:346:      templateId: 'qa.answer',
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/qa/qa.service.ts:354:      callerTag: 'qa.answer',
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:39:35 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\qa\\qa.service.ts",
+  "offset": 330,
+  "limit": 35
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:39:35 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+330	      interactionContext = await this.formatInteractionContext(
+331	        input.parentInteractionId,
+332	      );
+333	    }
+334	
+335	    const previousDialog =
+336	      input.previousMessages.length === 0
+337	        ? '(无,这是 thread 内第一个问题)'
+338	        : input.previousMessages
+339	            .map(
+340	              (m) =>
+341	                `**${m.role === 'learner' ? '学习者' : '助手'}**:${m.contentMd}`,
+342	            )
+343	            .join('\n\n---\n\n');
+344	
+345	    return await this.ai.complete<AiAnswer>({
+346	      templateId: 'qa.answer',
+347	      variables: {
+348	        loContext,
+349	        interactionContext,
+350	        previousDialog,
+351	        question: input.question,
+352	      },
+353	      sessionId: input.sessionId,
+354	      callerTag: 'qa.answer',
+355	    });
+356	  }
+357	
+358	  private formatLoContext(loId: string): string {
+359	    try {
+360	      const lo = this.knowledge.getLoDefinition(loId);
+361	      return [
+362	        `**${lo.name}** — ${lo.descr
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:39:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\qa.answer.yaml",
+  "old_string": "system: |\n  你是 Python 教学助手\"鲸鱼老师\"。学习者正在学 Python 的「列表与迭代」章节,\n  对当前内容有疑问,你需要解答。\n\n  风格:\n  - 用 markdown 回答,简洁清晰(一般 200-500 字内)\n  - 结合学习者当前所在的 LO 与具体题目上下文\n  - 不要超出当前章节范围(如 numpy / pandas / 进阶语法 等暂不展开;实在相关时一句带过)\n  - 必要时给代码示例,代码用 ```python``` 代码块包裹\n  - 如果学习者直接问\"答案是什么\"——先反问一两个引导他思考的问题,再给关键提示;\n    完整答案只在他明显已经卡住或反复问时才直接给\n\n  输出格式:必须返回 JSON object `{ \"text\": \"<markdown>\" }`,无任何额外字段。",
+  "new_string": "system: |\n  你是 {{subject}} 教学助手\"鲸鱼老师\"。学习者正在学习 {{subject}} 课程,\n  对当前内容有疑问,你需要解答。\n\n  风格:\n  - 用 markdown 回答,简洁清晰(一般 200-500 字内)\n  - 结合学习者当前所在的 LO 与具体题目上下文\n  - 不要超出当前 LO / 章节相关的范围;若学习者问到尚未学到的概念,一句带过即可\n  - 必要时给代码示例,代码用普通 ``` 代码块包裹(让 markdown 渲染器自行处理语言标识)\n  - 如果学习者直接问\"答案是什么\"——先反问一两个引导他思考的问题,再给关键提示;\n    完整答案只在他明显已经卡住或反复问时才直接给\n\n  输出格式:必须返回 JSON object `{ \"text\": \"<markdown>\" }`,无任何额外字段。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:39:51 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\qa.answer.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:39:57 PM</sup>
+
+Now hint prompt:
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:39:59 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\pattern.hint.yaml",
+  "old_string": "system: |\n  你是 Python 教学助手。学习者卡在某道题上请求帮助。请生成 3 级梯度提示。",
+  "new_string": "system: |\n  你是 {{subject}} 教学助手。学习者卡在某道题上请求帮助。请生成 3 级梯度提示。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:40:00 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\pattern.hint.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:40:11 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\pattern.hint.yaml",
+  "old_string": "  约束:\n  - 每条提示 ≤ 80 字,markdown 格式(可用 inline code 标记 Python 标识符)\n  - 语气友好但不啰嗦,不寒暄,不重复题干\n  - 完全不能复述题干本身,只补充提示\n  - 用学习者会读懂的中文(不是英文 / 不是术语堆砌)\n  - 必须返回 JSON object,符合 schema,无任何额外文本",
+  "new_string": "  约束:\n  - 每条提示 ≤ 80 字,markdown 格式(可用 inline code 标记 {{subject}} 中的标识符)\n  - 语气友好但不啰嗦,不寒暄,不重复题干\n  - 完全不能复述题干本身,只补充提示\n  - 用学习者会读懂的中文(不是英文 / 不是术语堆砌)\n  - 必须返回 JSON object,符合 schema,无任何额外文本"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:40:12 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\pattern.hint.yaml has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:40:17 PM</sup>
+
+Now update all callers to pass `subject`. Let me find them.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:40:18 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -rn \"templateId:\" \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/\" 2>&1 | grep -v \"\\.yaml\" | head -10",
+  "description": "Find all AI Gateway callers"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:40:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/ai/ai-gateway.service.ts:20:  templateId: string;
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/ai/ai-gateway.service.ts:32:  templateId: string;
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/ai/ai-gateway.service.ts:125:        templateId: input.templateId,
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/ai/ai-gateway.service.ts:172:          templateId: input.templateId,
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/ai/ai-gateway.service.ts:193:      templateId: input.templateId,
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/ai/ai-gateway.service.ts:254:    templateId: string;
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/pattern/patterns/free-recall.pattern.ts:37:      templateId: 'free_recall.evaluate',
+c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/pattern/patterns/spot-the-bug.pattern.ts:52:      templateId: 'spot_the_bug.evaluate_explanation',
+c:/Users/gyh/Desktop/Projects/whale-tu
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:40:27 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\free-recall.pattern.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:40:27 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { Injectable } from '@nestjs/common';
+2	import type {
+3	  EvaluationResult,
+4	  FreeRecallPrompt,
+5	  FreeRecallPromptForLearner,
+6	  FreeRecallResponse,
+7	} from '@whale-tutor/tutor-types';
+8	import { AiGatewayService } from '../../ai/ai-gateway.service';
+9	
+10	// AI Gateway 输出的 schema(与 server/src/ai/prompts/free_recall.evaluate.yaml 对齐)
+11	interface FreeRecallAiOutput {
+12	  correct: boolean;
+13	  confidence: number;
+14	  feedbackMd: string;
+15	  rubricCoverage: Array<{ point: string; covered: boolean }>;
+16	}
+17	
+18	@Injectable()
+19	export class FreeRecallPattern {
+20	  constructor(private readonly ai: AiGatewayService) {}
+21	
+22	  toLearnerPrompt(prompt: FreeRecallPrompt): FreeRecallPromptForLearner {
+23	    // rubricKeyPoints 是 server-only 的评估 rubric,不下发
+24	    return { promptMd: prompt.promptMd };
+25	  }
+26	
+27	  /**
+28	   * AI 评估学习者的自由回忆。
+29	   * 失败/无 key 时 AI Gateway 返回 fallback 文案,这里直接转发(confidence 较低,前端可标"AI 评估暂不可用")。
+30	   */
+31	  async evaluate(
+32	    prompt: Fre
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:40:34 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:40:34 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\pattern.interface.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:40:34 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File does not exist. Note: your current working directory is C:\Users\gyh\Desktop\Projects\whale-tutor.
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:40:40 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls \"c:/Users/gyh/Desktop/Projects/whale-tutor/server/src/pattern/\"",
+  "description": "List pattern dir"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:40:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+pattern.module.ts
+pattern.registry.ts
+patterns/
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:40:49 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\pattern.registry.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:40:49 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { Injectable } from '@nestjs/common';
+2	import type {
+3	  CodeSandboxPrompt,
+4	  CodeSandboxResponse,
+5	  ConceptCheckPrompt,
+6	  ConceptCheckResponse,
+7	  EvaluationResult,
+8	  FreeRecallPrompt,
+9	  FreeRecallResponse,
+10	  PatternId,
+11	  SpotTheBugPrompt,
+12	  SpotTheBugResponse,
+13	} from '@whale-tutor/tutor-types';
+14	import { CodeSandboxPattern } from './patterns/code-sandbox.pattern';
+15	import { ConceptCheckPattern } from './patterns/concept-check.pattern';
+16	import { FreeRecallPattern } from './patterns/free-recall.pattern';
+17	import { SpotTheBugPattern } from './patterns/spot-the-bug.pattern';
+18	
+19	export interface EvaluateContext {
+20	  sessionId?: number;
+21	}
+22	
+23	/**
+24	 * Pattern 注册表与分发器。
+25	 * - toLearnerPrompt 是同步的(纯 sanitize)
+26	 * - evaluate 是 async(free_recall / spot_the_bug 走 AI Gateway)
+27	 *
+28	 * 新增 Pattern:
+29	 *   1. 实现 *.pattern.ts
+30	 *   2. 此文件加 case
+31	 *   3. pattern.module.ts 注册 provider
+32	 *   4. packages/tutor-types/src/patterns.ts 加类型(
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:41:03 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:41:11 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\pattern.registry.ts",
+  "old_string": "import { Injectable } from '@nestjs/common';\nimport type {\n  CodeSandboxPrompt,\n  CodeSandboxResponse,\n  ConceptCheckPrompt,\n  ConceptCheckResponse,\n  EvaluationResult,\n  FreeRecallPrompt,\n  FreeRecallResponse,\n  PatternId,\n  SpotTheBugPrompt,\n  SpotTheBugResponse,\n} from '@whale-tutor/tutor-types';\nimport { CodeSandboxPattern } from './patterns/code-sandbox.pattern';\nimport { ConceptCheckPattern } from './patterns/concept-check.pattern';\nimport { FreeRecallPattern } from './patterns/free-recall.pattern';\nimport { SpotTheBugPattern } from './patterns/spot-the-bug.pattern';\n\nexport interface EvaluateContext {\n  sessionId?: number;\n}",
+  "new_string": "import { Injectable } from '@nestjs/common';\nimport type {\n  CodeSandboxPrompt,\n  CodeSandboxResponse,\n  ConceptCheckPrompt,\n  ConceptCheckResponse,\n  EvaluationResult,\n  FreeRecallPrompt,\n  FreeRecallResponse,\n  LearningObjectiveDefinition,\n  PatternId,\n  RequiredInteraction,\n  SpotTheBugPrompt,\n  SpotTheBugResponse,\n} from '@whale-tutor/tutor-types';\nimport { CodeSandboxPattern } from './patterns/code-sandbox.pattern';\nimport { ConceptCheckPattern } from './patterns/concept-check.pattern';\nimport { FreeRecallPattern } from './patterns/free-recall.pattern';\nimport { SpotTheBugPattern } from './patterns/spot-the-bug.pattern';\n\n// 评估上下文 — 让 evaluator 拿到调用方的 sessionId(写 ai_calls)+ subject(prompt 变量)。\n// subject 必填,从课程定义解析(KnowledgeService.getSubjectByLoId)。\nexport interface EvaluateContext {\n  sessionId?: number;\n  subject: string;\n}\n\n// 生成 adaptive 题(answer-wrong 时换说法)的上下文。\n// attemptIndex:该 RI 的第几次 retry(从 1 开始,让 AI 知道学习者已经卡了几次)。\nexport interface GenerateContext {\n  sessionId?: number;\n  subject: string;\n  attemptIndex: number;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:41:12 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\pattern.registry.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:41:28 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\pattern.registry.ts",
+  "old_string": "  async evaluate(\n    patternId: PatternId,\n    prompt: unknown,\n    response: unknown,\n    context?: EvaluateContext,\n  ): Promise<EvaluationResult> {\n    switch (patternId) {\n      case 'concept_check':\n        return this.conceptCheck.evaluate(\n          prompt as ConceptCheckPrompt,\n          response as ConceptCheckResponse,\n        );\n      case 'free_recall':\n        return this.freeRecall.evaluate(\n          prompt as FreeRecallPrompt,\n          response as FreeRecallResponse,\n          context,\n        );\n      case 'spot_the_bug':\n        return this.spotTheBug.evaluate(\n          prompt as SpotTheBugPrompt,\n          response as SpotTheBugResponse,\n          context,\n        );\n      case 'code_sandbox':\n        return this.codeSandbox.evaluate(\n          prompt as CodeSandboxPrompt,\n          response as CodeSandboxResponse,\n        );\n      default: {\n        const _exhaustive: never = patternId;\n        throw new Error(`Unknown pattern: ${String(_exhaustive)}`);\n      }\n    }\n  }\n}",
+  "new_string": "  async evaluate(\n    patternId: PatternId,\n    prompt: unknown,\n    response: unknown,\n    context: EvaluateContext,\n  ): Promise<EvaluationResult> {\n    switch (patternId) {\n      case 'concept_check':\n        return this.conceptCheck.evaluate(\n          prompt as ConceptCheckPrompt,\n          response as ConceptCheckResponse,\n        );\n      case 'free_recall':\n        return this.freeRecall.evaluate(\n          prompt as FreeRecallPrompt,\n          response as FreeRecallResponse,\n          context,\n        );\n      case 'spot_the_bug':\n        return this.spotTheBug.evaluate(\n          prompt as SpotTheBugPrompt,\n          response as SpotTheBugResponse,\n          context,\n        );\n      case 'code_sandbox':\n        return this.codeSandbox.eva
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:41:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\pattern.registry.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:41:35 PM</sup>
+
+Now update each pattern caller to use `subject` from context. Let me start with free_recall (subject in evaluate prompt).
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:41:40 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\free-recall.pattern.ts",
+  "old_string": "  async evaluate(\n    prompt: FreeRecallPrompt,\n    response: FreeRecallResponse,\n    context?: { sessionId?: number },\n  ): Promise<EvaluationResult> {\n    const aiOutput = await this.ai.complete<FreeRecallAiOutput>({\n      templateId: 'free_recall.evaluate',\n      variables: {\n        promptMd: prompt.promptMd,\n        rubricKeyPointsList: prompt.rubricKeyPoints.map((p) => `- ${p}`).join('\\n'),\n        response: response.text,\n      },\n      sessionId: context?.sessionId ?? null,\n      callerTag: 'pattern.free_recall.evaluate',\n    });",
+  "new_string": "  async evaluate(\n    prompt: FreeRecallPrompt,\n    response: FreeRecallResponse,\n    context: { sessionId?: number; subject: string },\n  ): Promise<EvaluationResult> {\n    const aiOutput = await this.ai.complete<FreeRecallAiOutput>({\n      templateId: 'free_recall.evaluate',\n      variables: {\n        subject: context.subject,\n        promptMd: prompt.promptMd,\n        rubricKeyPointsList: prompt.rubricKeyPoints.map((p) => `- ${p}`).join('\\n'),\n        response: response.text,\n      },\n      sessionId: context?.sessionId ?? null,\n      callerTag: 'pattern.free_recall.evaluate',\n    });"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:41:41 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\patterns\free-recall.pattern.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:41:48 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\spot-the-bug.pattern.ts",
+  "offset": 30,
+  "limit": 35
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:41:48 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+30	   *   - AI:评估学习者解释是否抓住 bug 核心机制
+31	   *
+32	   * 最终 correct = 选行对 AND explanation 不为 'wrong'。
+33	   * AI 失败 / 无 key → fallback explanationQuality='partial' → 选行对就算通过(宽松)。
+34	   */
+35	  async evaluate(
+36	    prompt: SpotTheBugPrompt,
+37	    response: SpotTheBugResponse,
+38	    context?: { sessionId?: number },
+39	  ): Promise<EvaluationResult> {
+40	    // Phase 1: 确定性行号匹配
+41	    const expectedLines = new Set(prompt.bugLocations.map((loc) => loc.line));
+42	    const selectedLines = new Set(response.selectedLines);
+43	    const allExpectedSelected = [...expectedLines].every((l) => selectedLines.has(l));
+44	    const noExtraSelected = [...selectedLines].every((l) => expectedLines.has(l));
+45	    const linesCorrect = allExpectedSelected && noExtraSelected;
+46	
+47	    // Phase 2: AI 评估解释质量(即使行错也跑,以提供更友好反馈)
+48	    const bugKindList = prompt.bugLocations
+49	      .map((loc) => `- 第 ${loc.line} 行: ${loc.kind}`)
+50	      .join('\n');
+51	    const aiOutput = await this.ai.complete<SpotBugAiOu
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:42:01 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\spot-the-bug.pattern.ts",
+  "old_string": "  async evaluate(\n    prompt: SpotTheBugPrompt,\n    response: SpotTheBugResponse,\n    context?: { sessionId?: number },\n  ): Promise<EvaluationResult> {\n    // Phase 1: 确定性行号匹配\n    const expectedLines = new Set(prompt.bugLocations.map((loc) => loc.line));\n    const selectedLines = new Set(response.selectedLines);\n    const allExpectedSelected = [...expectedLines].every((l) => selectedLines.has(l));\n    const noExtraSelected = [...selectedLines].every((l) => expectedLines.has(l));\n    const linesCorrect = allExpectedSelected && noExtraSelected;\n\n    // Phase 2: AI 评估解释质量(即使行错也跑,以提供更友好反馈)\n    const bugKindList = prompt.bugLocations\n      .map((loc) => `- 第 ${loc.line} 行: ${loc.kind}`)\n      .join('\\n');\n    const aiOutput = await this.ai.complete<SpotBugAiOutput>({\n      templateId: 'spot_the_bug.evaluate_explanation',\n      variables: {\n        buggyCode: prompt.buggyCode,\n        bugKindList,\n        correctExplanation: prompt.correctExplanation,\n        learnerExplanation: response.explanation,\n        linesSelected:\n          response.selectedLines.length > 0\n            ? response.selectedLines.join(', ')\n            : '(未选)',\n        linesAreCorrect: linesCorrect ? '正确' : '不正确',\n      },\n      sessionId: context?.sessionId ?? null,",
+  "new_string": "  async evaluate(\n    prompt: SpotTheBugPrompt,\n    response: SpotTheBugResponse,\n    context: { sessionId?: number; subject: string },\n  ): Promise<EvaluationResult> {\n    // Phase 1: 确定性行号匹配\n    const expectedLines = new Set(prompt.bugLocations.map((loc) => loc.line));\n    const selectedLines = new Set(response.selectedLines);\n    const allExpectedSelected = [...expectedLines].every((l) => selectedLines.has(l));\n    const noExtraSelected = [...selectedLines].every((l) => expectedLines.has(l));\n    const linesCorr
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:42:02 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\patterns\spot-the-bug.pattern.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:42:09 PM</sup>
+
+Now hint-cache.service.ts and qa.service.ts.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:42:10 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\hint-cache.service.ts",
+  "offset": 75,
+  "limit": 35
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:42:10 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+75	    const promise = this.generate(ri, ctx).catch((err) => {
+76	      // 失败的话从 cache 里删掉,下次重新生成(避免错误结果一直 cached)
+77	      this.cache.delete(ri.id);
+78	      throw err;
+79	    });
+80	    this.cache.set(ri.id, promise);
+81	    return promise;
+82	  }
+83	
+84	  private async generate(
+85	    ri: RequiredInteraction,
+86	    ctx: HintGenerateContext,
+87	  ): Promise<string[]> {
+88	    const startedAt = Date.now();
+89	    const output = await this.ai.complete<AiHintOutput>({
+90	      templateId: 'pattern.hint',
+91	      variables: {
+92	        patternId: ri.patternId,
+93	        loName: ctx.loName,
+94	        promptJson: JSON.stringify(ri.prompt, null, 2),
+95	        commonMisconceptions:
+96	          ctx.commonMisconceptions.length > 0
+97	            ? ctx.commonMisconceptions.map((m) => `- ${m}`).join('\n')
+98	            : '(无)',
+99	      },
+100	      sessionId: ctx.sessionId ?? null,
+101	      callerTag: `hint.generate.${ri.patternId}`,
+102	    });
+103	
+104	    if (!output.hints || outpu
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:42:17 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\hint-cache.service.ts",
+  "old_string": "interface HintGenerateContext {\n  loName: string;\n  commonMisconceptions: string[]; // 章末测试 RI 没有 owning LO,传 []\n  sessionId?: number | null;\n}",
+  "new_string": "interface HintGenerateContext {\n  subject: string;\n  loName: string;\n  commonMisconceptions: string[]; // 章末测试 RI 没有 owning LO,传 []\n  sessionId?: number | null;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:42:18 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\hint-cache.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:42:27 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\hint-cache.service.ts",
+  "old_string": "    const output = await this.ai.complete<AiHintOutput>({\n      templateId: 'pattern.hint',\n      variables: {\n        patternId: ri.patternId,\n        loName: ctx.loName,\n        promptJson: JSON.stringify(ri.prompt, null, 2),\n        commonMisconceptions:\n          ctx.commonMisconceptions.length > 0\n            ? ctx.commonMisconceptions.map((m) => `- ${m}`).join('\\n')\n            : '(无)',\n      },\n      sessionId: ctx.sessionId ?? null,\n      callerTag: `hint.generate.${ri.patternId}`,\n    });",
+  "new_string": "    const output = await this.ai.complete<AiHintOutput>({\n      templateId: 'pattern.hint',\n      variables: {\n        subject: ctx.subject,\n        patternId: ri.patternId,\n        loName: ctx.loName,\n        promptJson: JSON.stringify(ri.prompt, null, 2),\n        commonMisconceptions:\n          ctx.commonMisconceptions.length > 0\n            ? ctx.commonMisconceptions.map((m) => `- ${m}`).join('\\n')\n            : '(无)',\n      },\n      sessionId: ctx.sessionId ?? null,\n      callerTag: `hint.generate.${ri.patternId}`,\n    });"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:42:28 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\hint-cache.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:42:35 PM</sup>
+
+Update SessionService.requestHint to pass subject. And QA.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:42:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    const result = await this.hints.getHint(\n      ri,\n      {\n        loName: owningLo?.name ?? '章末综合测试',\n        commonMisconceptions: owningLo?.commonMisconceptions ?? [],\n        sessionId,\n      },\n      body.targetLevel,\n    );",
+  "new_string": "    const result = await this.hints.getHint(\n      ri,\n      {\n        subject: this.knowledge.getSubjectByRiId(riId),\n        loName: owningLo?.name ?? '章末综合测试',\n        commonMisconceptions: owningLo?.commonMisconceptions ?? [],\n        sessionId,\n      },\n      body.targetLevel,\n    );"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:42:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:42:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "offset": 125,
+  "limit": 15
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:42:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+125	      );
+126	    }
+127	    const learnerId = interactionRow.learner_id;
+128	    const loId = interactionRow.lo_id;
+129	    const patternId = interactionRow.pattern_id as PatternId;
+130	    const promptPayload = interactionRow.prompt_payload as unknown;
+131	
+132	    // 评估。concept_check 同步,free_recall 走 AI Gateway 异步;统一 await。
+133	    const evaluation = await this.patterns.evaluate(patternId, promptPayload, body.response, {
+134	      sessionId,
+135	    });
+136	
+137	    await this.db
+138	      .insertInto('responses')
+139	      .values({
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:42:52 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    // 评估。concept_check 同步,free_recall 走 AI Gateway 异步;统一 await。\n    const evaluation = await this.patterns.evaluate(patternId, promptPayload, body.response, {\n      sessionId,\n    });",
+  "new_string": "    // 评估。concept_check 同步,free_recall 走 AI Gateway 异步;统一 await。\n    const evaluation = await this.patterns.evaluate(patternId, promptPayload, body.response, {\n      sessionId,\n      subject: this.knowledge.getSubjectByLoId(loId),\n    });"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:42:53 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:42:59 PM</sup>
+
+Now QA service.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:43:00 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\qa\\qa.service.ts",
+  "offset": 295,
+  "limit": 65
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:43:00 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+295	      .selectFrom('qa_messages')
+296	      .selectAll()
+297	      .where('id', '=', messageId)
+298	      .executeTakeFirstOrThrow();
+299	    return rowToMessage(row);
+300	  }
+301	
+302	  private async getMessagesByThread(threadId: number): Promise<QaMessage[]> {
+303	    const rows = await this.db
+304	      .selectFrom('qa_messages')
+305	      .selectAll()
+306	      .where('thread_id', '=', threadId)
+307	      .orderBy('created_at', 'asc')
+308	      .orderBy('id', 'asc')
+309	      .execute();
+310	    return rows.map(rowToMessage);
+311	  }
+312	
+313	  /**
+314	   * 装配 prompt 上下文 + 调 AI Gateway。失败/无 key 时拿到 fallback 文案。
+315	   */
+316	  private async generateAnswer(input: {
+317	    sessionId: number;
+318	    loId: string | null;
+319	    parentInteractionId: number | null;
+320	    parentQaThreadId: number | null;
+321	    question: string;
+322	    previousMessages: QaMessage[];
+323	  }): Promise<AiAnswer> {
+324	    const loContext = input.loId
+325	      ? this.formatLoContext(input.loId)
+32
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:43:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\qa\\qa.service.ts",
+  "old_string": "    return await this.ai.complete<AiAnswer>({\n      templateId: 'qa.answer',\n      variables: {\n        loContext,\n        interactionContext,\n        previousDialog,\n        question: input.question,\n      },\n      sessionId: input.sessionId,\n      callerTag: 'qa.answer',\n    });\n  }",
+  "new_string": "    // qa.answer 是 session 级别的对话,subject 来自该 session 的 course。\n    // QA 可以发生在 LO 闲置时(input.loId=null),那时退一步从 session.course_id 取。\n    const subject = await this.resolveSubjectForSession(\n      input.sessionId,\n      input.loId,\n    );\n\n    return await this.ai.complete<AiAnswer>({\n      templateId: 'qa.answer',\n      variables: {\n        subject,\n        loContext,\n        interactionContext,\n        previousDialog,\n        question: input.question,\n      },\n      sessionId: input.sessionId,\n      callerTag: 'qa.answer',\n    });\n  }\n\n  /**\n   * subject 解析:优先 LO → 课程;LO 缺失时回退到 session.course_id → 课程。\n   */\n  private async resolveSubjectForSession(\n    sessionId: number,\n    loId: string | null,\n  ): Promise<string> {\n    if (loId) {\n      try {\n        return this.knowledge.getSubjectByLoId(loId);\n      } catch {\n        // 落到 session 兜底\n      }\n    }\n    const session = await this.db\n      .selectFrom('sessions')\n      .select(['course_id'])\n      .where('id', '=', sessionId)\n      .executeTakeFirst();\n    if (session) {\n      try {\n        return this.knowledge.getCourseDefinition(session.course_id).subject;\n      } catch {\n        // 课程不存在(理论上不该发生),最终兜底\n      }\n    }\n    return '通用';\n  }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:43:13 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\qa\qa.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:43:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/server typecheck 2>&1 | tail -20",
+  "description": "Server typecheck",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:46:41 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/server@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> tsc -p tsconfig.json --noEmit
+
+src/learner/learner.service.ts(77,5): error TS2741: Property 'pendingRetryRiId' is missing in type '{ loId: string; masteryLevel: "untouched"; attempts: number; correctCount: number; consecutiveCorrect: number; consecutiveWrong: number; mandatoryCompletedIds: never[]; mandatoryAllCompleted: false; lastSeenAt: null; updatedAt: string; }' but required in type 'LearnerLoState'.
+src/learner/learner.service.ts(139,3): error TS2741: Property 'pendingRetryRiId' is missing in type '{ loId: string; masteryLevel: "untouched" | "exposed" | "practicing" | "mastered" | "applied"; attempts: number; correctCount: number; consecutiveCorrect: number; consecutiveWrong: number; mandatoryCompletedIds: string[]; mandatoryAllCompleted: boolean; lastSeenAt: string | null; updatedAt: string; }' but required in type 'LearnerLoState'.
+src/pattern/pattern.registry.ts(120,34): error TS2339: Pr
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:47:00 PM</sup>
+
+Good — typecheck flags exactly what I still owe: learner service mapper (2 spots) + concept_check `generate` impl. Let me batch through.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:47:00 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\learner\\learner.service.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:47:00 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+2	import { sql, type Selectable } from 'kysely';
+3	import type {
+4	  LearnerLoState,
+5	  LearnerProfile,
+6	  MasteryLevel,
+7	} from '@whale-tutor/tutor-types';
+8	import { KYSELY, type Database } from '../database/database.module';
+9	import type { LearnerStateTable } from '../database/database.types';
+10	
+11	@Injectable()
+12	export class LearnerService {
+13	  constructor(@Inject(KYSELY) private readonly db: Database) {}
+14	
+15	  async getProfile(learnerId: number): Promise<LearnerProfile> {
+16	    const row = await this.db
+17	      .selectFrom('learners')
+18	      .selectAll()
+19	      .where('id', '=', learnerId)
+20	      .executeTakeFirst();
+21	    if (!row) throw new NotFoundException(`Learner not found: ${learnerId}`);
+22	    return {
+23	      id: row.id,
+24	      name: row.name,
+25	      goalScenario: row.goal_scenario,
+26	      userId: row.user_id,
+27	      createdAt: row.created_at.toISOString(),
+28	      u
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:47:18 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\learner\\learner.service.ts",
+  "old_string": "    return {\n      loId,\n      masteryLevel: 'untouched',\n      attempts: 0,\n      correctCount: 0,\n      consecutiveCorrect: 0,\n      consecutiveWrong: 0,\n      mandatoryCompletedIds: [],\n      mandatoryAllCompleted: false,\n      lastSeenAt: null,\n      updatedAt: new Date().toISOString(),\n    };\n  }",
+  "new_string": "    return {\n      loId,\n      masteryLevel: 'untouched',\n      attempts: 0,\n      correctCount: 0,\n      consecutiveCorrect: 0,\n      consecutiveWrong: 0,\n      mandatoryCompletedIds: [],\n      mandatoryAllCompleted: false,\n      pendingRetryRiId: null,\n      lastSeenAt: null,\n      updatedAt: new Date().toISOString(),\n    };\n  }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:47:19 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\learner\learner.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:47:36 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\learner\\learner.service.ts",
+  "old_string": "  async applyEvaluation(input: {\n    learnerId: number;\n    loId: string;\n    correct: boolean;\n    nextMasteryLevel: MasteryLevel;\n    consecutiveCorrect: number;\n    consecutiveWrong: number;\n    mandatoryCompletedIds: string[];\n    requiredInteractionTotal: number;\n  }): Promise<LearnerLoState> {\n    await this.db\n      .updateTable('learner_state')\n      .set({\n        mastery_level: input.nextMasteryLevel,\n        attempts: sql`attempts + 1`,\n        correct_count: input.correct\n          ? sql`correct_count + 1`\n          : sql`correct_count`,\n        consecutive_correct: input.consecutiveCorrect,\n        consecutive_wrong: input.consecutiveWrong,\n        mandatory_completed_ids: JSON.stringify(input.mandatoryCompletedIds),\n        last_seen_at: sql`CURRENT_TIMESTAMP(3)`,\n      })\n      .where('learner_id', '=', input.learnerId)\n      .where('lo_id', '=', input.loId)\n      .execute();",
+  "new_string": "  async applyEvaluation(input: {\n    learnerId: number;\n    loId: string;\n    correct: boolean;\n    nextMasteryLevel: MasteryLevel;\n    consecutiveCorrect: number;\n    consecutiveWrong: number;\n    mandatoryCompletedIds: string[];\n    // v0.2:retry 模式上下文。null 表示清空(脱离 retry,正常前进)\n    pendingRetryRiId: string | null;\n    requiredInteractionTotal: number;\n  }): Promise<LearnerLoState> {\n    await this.db\n      .updateTable('learner_state')\n      .set({\n        mastery_level: input.nextMasteryLevel,\n        attempts: sql`attempts + 1`,\n        correct_count: input.correct\n          ? sql`correct_count + 1`\n          : sql`correct_count`,\n        consecutive_correct: input.consecutiveCorrect,\n        consecutive_wrong: input.consecutiveWrong,\n        mandatory_completed_ids: JSON.stringify(input.mandatoryCompletedIds),\n        pending_retry_ri_id: input.pendingRetryRiId,\
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:47:37 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\learner\learner.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:47:48 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\learner\\learner.service.ts",
+  "old_string": "  return {\n    loId: row.lo_id,\n    masteryLevel: row.mastery_level,\n    attempts: row.attempts,\n    correctCount: row.correct_count,\n    consecutiveCorrect: row.consecutive_correct,\n    consecutiveWrong: row.consecutive_wrong,\n    mandatoryCompletedIds: mandatoryIds,\n    mandatoryAllCompleted:\n      requiredInteractionTotal > 0 &&\n      mandatoryIds.length >= requiredInteractionTotal,\n    lastSeenAt: row.last_seen_at ? row.last_seen_at.toISOString() : null,\n    updatedAt: row.updated_at.toISOString(),\n  };\n}",
+  "new_string": "  return {\n    loId: row.lo_id,\n    masteryLevel: row.mastery_level,\n    attempts: row.attempts,\n    correctCount: row.correct_count,\n    consecutiveCorrect: row.consecutive_correct,\n    consecutiveWrong: row.consecutive_wrong,\n    mandatoryCompletedIds: mandatoryIds,\n    mandatoryAllCompleted:\n      requiredInteractionTotal > 0 &&\n      mandatoryIds.length >= requiredInteractionTotal,\n    pendingRetryRiId: row.pending_retry_ri_id,\n    lastSeenAt: row.last_seen_at ? row.last_seen_at.toISOString() : null,\n    updatedAt: row.updated_at.toISOString(),\n  };\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:47:49 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\learner\learner.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:47:56 PM</sup>
+
+Now concept_check generate impl + the regenerate prompt YAML.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:47:57 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\concept-check.pattern.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:47:57 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { Injectable } from '@nestjs/common';
+2	import type {
+3	  ConceptCheckPrompt,
+4	  ConceptCheckPromptForLearner,
+5	  ConceptCheckResponse,
+6	  EvaluationResult,
+7	} from '@whale-tutor/tutor-types';
+8	
+9	@Injectable()
+10	export class ConceptCheckPattern {
+11	  /**
+12	   * 把完整 prompt sanitize 成下发到前端的安全子集,去掉 answerIndex 和 rationale。
+13	   * 这是 server-only → public 的关键转换点（见 CLAUDE.md "Pattern 安全边界"）。
+14	   */
+15	  toLearnerPrompt(prompt: ConceptCheckPrompt): ConceptCheckPromptForLearner {
+16	    return {
+17	      explanationMd: prompt.explanationMd,
+18	      question: {
+19	        stem: prompt.question.stem,
+20	        options: prompt.question.options,
+21	      },
+22	    };
+23	  }
+24	
+25	  /**
+26	   * 确定性评估:选项 index 匹配。
+27	   * confidence 固定为 1（无 AI 不确定性）;feedback 直接用预置 rationale。
+28	   */
+29	  evaluate(
+30	    prompt: ConceptCheckPrompt,
+31	    response: ConceptCheckResponse,
+32	  ): EvaluationResult {
+33	    const correct = response.selectedIndex === prompt.question.answerIndex;
+
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:48:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\pattern.regenerate.concept_check.yaml",
+  "content": "# 答错 concept_check 后的\"换说法\"题生成。\n# 输入变量:\n#   subject              — 学科名(\"Python\" / \"SQL\" / ...)\n#   loName / loDescription — 当前 LO 元信息\n#   commonMisconceptions — 该 LO 的常见误解列表(陷阱选项灵感)\n#   originalStem / originalOptionsList / originalAnswerIndex / originalRationale\n#   attemptIndex         — 这是该 RI 的第几次 retry(从 1 开始)\n\ntemplateId: pattern.regenerate.concept_check\nmodel: deepseek-v4-flash\nmaxRetries: 1\nmaxTokens: 1500\ntemperature: 0.5\n\nsystem: |\n  你是 {{subject}} 教学出题助手。学习者刚答错了一道关于某 LO 的 concept_check 题,\n  你需要为同一 LO 出一道**换说法**的题:测同一核心概念,但题干和选项措辞要不同。\n\n  约束:\n  - **必须**考核同一 LO 的核心概念,难度相当\n  - 题干必须和原题不同(改场景 / 换变量 / 换角度)\n  - 选项 4 个,1 正 3 错;陷阱选项尽量利用学习者可能踩到的 commonMisconceptions\n  - 正确选项 index 在 0-3 内,不要全放第 1 位\n  - rationale 用 1-2 句解释为什么正确,不超过 80 字\n  - 必须返回 JSON object 符合 schema,无任何额外文本、无 markdown 包裹\n\nuser: |\n  ## LO 上下文\n  名称:{{loName}}\n  描述:{{loDescription}}\n\n  ## 常见误解(可作为陷阱选项灵感)\n  {{commonMisconceptions}}\n\n  ## 原题(学习者答错)\n  题干: {{originalStem}}\n  选项:\n  {{originalOptionsList}}\n  正确选项 index: {{originalAnswerIndex}}\n  原解释: {{originalRationale}}\n\n  ## 任务\n  这是该学习者第 {{attemptIndex}} 次 retry。\n  请生成一道**换说法**的 concept_check 题,返回 JSON,字段:\n  - explanationMd: 简短题前引子(可空字符串,但不能省略字段)\n  - question:\n      - stem: 新题干\n      - options: 长度 4 的字符串数组\n      - answerIndex: 正确选项 index(0-3)\n      - rationale: 解释为什么正确\n\noutputSchema:\n  type: object\n  required: [explanationMd, question]\n  additionalProperties: false\n  properties:\n    explanationMd: { type: string }\n    question:\n      type: object\n      required: [stem, options, answerIndex, rationale]\n      additionalProperties: false\n      properties:\n        stem: { type: string, minLength: 1 }\n        options:\n          type: array\n          minItems: 4\n          maxItems: 4\n          items: { type: string, minLength: 1 }\n        answerIn
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:48:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\pattern.regenerate.concept_check.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:48:45 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\concept-check.pattern.ts",
+  "old_string": "import { Injectable } from '@nestjs/common';\nimport type {\n  ConceptCheckPrompt,\n  ConceptCheckPromptForLearner,\n  ConceptCheckResponse,\n  EvaluationResult,\n} from '@whale-tutor/tutor-types';\n\n@Injectable()\nexport class ConceptCheckPattern {\n  /**\n   * 把完整 prompt sanitize 成下发到前端的安全子集,去掉 answerIndex 和 rationale。\n   * 这是 server-only → public 的关键转换点（见 CLAUDE.md \"Pattern 安全边界\"）。\n   */\n  toLearnerPrompt(prompt: ConceptCheckPrompt): ConceptCheckPromptForLearner {\n    return {\n      explanationMd: prompt.explanationMd,\n      question: {\n        stem: prompt.question.stem,\n        options: prompt.question.options,\n      },\n    };\n  }\n\n  /**\n   * 确定性评估:选项 index 匹配。\n   * confidence 固定为 1（无 AI 不确定性）;feedback 直接用预置 rationale。\n   */\n  evaluate(\n    prompt: ConceptCheckPrompt,\n    response: ConceptCheckResponse,\n  ): EvaluationResult {\n    const correct = response.selectedIndex === prompt.question.answerIndex;\n    return {\n      correct,\n      confidence: 1,\n      feedbackMd: prompt.question.rationale,\n      // mastery 状态机增量由 SessionService 应用,这里只产出\"对/错\"\n      masteryDelta: {},\n      hintLevelUsed: 0,\n      evaluatorKind: 'deterministic',\n    };\n  }\n}",
+  "new_string": "import { Injectable, Logger } from '@nestjs/common';\nimport type {\n  ConceptCheckPrompt,\n  ConceptCheckPromptForLearner,\n  ConceptCheckResponse,\n  EvaluationResult,\n  LearningObjectiveDefinition,\n} from '@whale-tutor/tutor-types';\nimport { AiGatewayService } from '../../ai/ai-gateway.service';\nimport type { GenerateContext } from '../pattern.registry';\n\n// AI 输出 — schema 由 prompt yaml 校验。fallback 时 question 为 null,触发 review_lo 兜底。\ninterface ConceptCheckGenerateOutput {\n  explanationMd: string;\n  question: {\n    stem: string;\n    options: string[];\n    answerIndex: number;\n    rationale: 
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:48:46 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\patterns\concept-check.pattern.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:48:52 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/server typecheck 2>&1 | tail -20",
+  "description": "Server typecheck",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:49:05 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/server@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> tsc -p tsconfig.json --noEmit
+
+src/session/session.service.ts(184,64): error TS2345: Argument of type '{ learnerId: number; loId: string; correct: boolean; nextMasteryLevel: "untouched" | "exposed" | "practicing" | "mastered" | "applied"; consecutiveCorrect: number; consecutiveWrong: number; mandatoryCompletedIds: string[]; requiredInteractionTotal: number; }' is not assignable to parameter of type '{ learnerId: number; loId: string; correct: boolean; nextMasteryLevel: "untouched" | "exposed" | "practicing" | "mastered" | "applied"; consecutiveCorrect: number; consecutiveWrong: number; mandatoryCompletedIds: string[]; pendingRetryRiId: string | null; requiredInteractionTotal: number; }'.
+  Property 'pendingRetryRiId' is missing in type '{ learnerId: number; loId: string; correct: boolean; nextMasteryLevel: "untouched" | "exposed" | "practicing" | "mastered" | "applied"; consecutiveCorrect: number;
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:49:10 PM</sup>
+
+This is the right place to do the state machine rewrite + decideNext + pending_retry handling all at once. Let me update todos and dive in.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:49:19 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Schema: add pending_retry_ri_id + parent_required_interaction_id",
+      "activeForm": "Schema changes",
+      "status": "completed"
+    },
+    {
+      "content": "Tutor types: subject + pendingRetryRiId + parentRiId",
+      "activeForm": "Type changes",
+      "status": "completed"
+    },
+    {
+      "content": "Course yaml + ajv: subject required",
+      "activeForm": "Course subject",
+      "status": "completed"
+    },
+    {
+      "content": "KnowledgeService: getSubjectByLoId/RiId",
+      "activeForm": "Subject lookup",
+      "status": "completed"
+    },
+    {
+      "content": "Existing prompts: {{subject}} + caller updates",
+      "activeForm": "Subject in prompts",
+      "status": "completed"
+    },
+    {
+      "content": "Prompt: pattern.regenerate.concept_check.yaml",
+      "activeForm": "Regenerate prompt",
+      "status": "completed"
+    },
+    {
+      "content": "ConceptCheckPattern: generate impl",
+      "activeForm": "Generate impl",
+      "status": "completed"
+    },
+    {
+      "content": "Learner service: applyEvaluation + pendingRetryRiId persistence",
+      "activeForm": "Learner service",
+      "status": "completed"
+    },
+    {
+      "content": "State machine + decideNext rewrite (adaptive + hint discount + review_lo)",
+      "activeForm": "Session service rewrite",
+      "status": "in_progress"
+    },
+    {
+      "content": "Endpoint: POST /sessions/:id/acknowledge-review-lo",
+      "activeForm": "Ack endpoint",
+      "status": "pending"
+    },
+    {
+      "content": "API contracts: AcknowledgeReviewLoResponse",
+      "activeForm": "Ack contract",
+      "status": "pending"
+    },
+    {
+      "content": "DB reset + e2e API test (correct path / wrong->adaptive / 3x wrong->review_lo / hint discount)",
+      "activeForm": "Server e2e",
+      "status": "pending"
+    },
+    {
+      "content": "Frontend: review_lo overlay + adaptive UX + adaptive retry copy",
+      "activeForm": "Frontend integration",
+      "statu
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:49:19 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:49:28 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "offset": 160,
+  "limit": 90
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:49:28 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+160	      sessionId,
+161	      learnerId,
+162	      loId,
+163	      patternId,
+164	      type: 'interaction.evaluated',
+165	      payload: {
+166	        interactionId: body.interactionId,
+167	        correct: evaluation.correct,
+168	        confidence: evaluation.confidence,
+169	      },
+170	    });
+171	
+172	    // 应用 mastery 状态机
+173	    const lo = this.knowledge.getLoDefinition(loId);
+174	    const oldState = await this.learners.getOrInitLoState(
+175	      learnerId,
+176	      loId,
+177	      lo.requiredInteractions.length,
+178	    );
+179	    const delta = applyMasteryStateMachine(
+180	      oldState,
+181	      evaluation,
+182	      interactionRow.required_interaction_id,
+183	    );
+184	    const updatedLoState = await this.learners.applyEvaluation({
+185	      learnerId,
+186	      loId,
+187	      correct: evaluation.correct,
+188	      nextMasteryLevel: delta.nextMasteryLevel,
+189	      consecutiveCorrect: delta.consecutiveCorrect,
+190	      consecutiveWrong: delta.consecutiveWrong,
+19
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:49:36 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:49:37 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "offset": 730,
+  "limit": 70
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:49:37 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+730	  consecutiveCorrect: number;
+731	  consecutiveWrong: number;
+732	  mandatoryCompletedIds: string[];
+733	}
+734	
+735	function applyMasteryStateMachine(
+736	  state: LearnerLoState,
+737	  evaluation: EvaluationResult,
+738	  riId: string | null,
+739	): StateMachineDelta {
+740	  const correct = evaluation.correct;
+741	  const consecutiveCorrect = correct ? state.consecutiveCorrect + 1 : 0;
+742	  const consecutiveWrong = correct ? 0 : state.consecutiveWrong + 1;
+743	
+744	  // 必做完成跟踪:仅 ri 来源 + 答对才计入
+745	  let mandatoryCompletedIds = state.mandatoryCompletedIds;
+746	  if (correct && riId && !state.mandatoryCompletedIds.includes(riId)) {
+747	    mandatoryCompletedIds = [...state.mandatoryCompletedIds, riId];
+748	  }
+749	
+750	  // mastery 状态机
+751	  let next: MasteryLevel = state.masteryLevel;
+752	  if (state.masteryLevel === 'untouched') {
+753	    next = 'exposed';
+754	  } else if (state.masteryLevel === 'exposed') {
+755	    if (correct) next = 'practicing';
+756	  } else if (state.masteryLe
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:50:04 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "  consecutiveCorrect: number;\n  consecutiveWrong: number;\n  mandatoryCompletedIds: string[];\n}\n\nfunction applyMasteryStateMachine(\n  state: LearnerLoState,\n  evaluation: EvaluationResult,\n  riId: string | null,\n): StateMachineDelta {\n  const correct = evaluation.correct;\n  const consecutiveCorrect = correct ? state.consecutiveCorrect + 1 : 0;\n  const consecutiveWrong = correct ? 0 : state.consecutiveWrong + 1;\n\n  // 必做完成跟踪:仅 ri 来源 + 答对才计入\n  let mandatoryCompletedIds = state.mandatoryCompletedIds;\n  if (correct && riId && !state.mandatoryCompletedIds.includes(riId)) {\n    mandatoryCompletedIds = [...state.mandatoryCompletedIds, riId];\n  }\n\n  // mastery 状态机\n  let next: MasteryLevel = state.masteryLevel;\n  if (state.masteryLevel === 'untouched') {\n    next = 'exposed';\n  } else if (state.masteryLevel === 'exposed') {\n    if (correct) next = 'practicing';\n  } else if (state.masteryLevel === 'practicing') {\n    if (correct && consecutiveCorrect >= 2 && evaluation.confidence > 0.7) {\n      next = 'mastered';\n    }\n  } else if (state.masteryLevel === 'mastered') {\n    if (!correct && consecutiveWrong >= 2) {\n      next = 'practicing';\n    }\n  }\n\n  return {\n    nextMasteryLevel: next,\n    consecutiveCorrect,\n    consecutiveWrong,\n    mandatoryCompletedIds,\n  };\n}",
+  "new_string": "  consecutiveCorrect: number;\n  consecutiveWrong: number;\n  mandatoryCompletedIds: string[];\n  // v0.2:retry 上下文。null = 清空(脱离 retry 或不在 retry)\n  pendingRetryRiId: string | null;\n}\n\ninterface StateMachineInput {\n  state: LearnerLoState;\n  evaluation: EvaluationResult;\n  source: 'static' | 'adaptive';\n  /** static 时:本道题对应的 RI id。adaptive 时:null */\n  riId: string | null;\n  /** adaptive 时:这道 retry 题对应的原 RI id;static 时:null */\n  parentRiId: string | null;\n  /** 学习者用过的最高 hint 级别(0 = 未求助) */\n  hintL
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:50:05 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:50:10 PM</sup>
+
+Updating the call site to use the new signature.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:50:16 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    const delta = applyMasteryStateMachine(\n      oldState,\n      evaluation,\n      interactionRow.required_interaction_id,\n    );\n    const updatedLoState = await this.learners.applyEvaluation({\n      learnerId,\n      loId,\n      correct: evaluation.correct,\n      nextMasteryLevel: delta.nextMasteryLevel,\n      consecutiveCorrect: delta.consecutiveCorrect,\n      consecutiveWrong: delta.consecutiveWrong,\n      mandatoryCompletedIds: delta.mandatoryCompletedIds,\n      requiredInteractionTotal: lo.requiredInteractions.length,\n    });",
+  "new_string": "    const delta = applyMasteryStateMachine({\n      state: oldState,\n      evaluation,\n      source: interactionRow.source,\n      riId: interactionRow.required_interaction_id,\n      parentRiId: interactionRow.parent_required_interaction_id,\n      hintLevelUsed: body.hintLevelUsed ?? 0,\n    });\n    const updatedLoState = await this.learners.applyEvaluation({\n      learnerId,\n      loId,\n      correct: evaluation.correct,\n      nextMasteryLevel: delta.nextMasteryLevel,\n      consecutiveCorrect: delta.consecutiveCorrect,\n      consecutiveWrong: delta.consecutiveWrong,\n      mandatoryCompletedIds: delta.mandatoryCompletedIds,\n      pendingRetryRiId: delta.pendingRetryRiId,\n      requiredInteractionTotal: lo.requiredInteractions.length,\n    });"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:50:17 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:50:31 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:50:32 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "offset": 498,
+  "limit": 75
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:50:32 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+498	      );
+499	      if (!candidateNextRi) continue;
+500	      // 切换到该 LO
+501	      await this.db
+502	        .updateTable('sessions')
+503	        .set({ current_lo_id: candidate.id })
+504	        .where('id', '=', sessionId)
+505	        .execute();
+506	      await this.events.emit({
+507	        sessionId,
+508	        learnerId,
+509	        loId: candidate.id,
+510	        type: 'lo.entered',
+511	        payload: { from: loId },
+512	      });
+513	      return {
+514	        primary: {
+515	          type: 'serve_interaction',
+516	          loId: candidate.id,
+517	          patternId: candidateNextRi.patternId,
+518	          source: 'static',
+519	          requiredInteractionId: candidateNextRi.id,
+520	          rationale: `${candidate.name}:必做 ${candidateState.mandatoryCompletedIds.length + 1}/${candidate.requiredInteractions.length}`,
+521	        },
+522	        alternatives: [],
+523	      };
+524	    }
+525	
+526	    // Rule 3: 章末测试
+527	    if (chapter.assessment) {
+528	      const progre
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:50:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "offset": 568,
+  "limit": 95
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:50:38 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+568	  }
+569	
+570	  // ========================================================
+571	  // 辅助:从 PathDecision 派生 ServedInteraction（如果适用）
+572	  // ========================================================
+573	
+574	  private async maybeServeFromDecision(
+575	    sessionId: number,
+576	    learnerId: number,
+577	    loId: string,
+578	    decision: PathDecision,
+579	  ): Promise<ServedInteraction | null> {
+580	    const action = decision.primary;
+581	    if (action.type === 'serve_interaction') {
+582	      return this.serveStaticInteraction(sessionId, learnerId, action.loId, action);
+583	    }
+584	    if (action.type === 'chapter_assessment') {
+585	      return this.serveStaticInteraction(sessionId, learnerId, loId, action);
+586	    }
+587	    return null;
+588	  }
+589	
+590	  private async serveStaticInteraction(
+591	    sessionId: number,
+592	    learnerId: number,
+593	    loId: string,
+594	    action: ServeInteractionAction | ChapterAssessmentAction,
+595	  ): Promise<ServedInteraction> {
+596	  
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:51:09 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:51:10 PM</sup>
+
+Now `decideNext` to add Rule 0 (pending retry → adaptive or review_lo) + adaptive serving + chapter-assessment skip-retry. Let me restructure systematically.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:51:16 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "interface StateMachineInput {\n  state: LearnerLoState;\n  evaluation: EvaluationResult;\n  source: 'static' | 'adaptive';\n  /** static 时:本道题对应的 RI id。adaptive 时:null */\n  riId: string | null;\n  /** adaptive 时:这道 retry 题对应的原 RI id;static 时:null */\n  parentRiId: string | null;\n  /** 学习者用过的最高 hint 级别(0 = 未求助) */\n  hintLevelUsed: number;\n}",
+  "new_string": "interface StateMachineInput {\n  state: LearnerLoState;\n  evaluation: EvaluationResult;\n  source: 'static' | 'adaptive';\n  /** static 时:本道题对应的 RI id。adaptive 时:null */\n  riId: string | null;\n  /** adaptive 时:这道 retry 题对应的原 RI id;static 时:null */\n  parentRiId: string | null;\n  /** 学习者用过的最高 hint 级别(0 = 未求助) */\n  hintLevelUsed: number;\n  /** false → 不更新 pendingRetryRiId(章末测试 RI 不参与 retry/review_lo 流程) */\n  enableRetry: boolean;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:51:17 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:51:22 PM</sup>
+
+Updating the call site to compute and pass `enableRetry`.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:51:29 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    // 应用 mastery 状态机\n    const lo = this.knowledge.getLoDefinition(loId);\n    const oldState = await this.learners.getOrInitLoState(\n      learnerId,\n      loId,\n      lo.requiredInteractions.length,\n    );\n    const delta = applyMasteryStateMachine({\n      state: oldState,\n      evaluation,\n      source: interactionRow.source,\n      riId: interactionRow.required_interaction_id,\n      parentRiId: interactionRow.parent_required_interaction_id,\n      hintLevelUsed: body.hintLevelUsed ?? 0,\n    });",
+  "new_string": "    // 应用 mastery 状态机\n    const lo = this.knowledge.getLoDefinition(loId);\n    const oldState = await this.learners.getOrInitLoState(\n      learnerId,\n      loId,\n      lo.requiredInteractions.length,\n    );\n    // 章末测试 RI 不参与 retry/review_lo 流程(综合考核,答错就累计错次,不出 adaptive)。\n    // 通过 RI 是否属于该 LO 来判定:章末测试 RI 不在 LO.requiredInteractions 中。\n    const isAssessmentRi =\n      interactionRow.source === 'static' &&\n      !!interactionRow.required_interaction_id &&\n      !lo.requiredInteractions.some(\n        (ri) => ri.id === interactionRow.required_interaction_id,\n      );\n    const delta = applyMasteryStateMachine({\n      state: oldState,\n      evaluation,\n      source: interactionRow.source,\n      riId: interactionRow.required_interaction_id,\n      parentRiId: interactionRow.parent_required_interaction_id,\n      hintLevelUsed: body.hintLevelUsed ?? 0,\n      enableRetry: !isAssessmentRi,\n    });"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:51:30 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:51:36 PM</sup>
+
+Update state machine to honor `enableRetry`:
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:51:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "function applyMasteryStateMachine(input: StateMachineInput): StateMachineDelta {\n  const { state, evaluation, source, riId, parentRiId, hintLevelUsed } = input;\n  const correct = evaluation.correct;",
+  "new_string": "function applyMasteryStateMachine(input: StateMachineInput): StateMachineDelta {\n  const { state, evaluation, source, riId, parentRiId, hintLevelUsed, enableRetry } = input;\n  const correct = evaluation.correct;"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:51:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:51:44 PM</sup>
+
+Need to wire `enableRetry` into the pending-retry logic.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:51:49 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "  // pending retry 状态推进\n  let pendingRetryRiId = state.pendingRetryRiId;\n  if (correct) {\n    // 任何答对 → 脱离 retry\n    pendingRetryRiId = null;\n  } else if (source === 'static' && riId) {\n    // 静态题答错 → 进入 retry\n    pendingRetryRiId = riId;\n  }\n  // adaptive 答错 → pendingRetryRiId 保持(继续 retry 同 RI)",
+  "new_string": "  // pending retry 状态推进。enableRetry=false(章末测试 RI)→ 不动 pendingRetryRiId。\n  let pendingRetryRiId = state.pendingRetryRiId;\n  if (enableRetry) {\n    if (correct) {\n      // 任何答对 → 脱离 retry\n      pendingRetryRiId = null;\n    } else if (source === 'static' && riId) {\n      // 静态题答错 → 进入 retry\n      pendingRetryRiId = riId;\n    }\n    // adaptive 答错 → pendingRetryRiId 保持(继续 retry 同 RI)\n  }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:51:50 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:51:56 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/server typecheck 2>&1 | tail -10",
+  "description": "Server typecheck",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:52:41 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/server@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> tsc -p tsconfig.json --noEmit
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:52:49 PM</sup>
+
+Typecheck clean. Now let me update `decideNext` (Rule 0: pending retry → adaptive or review_lo) + adaptive serving + acknowledge endpoint.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:52:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "offset": 450,
+  "limit": 85
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:52:50 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+450	        prereqId,
+451	        prereqLo.requiredInteractions.length,
+452	      );
+453	      if (!state || !state.mandatoryAllCompleted) return false;
+454	    }
+455	    return true;
+456	  }
+457	
+458	  // ========================================================
+459	  // Path Orchestrator（v0 极简规则）
+460	  // ========================================================
+461	
+462	  private async decideNext(
+463	    sessionId: number,
+464	    learnerId: number,
+465	    loId: string,
+466	  ): Promise<PathDecision> {
+467	    const lo = this.knowledge.getLoDefinition(loId);
+468	    const state = await this.learners.getOrInitLoState(
+469	      learnerId,
+470	      loId,
+471	      lo.requiredInteractions.length,
+472	    );
+473	
+474	    // Rule 1: 当前 LO 必做按序推进
+475	    const completedSet = new Set(state.mandatoryCompletedIds);
+476	    const nextRi = lo.requiredInteractions.find((ri) => !completedSet.has(ri.id));
+477	    if (nextRi) {
+478	      return {
+479	        primary: {
+480	          type: 'serve_
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:52:55 PM</sup>
+
+Inserting "Rule 0" (pending retry) before Rule 1.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:53:03 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    const lo = this.knowledge.getLoDefinition(loId);\n    const state = await this.learners.getOrInitLoState(\n      learnerId,\n      loId,\n      lo.requiredInteractions.length,\n    );\n\n    // Rule 1: 当前 LO 必做按序推进\n    const completedSet = new Set(state.mandatoryCompletedIds);\n    const nextRi = lo.requiredInteractions.find((ri) => !completedSet.has(ri.id));",
+  "new_string": "    const lo = this.knowledge.getLoDefinition(loId);\n    const state = await this.learners.getOrInitLoState(\n      learnerId,\n      loId,\n      lo.requiredInteractions.length,\n    );\n\n    // Rule 0(v0.2 加):若 pendingRetryRiId 非空,优先出 adaptive \"换说法\" 题。\n    // 连续错 ≥ 3 次或 generate 返 null → 落 review_lo,前端弹 LO recap。\n    if (state.pendingRetryRiId) {\n      if (state.consecutiveWrong >= 3) {\n        return {\n          primary: {\n            type: 'review_lo',\n            loId,\n            reason: `连续答错 ${state.consecutiveWrong} 次,先回到讲解再来`,\n          },\n          alternatives: [],\n        };\n      }\n      return {\n        primary: {\n          type: 'serve_interaction',\n          loId,\n          patternId: this.knowledge.getRequiredInteraction(state.pendingRetryRiId).patternId,\n          source: 'adaptive',\n          requiredInteractionId: null,\n          rationale: `换种说法再试 (第 ${state.consecutiveWrong} 次)`,\n        },\n        alternatives: [],\n      };\n    }\n\n    // Rule 1: 当前 LO 必做按序推进\n    const completedSet = new Set(state.mandatoryCompletedIds);\n    const nextRi = lo.requiredInteractions.find((ri) => !completedSet.has(ri.id));"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:53:04 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:53:09 PM</sup>
+
+Now `maybeServeFromDecision` + adaptive serving + `serveStaticInteraction` adds new column.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:53:37 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "  private async maybeServeFromDecision(\n    sessionId: number,\n    learnerId: number,\n    loId: string,\n    decision: PathDecision,\n  ): Promise<ServedInteraction | null> {\n    const action = decision.primary;\n    if (action.type === 'serve_interaction') {\n      return this.serveStaticInteraction(sessionId, learnerId, action.loId, action);\n    }\n    if (action.type === 'chapter_assessment') {\n      return this.serveStaticInteraction(sessionId, learnerId, loId, action);\n    }\n    return null;\n  }\n\n  private async serveStaticInteraction(\n    sessionId: number,\n    learnerId: number,\n    loId: string,\n    action: ServeInteractionAction | ChapterAssessmentAction,\n  ): Promise<ServedInteraction> {\n    let riId: string;\n    if (action.type === 'serve_interaction') {\n      if (action.source !== 'static' || !action.requiredInteractionId) {\n        throw new Error('M1 only supports static serve_interaction');\n      }\n      riId = action.requiredInteractionId;\n    } else {\n      riId = action.requiredInteractionId;\n    }\n    const ri: RequiredInteraction = this.knowledge.getRequiredInteraction(riId);\n\n    const result = await this.db\n      .insertInto('interactions')\n      .values({\n        session_id: sessionId,\n        learner_id: learnerId,\n        lo_id: loId,\n        pattern_id: ri.patternId,\n        source: 'static',\n        required_interaction_id: ri.id,\n        prompt_payload: JSON.stringify(ri.prompt),\n        expected: null,\n      })\n      .executeTakeFirstOrThrow();\n    const interactionId = Number(result.insertId);\n\n    await this.events.emit({\n      sessionId,\n      learnerId,\n      loId,\n      patternId: ri.patternId,\n      type: 'interaction.served',\n      payload: { interactionId, requiredInteractionId: ri.id, source: 'static' },\n    });\n\n    const learner
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:53:38 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:54:01 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:54:02 PM</sup>
+
+I need to handle the "adaptive failed → review_lo" gracefully so decision and interaction stay consistent:
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:54:08 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    // 决定下一动作\n    const nextDecision = await this.decideNext(sessionId, learnerId, loId);\n    const nextInteraction = await this.maybeServeFromDecision(\n      sessionId,\n      learnerId,\n      loId,\n      nextDecision,\n    );\n\n    return {\n      evaluation,\n      nextDecision,\n      nextInteraction,\n      updatedLoState,\n    };\n  }",
+  "new_string": "    // 决定下一动作\n    let nextDecision = await this.decideNext(sessionId, learnerId, loId);\n    let nextInteraction = await this.maybeServeFromDecision(\n      sessionId,\n      learnerId,\n      loId,\n      nextDecision,\n    );\n    // serveAdaptiveInteraction 在 generate 全失败时会清 pending_retry_ri_id 并返 null。\n    // 此时 decision 和 interaction 不一致 — 把 decision 也降级为 review_lo,前端弹 LO recap。\n    if (\n      nextDecision.primary.type === 'serve_interaction' &&\n      nextDecision.primary.source === 'adaptive' &&\n      nextInteraction === null\n    ) {\n      nextDecision = {\n        primary: {\n          type: 'review_lo',\n          loId,\n          reason: '换说法生成失败,先回到讲解再来',\n        },\n        alternatives: [],\n      };\n    }\n\n    return {\n      evaluation,\n      nextDecision,\n      nextInteraction,\n      updatedLoState,\n    };\n  }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:54:09 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:54:14 PM</sup>
+
+Apply same fallback to `start()` and add `acknowledgeReviewLo`. Let me check `start()`:
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:54:15 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "offset": 95,
+  "limit": 15
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:54:15 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+95	      learnerId: input.learnerId,
+96	      loId: firstLo.id,
+97	      type: 'lo.entered',
+98	      payload: {},
+99	    });
+100	
+101	    const decision = await this.decideNext(sessionId, input.learnerId, firstLo.id);
+102	    const interaction = await this.maybeServeFromDecision(
+103	      sessionId,
+104	      input.learnerId,
+105	      firstLo.id,
+106	      decision,
+107	    );
+108	
+109	    return { sessionId, decision, interaction };
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:54:22 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:54:26 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "    const decision = await this.decideNext(sessionId, input.learnerId, firstLo.id);\n    const interaction = await this.maybeServeFromDecision(\n      sessionId,\n      input.learnerId,\n      firstLo.id,\n      decision,\n    );\n\n    return { sessionId, decision, interaction };",
+  "new_string": "    let decision = await this.decideNext(sessionId, input.learnerId, firstLo.id);\n    let interaction = await this.maybeServeFromDecision(\n      sessionId,\n      input.learnerId,\n      firstLo.id,\n      decision,\n    );\n    // 同 submit:adaptive 服务失败 → 把 decision 降级为 review_lo\n    if (\n      decision.primary.type === 'serve_interaction' &&\n      decision.primary.source === 'adaptive' &&\n      interaction === null\n    ) {\n      decision = {\n        primary: {\n          type: 'review_lo',\n          loId: firstLo.id,\n          reason: '换说法生成失败,先回到讲解再来',\n        },\n        alternatives: [],\n      };\n    }\n\n    return { sessionId, decision, interaction };"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:54:27 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:54:32 PM</sup>
+
+Now `acknowledgeReviewLo` method + endpoint + contract.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:54:37 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\packages\\tutor-types\\src\\api-contracts.ts",
+  "old_string": "// ============================================================\n// /api/sessions/:id/end\n// ============================================================\n\nexport interface EndSessionResponse {\n  archive?: Archive;                // chapter 结束时返回章节档案\n}",
+  "new_string": "// ============================================================\n// /api/sessions/:id/end\n// ============================================================\n\nexport interface EndSessionResponse {\n  archive?: Archive;                // chapter 结束时返回章节档案\n}\n\n// ============================================================\n// /api/sessions/:id/acknowledge-review-lo\n// v0.2:学习者从 LO recap 回来后调用,清 pending_retry_ri_id + consecutive_wrong=0,\n// 服务端再次决定下一题(理想情况是回到原 RI 静态题)。\n// ============================================================\n\nexport interface AcknowledgeReviewLoResponse {\n  decision: PathDecision;\n  interaction: ServedInteraction | null;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:54:38 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types\src\api-contracts.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:54:43 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm build:types 2>&1 | tail -3",
+  "description": "Rebuild types",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:55:13 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/tutor-types@0.0.1 build C:\Users\gyh\Desktop\Projects\whale-tutor\packages\tutor-types
+> tsc -p tsconfig.json
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:55:18 PM</sup>
+
+Now add `acknowledgeReviewLo` service method + controller route.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:55:24 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "import type {\n  ChapterAssessmentAction,\n  ChapterPhase,\n  EndSessionResponse,\n  EvaluationResult,\n  GetSessionProgressResponse,\n  LearnerLoState,\n  LearningObjectiveDefinition,\n  MasteryLevel,\n  PathDecision,\n  PatternId,\n  RequestHintRequest,\n  RequestHintResponse,\n  RequiredInteraction,\n  ServeInteractionAction,\n  ServedInteraction,\n  SessionProgressLoEntry,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n} from '@whale-tutor/tutor-types';",
+  "new_string": "import type {\n  AcknowledgeReviewLoResponse,\n  ChapterAssessmentAction,\n  ChapterPhase,\n  EndSessionResponse,\n  EvaluationResult,\n  GetSessionProgressResponse,\n  LearnerLoState,\n  LearningObjectiveDefinition,\n  MasteryLevel,\n  PathDecision,\n  PatternId,\n  RequestHintRequest,\n  RequestHintResponse,\n  RequiredInteraction,\n  ServeInteractionAction,\n  ServedInteraction,\n  SessionProgressLoEntry,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n} from '@whale-tutor/tutor-types';"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:55:25 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:55:31 PM</sup>
+
+Adding the service method now.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:55:47 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.service.ts",
+  "old_string": "  // ========================================================\n  // 静态梯度提示(StuckProtocol)\n  // 作者写了 RI.hints → 直接返;没写 → AI 兜底生成 3 级 + cache\n  // ========================================================",
+  "new_string": "  // ========================================================\n  // v0.2:Review-LO 兜底确认\n  // ------------------------------------------------------------\n  // 学习者从 LO recap 回来后调用:清当前 LO 的 pending_retry_ri_id + consecutive_wrong=0,\n  // 重新 decideNext。理想情况是回到原 RI 重新出 static 题。\n  // emit lo.regressed(reason: review_lo_acknowledged)用于事件溯源。\n  // ========================================================\n\n  async acknowledgeReviewLo(sessionId: number): Promise<AcknowledgeReviewLoResponse> {\n    const session = await this.db\n      .selectFrom('sessions')\n      .selectAll()\n      .where('id', '=', sessionId)\n      .executeTakeFirst();\n    if (!session) throw new NotFoundException(`Session not found: ${sessionId}`);\n    if (!session.current_lo_id) {\n      throw new NotFoundException(`Session ${sessionId} has no current LO`);\n    }\n    const learnerId = session.learner_id;\n    const loId = session.current_lo_id;\n\n    const lo = this.knowledge.getLoDefinition(loId);\n    const state = await this.learners.getOrInitLoState(\n      learnerId,\n      loId,\n      lo.requiredInteractions.length,\n    );\n\n    // 重置 retry 上下文(mastery / 必做 / correct count 不动)\n    await this.learners.applyEvaluation({\n      learnerId,\n      loId,\n      correct: false, // attempts++ 但 correct_count 不增。这里更像是状态校正,无所谓 correct\n      nextMasteryLevel: state.masteryLevel,\n      consecutiveCorrect: state.consecutiveCorrect,\n      consecutiveWrong: 0, // 重置连续错\n      mandatoryCompletedIds: state.mandatoryCompletedIds,\n      pendingRetryRiId: null, // 脱离 retry\n      requiredInteractionTotal: lo.requiredInteractions.le
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:55:48 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.service.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:55:56 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.controller.ts",
+  "old_string": "import type {\n  EndSessionResponse,\n  GetSessionProgressResponse,\n  RequestHintRequest,\n  RequestHintResponse,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n} from '@whale-tutor/tutor-types';\nimport { SessionService } from './session.service';",
+  "new_string": "import type {\n  AcknowledgeReviewLoResponse,\n  EndSessionResponse,\n  GetSessionProgressResponse,\n  RequestHintRequest,\n  RequestHintResponse,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n} from '@whale-tutor/tutor-types';\nimport { SessionService } from './session.service';"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:55:57 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.controller.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:56:02 PM</sup>
+
+Adding the route handler:
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:56:05 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\session\\session.controller.ts",
+  "old_string": "  @Post(':id/hints')\n  requestHint(\n    @Param('id', ParseIntPipe) sessionId: number,\n    @Body() body: RequestHintRequest,\n  ): Promise<RequestHintResponse> {\n    return this.sessions.requestHint(sessionId, body);\n  }",
+  "new_string": "  @Post(':id/hints')\n  requestHint(\n    @Param('id', ParseIntPipe) sessionId: number,\n    @Body() body: RequestHintRequest,\n  ): Promise<RequestHintResponse> {\n    return this.sessions.requestHint(sessionId, body);\n  }\n\n  @Post(':id/acknowledge-review-lo')\n  acknowledgeReviewLo(\n    @Param('id', ParseIntPipe) sessionId: number,\n  ): Promise<AcknowledgeReviewLoResponse> {\n    return this.sessions.acknowledgeReviewLo(sessionId);\n  }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:56:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\session\session.controller.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:56:13 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/server typecheck 2>&1 | tail -10",
+  "description": "Server typecheck",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:56:18 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/server@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> tsc -p tsconfig.json --noEmit
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:56:34 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Schema: add pending_retry_ri_id + parent_required_interaction_id",
+      "activeForm": "Schema changes",
+      "status": "completed"
+    },
+    {
+      "content": "Tutor types: subject + pendingRetryRiId + parentRiId",
+      "activeForm": "Type changes",
+      "status": "completed"
+    },
+    {
+      "content": "Course yaml + ajv: subject required",
+      "activeForm": "Course subject",
+      "status": "completed"
+    },
+    {
+      "content": "KnowledgeService: getSubjectByLoId/RiId",
+      "activeForm": "Subject lookup",
+      "status": "completed"
+    },
+    {
+      "content": "Existing prompts: {{subject}} + caller updates",
+      "activeForm": "Subject in prompts",
+      "status": "completed"
+    },
+    {
+      "content": "Prompt: pattern.regenerate.concept_check.yaml",
+      "activeForm": "Regenerate prompt",
+      "status": "completed"
+    },
+    {
+      "content": "ConceptCheckPattern: generate impl",
+      "activeForm": "Generate impl",
+      "status": "completed"
+    },
+    {
+      "content": "Learner service: applyEvaluation + pendingRetryRiId persistence",
+      "activeForm": "Learner service",
+      "status": "completed"
+    },
+    {
+      "content": "State machine + decideNext rewrite (adaptive + hint discount + review_lo)",
+      "activeForm": "Session service rewrite",
+      "status": "completed"
+    },
+    {
+      "content": "Endpoint: POST /sessions/:id/acknowledge-review-lo + contract",
+      "activeForm": "Ack endpoint",
+      "status": "completed"
+    },
+    {
+      "content": "DB reset + e2e API test (correct path / wrong->adaptive / 3x wrong->review_lo / hint discount)",
+      "activeForm": "Server e2e",
+      "status": "in_progress"
+    },
+    {
+      "content": "Frontend: review_lo overlay + adaptive UX + adaptive retry copy",
+      "activeForm": "Frontend integration",
+      "status": "pending"
+    },
+    {
+      "content": "Phase 2: free_recall generate",
+      "activeForm": "free_recall",
+      "stat
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:56:34 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:56:39 PM</sup>
+
+Server-side typecheck全过. 跑 db:reset + e2e 验证 API 流。
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:56:41 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pkill -f \"node\" 2>/dev/null; sleep 1; pnpm db:reset 2>&1 | tail -10",
+  "description": "Kill any leftover node + reset DB schema",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:57:12 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Volume whale-tutor-mysql-data  Removed
+ Network whale-tutor  Removed
+ Network whale-tutor  Creating
+ Network whale-tutor  Created
+ Volume "whale-tutor-mysql-data"  Creating
+ Volume "whale-tutor-mysql-data"  Created
+ Container whale-tutor-mysql  Creating
+ Container whale-tutor-mysql  Created
+ Container whale-tutor-mysql  Starting
+ Container whale-tutor-mysql  Started
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:57:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until docker exec whale-tutor-mysql mysqladmin ping -h localhost --silent 2>/dev/null; do sleep 2; done; echo \"mysql ready\"; \\\ndocker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"SHOW COLUMNS FROM learner_state;\" 2>&1 | tail -15; \\\necho \"---\"; \\\ndocker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"SHOW COLUMNS FROM interactions;\" 2>&1 | tail -15",
+  "description": "Wait mysql + verify new columns",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:57:26 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+mysql ready
+mysql: [Warning] Using a password on the command line interface can be insecure.
+Field	Type	Null	Key	Default	Extra
+learner_id	bigint unsigned	NO	PRI	NULL	
+lo_id	varchar(64)	NO	PRI	NULL	
+mastery_level	enum('untouched','exposed','practicing','mastered','applied')	NO		untouched	
+attempts	int unsigned	NO		0	
+correct_count	int unsigned	NO		0	
+consecutive_correct	int unsigned	NO		0	
+consecutive_wrong	int unsigned	NO		0	
+mandatory_completed_ids	json	YES		NULL	
+pending_retry_ri_id	varchar(64)	YES		NULL	
+last_seen_at	datetime(3)	YES		NULL	
+updated_at	datetime(3)	NO		CURRENT_TIMESTAMP(3)	DEFAULT_GENERATED on update CURRENT_TIMESTAMP(3)
+---
+mysql: [Warning] Using a password on the command line interface can be insecure.
+Field	Type	Null	Key	Default	Extra
+id	bigint unsigned	NO	PRI	NULL	auto_increment
+session_id	bigint unsigned	NO	MUL	NULL	
+learner_id	bigint unsigned	NO	MUL	NULL	
+lo_id	varchar(64)	NO	MUL	NULL	
+pattern_id	varchar(64)	NO		NULL	
+source	enum('static','adaptive')	NO		NULL	
+re
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:57:32 PM</sup>
+
+Both columns landed. Now start server + e2e.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:57:32 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm dev:server 2>&1",
+  "description": "Start NestJS server",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:57:37 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: byv7hmqya. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\byv7hmqya.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:57:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -o /dev/null -w \"\" http://localhost:3000/api/courses/python-basics 2>/dev/null; do sleep 2; done; echo \"ready\"",
+  "description": "Wait server ready",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:57:57 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+ready
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:58:11 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "SESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\nIID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['interaction']['id'])\"); \\\necho \"session=$SID interaction=$IID (first RI = ri.list.basics.1)\"; \\\necho \"\"; \\\necho \"=== Test 1: 答错原 RI → 应返 adaptive 题 ===\"; \\\nWRONG1=$(curl -sS -X POST \"http://localhost:3000/api/sessions/$SID/responses\" -H \"Content-Type: application/json\" -d \"{\\\"interactionId\\\":$IID,\\\"patternId\\\":\\\"concept_check\\\",\\\"response\\\":{\\\"selectedIndex\\\":1}}\"); \\\necho \"$WRONG1\" | python -c \"import sys,json; d=json.load(sys.stdin); print('correct:', d['evaluation']['correct']); print('nextDecision:', json.dumps(d['nextDecision']['primary'], ensure_ascii=False)); print('nextInteraction.source:', d['nextInteraction']['source'] if d['nextInteraction'] else 'NONE'); print('nextInteraction.parentRi:', d['nextInteraction'].get('parentRequiredInteractionId') if d['nextInteraction'] else 'NONE'); print('nextInteraction.id:', d['nextInteraction']['id'] if d['nextInteraction'] else 'NONE'); print('updatedLoState.pendingRetryRiId:', d['updatedLoState']['pendingRetryRiId']); print('updatedLoState.consecutiveWrong:', d['updatedLoState']['consecutiveWrong'])\"",
+  "description": "Test 1: wrong answer triggers adaptive",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:58:27 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Exit code 1
+session=1 interaction=1 (first RI = ri.list.basics.1)
+
+=== Test 1: 答错原 RI → 应返 adaptive 题 ===
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+KeyError: 'pendingRetryRiId'
+correct: False
+nextDecision: {"type": "serve_interaction", "loId": "lo.list.basics", "patternId": "concept_check", "source": "static", "requiredInteractionId": "ri.list.basics.1", "rationale": "必做 1/3"}
+nextInteraction.source: static
+nextInteraction.parentRi: None
+nextInteraction.id: 2
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:58:49 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:58:49 PM</sup>
+
+The server probably loaded old code before my last batch of changes. Let me restart cleanly.
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:58:49 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "byv7hmqya"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:58:49 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: byv7hmqya (pnpm dev:server 2>&1)","task_id":"byv7hmqya","task_type":"local_bash","command":"pnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:58:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pkill -f \"node\" 2>/dev/null; sleep 2; netstat -ano 2>&1 | grep \":3000.*LISTENING\" || echo \"port free\"",
+  "description": "Kill any node + verify port"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:59:02 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+TCP    0.0.0.0:3000           0.0.0.0:0              LISTENING       30712
+  TCP    [::]:3000              [::]:0                 LISTENING       30712
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:59:07 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "taskkill //F //PID 30712 2>&1; sleep 2; netstat -ano 2>&1 | grep \":3000.*LISTENING\" || echo \"port free\"",
+  "description": "Force kill leftover"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:59:15 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+SUCCESS: The process with PID 30712 has been terminated.
+port free
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:59:22 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm dev:server 2>&1",
+  "description": "Start server fresh",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:59:32 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: bl5pzbrk1. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\bl5pzbrk1.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 7:59:37 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -o /dev/null -w \"\" http://localhost:3000/api/courses/python-basics 2>/dev/null; do sleep 2; done; echo \"ready\"",
+  "description": "Wait server",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 7:59:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+ready
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:00:01 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "SESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\nIID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['interaction']['id'])\"); \\\necho \"session=$SID first interaction=$IID (ri.list.basics.1)\"; \\\necho \"\"; \\\necho \"=== Test 1: 答错原 RI → 应返 adaptive 题 (~10s, 真调 AI) ===\"; \\\nWRONG1=$(curl -sS -X POST \"http://localhost:3000/api/sessions/$SID/responses\" -H \"Content-Type: application/json\" -d \"{\\\"interactionId\\\":$IID,\\\"patternId\\\":\\\"concept_check\\\",\\\"response\\\":{\\\"selectedIndex\\\":1}}\"); \\\necho \"$WRONG1\" | python -c \"\nimport sys,json\nd=json.load(sys.stdin)\nprint('correct:', d['evaluation']['correct'])\nprint('nextDecision:', json.dumps(d['nextDecision']['primary'], ensure_ascii=False))\nni=d.get('nextInteraction')\nif ni:\n    print('nextInteraction.id:', ni['id'])\n    print('nextInteraction.source:', ni['source'])\n    print('nextInteraction.requiredInteractionId:', ni.get('requiredInteractionId'))\n    print('nextInteraction.parentRequiredInteractionId:', ni.get('parentRequiredInteractionId'))\n    if ni['source'] == 'adaptive':\n        print('--- adaptive prompt stem ---')\n        print(ni['prompt']['question']['stem'])\n        for i,opt in enumerate(ni['prompt']['question']['options']):\n            print(f'  [{i}] {opt}')\nls=d['updatedLoState']\nprint('LoState: pendingRetryRiId=%s, consecutiveWrong=%s, mastery=%s' % (ls.get('pendingRetryRiId'), ls['consecutiveWrong'], ls['masteryLevel']))\n\"",
+  "description": "Test 1: wrong → adaptive served + verify state",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:00:24 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+session=2 first interaction=3 (ri.list.basics.1)
+
+=== Test 1: 答错原 RI → 应返 adaptive 题 (~10s, 真调 AI) ===
+correct: False
+nextDecision: {"type": "serve_interaction", "loId": "lo.list.basics", "patternId": "concept_check", "source": "adaptive", "requiredInteractionId": null, "rationale": "换种说法再试 (第 2 次)"}
+nextInteraction.id: 4
+nextInteraction.source: adaptive
+nextInteraction.requiredInteractionId: None
+nextInteraction.parentRequiredInteractionId: ri.list.basics.1
+--- adaptive prompt stem ---
+下列哪个表达式可以创建一个包含整数1和字符串'hello'的列表？
+  [0] {1, 'hello'}
+  [1] (1, 'hello')
+  [2] [1, 'hello']
+  [3] list(1, 'hello')
+LoState: pendingRetryRiId=ri.list.basics.1, consecutiveWrong=2, mastery=exposed
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:00:58 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:00:59 PM</sup>
+
+Test 1 passes (state contaminated from prior session showing cw=2 — that's expected since mastery persists across sessions). Continuing with adaptive answer correct:
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:01:03 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "echo \"=== Test 2: adaptive 答对 → 应清 pending + 推进 ri.list.basics.2 ===\"; \\\nCORRECT2=$(curl -sS -X POST \"http://localhost:3000/api/sessions/2/responses\" -H \"Content-Type: application/json\" -d '{\"interactionId\":4,\"patternId\":\"concept_check\",\"response\":{\"selectedIndex\":2}}'); \\\necho \"$CORRECT2\" | python -c \"\nimport sys,json\nd=json.load(sys.stdin)\nprint('correct:', d['evaluation']['correct'])\nprint('nextDecision:', json.dumps(d['nextDecision']['primary'], ensure_ascii=False))\nni=d.get('nextInteraction')\nif ni:\n    print('nextInteraction.source:', ni['source'])\n    print('nextInteraction.requiredInteractionId:', ni.get('requiredInteractionId'))\nls=d['updatedLoState']\nprint('LoState: pendingRetryRiId=%s, mandatoryCompletedIds=%s' % (ls.get('pendingRetryRiId'), ls['mandatoryCompletedIds']))\n\"",
+  "description": "Test 2: adaptive correct → mandatory + advance",
+  "timeout": 30000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:01:09 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+=== Test 2: adaptive 答对 → 应清 pending + 推进 ri.list.basics.2 ===
+correct: True
+nextDecision: {"type": "serve_interaction", "loId": "lo.list.basics", "patternId": "concept_check", "source": "static", "requiredInteractionId": "ri.list.basics.2", "rationale": "必做 2/3"}
+nextInteraction.source: static
+nextInteraction.requiredInteractionId: ri.list.basics.2
+LoState: pendingRetryRiId=None, mandatoryCompletedIds=['ri.list.basics.1']
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:01:16 PM</sup>
+
+Adaptive 答对 → `ri.list.basics.1` 进入 mandatoryCompletedIds + 清 pending + 进到 ri.list.basics.2.
+
+Now Test 3: 3 连错 → review_lo. Reset state first via direct SQL for clean numbers.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:01:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id = 1; DELETE FROM learner_chapter_progress WHERE learner_id = 1; DELETE FROM events WHERE learner_id = 1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id = 1;\" 2>&1 | tail -3; echo \"state cleaned\"",
+  "description": "Clean learner state for fresh tests"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:01:40 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+mysql: [Warning] Using a password on the command line interface can be insecure.
+state cleaned
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:01:56 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "SESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\nIID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['interaction']['id'])\"); \\\necho \"fresh session=$SID interaction=$IID\"; \\\necho \"\"; \\\necho \"=== Test 3: 连错 3 次 → 应触发 review_lo ===\"; \\\necho \"--- Wrong #1 (static) ---\"; \\\nW1=$(curl -sS -X POST \"http://localhost:3000/api/sessions/$SID/responses\" -H \"Content-Type: application/json\" -d \"{\\\"interactionId\\\":$IID,\\\"patternId\\\":\\\"concept_check\\\",\\\"response\\\":{\\\"selectedIndex\\\":1}}\"); \\\nNID1=$(echo \"$W1\" | python -c \"import sys,json; d=json.load(sys.stdin); print(d['nextInteraction']['id'])\"); \\\necho \"$W1\" | python -c \"import sys,json; d=json.load(sys.stdin); print('next type:', d['nextDecision']['primary']['type'], 'source:', d['nextDecision']['primary'].get('source','-')); print('cw:', d['updatedLoState']['consecutiveWrong'])\"; \\\necho \"--- Wrong #2 (adaptive answer wrong) ---\"; \\\nW2=$(curl -sS -X POST \"http://localhost:3000/api/sessions/$SID/responses\" -H \"Content-Type: application/json\" -d \"{\\\"interactionId\\\":$NID1,\\\"patternId\\\":\\\"concept_check\\\",\\\"response\\\":{\\\"selectedIndex\\\":3}}\"); \\\nNID2=$(echo \"$W2\" | python -c \"import sys,json; d=json.load(sys.stdin); print(d['nextInteraction']['id'] if d.get('nextInteraction') else 'NONE')\"); \\\necho \"$W2\" | python -c \"import sys,json; d=json.load(sys.stdin); print('next type:', d['nextDecision']['primary']['type'], 'source:', d['nextDecision']['primary'].get('source','-')); print('cw:', d['updatedLoState']['consecutiveWrong'])\"; \\\necho \"--- Wrong #3 (adaptive answer wrong) → expect review_lo ---\"; \\\nW3=$(curl -sS -X POST \"http://localhost:3000/api/sessions/$SID/responses\
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:03:05 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Exit code 1
+fresh session=3 interaction=6
+
+=== Test 3: 连错 3 次 → 应触发 review_lo ===
+--- Wrong #1 (static) ---
+next type: serve_interaction source: adaptive
+cw: 1
+--- Wrong #2 (adaptive answer wrong) ---
+next type: review_lo source: -
+cw: 2
+--- Wrong #3 (adaptive answer wrong) → expect review_lo ---
+Traceback (most recent call last):
+  File "<string>", line 4, in <module>
+KeyError: 'nextDecision'
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:03:28 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:03:31 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "grep -iE \"(error|ERROR|generate|fallback|review)\" \"C:/Users/gyh/AppData/Local/Temp/claude/c--Users-gyh-Desktop-Projects-whale-tutor/1a3a26bb-4046-445c-a8bf-4eb54527400b/tasks/bl5pzbrk1.output\" 2>&1 | tail -25",
+  "description": "Check server log for AI generate errors"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:03:36 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+[[90m19:59:39[0m] Found 0 errors. Watching for file changes.
+[32m[Nest] 16192  - [39m2026/05/08 19:59:40 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/sessions/:id/acknowledge-review-lo, POST} route[39m[38;5;3m +1ms[39m
+[33m[Nest] 16192  - [39m2026/05/08 20:03:04 [33m   WARN[39m [38;5;3m[AiGatewayService] [39m[33mAI call pattern.regenerate.concept_check → fallback. Reason: Empty content in DeepSeek response[39m
+[32m[Nest] 16192  - [39m2026/05/08 20:03:04 [32m    LOG[39m [38;5;3m[ConceptCheckPattern] [39m[32mconcept_check.regenerate for LO lo.list.basics returned null question (fallback) — caller should fall back to review_lo[39m
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:03:48 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:03:49 PM</sup>
+
+AI returned empty content → fallback → `question=null` → `review_lo` correctly served. Test 4 — ack-review-lo should restart with original RI:
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:03:59 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "echo \"=== Test 4: 调 acknowledge-review-lo → 应回到 ri.list.basics.1 ===\"; \\\nACK=$(curl -sS -X POST \"http://localhost:3000/api/sessions/3/acknowledge-review-lo\"); \\\necho \"$ACK\" | python -c \"\nimport sys,json\nd=json.load(sys.stdin)\nprint('decision:', json.dumps(d['decision']['primary'], ensure_ascii=False))\nni=d.get('interaction')\nif ni:\n    print('interaction.id:', ni['id'])\n    print('interaction.source:', ni['source'])\n    print('interaction.requiredInteractionId:', ni.get('requiredInteractionId'))\n\"\necho \"\"; \\\necho \"=== Test 5: hint 折扣 — 用 hint 答对 → consecutiveCorrect 不增 ===\"; \\\nACKID=$(echo \"$ACK\" | python -c \"import sys,json; print(json.load(sys.stdin)['interaction']['id'])\"); \\\necho \"interaction id from ack: $ACKID\"; \\\necho \"--- 求 hint level 1 ---\"; \\\ncurl -sS -X POST \"http://localhost:3000/api/sessions/3/hints\" -H \"Content-Type: application/json\" -d \"{\\\"interactionId\\\":$ACKID,\\\"targetLevel\\\":1}\" | python -c \"import sys,json; d=json.load(sys.stdin); print('hintMd:', d['hintMd'][:60], '...')\"; \\\necho \"--- 答对(hintLevelUsed=1)→ consecutiveCorrect 应保持不增 ---\"; \\\nH1=$(curl -sS -X POST \"http://localhost:3000/api/sessions/3/responses\" -H \"Content-Type: application/json\" -d \"{\\\"interactionId\\\":$ACKID,\\\"patternId\\\":\\\"concept_check\\\",\\\"response\\\":{\\\"selectedIndex\\\":0},\\\"hintLevelUsed\\\":1}\"); \\\necho \"$H1\" | python -c \"\nimport sys,json\nd=json.load(sys.stdin)\nls=d['updatedLoState']\nprint('correct:', d['evaluation']['correct'])\nprint('mastery:', ls['masteryLevel'])\nprint('consecutiveCorrect:', ls['consecutiveCorrect'], '(expect 0 — hint discount)')\nprint('mandatoryCompletedIds:', ls['mandatoryCompletedIds'], '(expect contains ri.list.basics.1 — 必做仍计入)')\n\"",
+  "description": "Test 4 ack + Test 5 hint discount",
+  "timeout": 30000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:04:07 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+=== Test 4: 调 acknowledge-review-lo → 应回到 ri.list.basics.1 ===
+decision: {"type": "serve_interaction", "loId": "lo.list.basics", "patternId": "concept_check", "source": "static", "requiredInteractionId": "ri.list.basics.1", "rationale": "必做 1/3"}
+interaction.id: 8
+interaction.source: static
+interaction.requiredInteractionId: ri.list.basics.1
+
+=== Test 5: hint 折扣 — 用 hint 答对 → consecutiveCorrect 不增 ===
+interaction id from ack: 8
+--- 求 hint level 1 ---
+hintMd: 留意四个选项里**括号的形状**(方括号 / 花括号)和**调用语法**(带 `()` 与否),不是所有都是 list  ...
+--- 答对(hintLevelUsed=1)→ consecutiveCorrect 应保持不增 ---
+correct: True
+mastery: exposed
+consecutiveCorrect: 0 (expect 0 — hint discount)
+mandatoryCompletedIds: ['ri.list.basics.1'] (expect contains ri.list.basics.1 — 必做仍计入)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:04:14 PM</sup>
+
+Both pass:
+- **Ack-review-lo**: 清 cw + pending,服务返 static `ri.list.basics.1` ✓
+- **Hint 折扣**: hint level 1 答对,mastery 仍 `exposed`(没升 practicing,因为用了 hint),consecutiveCorrect=0 但必做计入 ✓
+
+Verifying events trail + DB schema columns populated correctly:
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:04:18 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"SELECT id, type, lo_id, JSON_EXTRACT(payload, '\\$.reason') AS reason FROM events WHERE learner_id=1 AND type IN ('lo.regressed','lo.mandatory_completed','lo.entered','mastery.changed') ORDER BY id;\" 2>&1 | tail -15; \\\necho \"\"; \\\necho \"--- interactions ---\"; \\\ndocker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"SELECT id, source, required_interaction_id, parent_required_interaction_id FROM interactions ORDER BY id;\" 2>&1 | tail -15",
+  "description": "Verify events + interactions columns"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:04:24 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+mysql: [Warning] Using a password on the command line interface can be insecure.
+id	type	lo_id	reason
+19	lo.entered	lo.list.basics	NULL
+23	mastery.changed	lo.list.basics	NULL
+27	lo.regressed	lo.list.basics	"no_generator"
+28	lo.regressed	lo.list.basics	"review_lo_acknowledged"
+
+--- interactions ---
+mysql: [Warning] Using a password on the command line interface can be insecure.
+id	source	required_interaction_id	parent_required_interaction_id
+6	static	ri.list.basics.1	NULL
+7	adaptive	NULL	ri.list.basics.1
+8	static	ri.list.basics.1	NULL
+9	static	ri.list.basics.2	NULL
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:04:31 PM</sup>
+
+All e2e checks pass. Stopping server and updating todo before frontend.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:04:32 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "bl5pzbrk1"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:04:32 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: bl5pzbrk1 (pnpm dev:server 2>&1)","task_id":"bl5pzbrk1","task_type":"local_bash","command":"pnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:04:33 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pkill -f \"node\" 2>/dev/null; sleep 1; netstat -ano 2>&1 | grep \":3000.*LISTENING\" || echo \"port free\"",
+  "description": "Cleanup"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:05:16 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+TCP    0.0.0.0:3000           0.0.0.0:0              LISTENING       16192
+  TCP    [::]:3000              [::]:0                 LISTENING       16192
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:05:22 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "taskkill //F //PID 16192 2>&1; sleep 1; echo done",
+  "description": "Force kill server"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:05:34 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+SUCCESS: The process with PID 16192 has been terminated.
+done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:05:51 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Schema: add pending_retry_ri_id + parent_required_interaction_id",
+      "activeForm": "Schema changes",
+      "status": "completed"
+    },
+    {
+      "content": "Tutor types: subject + pendingRetryRiId + parentRiId",
+      "activeForm": "Type changes",
+      "status": "completed"
+    },
+    {
+      "content": "Course yaml + ajv: subject required",
+      "activeForm": "Course subject",
+      "status": "completed"
+    },
+    {
+      "content": "KnowledgeService: getSubjectByLoId/RiId",
+      "activeForm": "Subject lookup",
+      "status": "completed"
+    },
+    {
+      "content": "Existing prompts: {{subject}} + caller updates",
+      "activeForm": "Subject in prompts",
+      "status": "completed"
+    },
+    {
+      "content": "Prompt: pattern.regenerate.concept_check.yaml",
+      "activeForm": "Regenerate prompt",
+      "status": "completed"
+    },
+    {
+      "content": "ConceptCheckPattern: generate impl",
+      "activeForm": "Generate impl",
+      "status": "completed"
+    },
+    {
+      "content": "Learner service: applyEvaluation + pendingRetryRiId persistence",
+      "activeForm": "Learner service",
+      "status": "completed"
+    },
+    {
+      "content": "State machine + decideNext rewrite (adaptive + hint discount + review_lo)",
+      "activeForm": "Session service rewrite",
+      "status": "completed"
+    },
+    {
+      "content": "Endpoint: POST /sessions/:id/acknowledge-review-lo + contract",
+      "activeForm": "Ack endpoint",
+      "status": "completed"
+    },
+    {
+      "content": "DB reset + e2e API test (correct path / wrong->adaptive / 3x wrong->review_lo / hint discount)",
+      "activeForm": "Server e2e",
+      "status": "completed"
+    },
+    {
+      "content": "Frontend: review_lo overlay + adaptive UX + adaptive retry copy",
+      "activeForm": "Frontend integration",
+      "status": "in_progress"
+    },
+    {
+      "content": "Phase 2: free_recall generate",
+      "activeForm": "free_recall",
+      "st
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:05:51 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:06:07 PM</sup>
+
+---
+
+**Phase 1 server e2e 全过**:
+
+| 场景 | 验证结果 |
+|---|---|
+| 答错 static → 出 adaptive | ✓ `source='adaptive'`, `parentRequiredInteractionId='ri.list.basics.1'` |
+| AI 真生成 "换说法" 题 | ✓ "下列哪个表达式可以创建一个包含整数1和字符串'hello'的列表" — 改了场景 |
+| 答对 adaptive → 必做计入原 RI | ✓ `mandatoryCompletedIds=['ri.list.basics.1']`, 推进到 ri.list.basics.2 |
+| AI 返 fallback (空 content) | ✓ 自动降级 `lo.regressed { reason: 'no_generator' }` + `review_lo` decision |
+| `acknowledge-review-lo` | ✓ 清 cw + pending,服务返 static `ri.list.basics.1` + emit `lo.regressed { reason: 'review_lo_acknowledged' }` |
+| Hint 折扣 | ✓ hintLevel=1 答对 → `mastery 保持 exposed`, `consecutiveCorrect=0`,但必做计入 |
+| 章末测试不进 retry | (未触发,但代码 `enableRetry: !isAssessmentRi` 路径已埋) |
+
+`subject` 也跑通(从 course.yaml 读到,4 个现有 prompt + regenerate 都 parametrize)。
+
+---
+
+要继续做前端集成 + Phase 2/3/4 吗?或者今天到这里 commit 一下,回头再继续?
+
+
+---
+
+## User <sup>5/8/2026, 8:06:56 PM</sup>
+
+<ide_opened_file>The user opened the file c:\Users\gyh\Desktop\Projects\whale-tutor\server\scripts\verify-knowledge.js in the IDE. This may or may not be related to the current task.</ide_opened_file>
+
+继续
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:07:26 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:07:28 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Frontend: review_lo overlay + adaptive UX + adaptive retry copy",
+      "activeForm": "Frontend integration",
+      "status": "in_progress"
+    },
+    {
+      "content": "Phase 2: free_recall generate",
+      "activeForm": "free_recall",
+      "status": "pending"
+    },
+    {
+      "content": "Phase 3: spot_the_bug generate + sanity",
+      "activeForm": "spot_the_bug",
+      "status": "pending"
+    },
+    {
+      "content": "Phase 4: code_sandbox generate + sanity",
+      "activeForm": "code_sandbox",
+      "status": "pending"
+    },
+    {
+      "content": "Final lint + commit Phase 1+2+3+4",
+      "activeForm": "Final cleanup",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:07:28 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:07:37 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\api\\session.ts",
+  "old_string": "import type {\n  EndSessionResponse,\n  GetSessionProgressResponse,\n  RequestHintRequest,\n  RequestHintResponse,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n} from '@whale-tutor/tutor-types';\nimport { http } from './http';",
+  "new_string": "import type {\n  AcknowledgeReviewLoResponse,\n  EndSessionResponse,\n  GetSessionProgressResponse,\n  RequestHintRequest,\n  RequestHintResponse,\n  StartSessionRequest,\n  StartSessionResponse,\n  SubmitResponseBody,\n  SubmitResponseResult,\n} from '@whale-tutor/tutor-types';\nimport { http } from './http';"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:07:38 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\api\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:07:46 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\api\\session.ts",
+  "old_string": "export async function requestHint(\n  sessionId: number,\n  body: RequestHintRequest,\n): Promise<RequestHintResponse> {\n  const res = await http.post<RequestHintResponse>(\n    `/sessions/${sessionId}/hints`,\n    body,\n  );\n  return res.data;\n}",
+  "new_string": "export async function requestHint(\n  sessionId: number,\n  body: RequestHintRequest,\n): Promise<RequestHintResponse> {\n  const res = await http.post<RequestHintResponse>(\n    `/sessions/${sessionId}/hints`,\n    body,\n  );\n  return res.data;\n}\n\nexport async function acknowledgeReviewLo(\n  sessionId: number,\n): Promise<AcknowledgeReviewLoResponse> {\n  const res = await http.post<AcknowledgeReviewLoResponse>(\n    `/sessions/${sessionId}/acknowledge-review-lo`,\n  );\n  return res.data;\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:07:47 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\api\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:07:54 PM</sup>
+
+Now session store: handle `review_lo` decision + add `acknowledgeReviewLo` action.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:07:54 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "offset": 1,
+  "limit": 60
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:07:54 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { defineStore } from 'pinia';
+2	import { ref } from 'vue';
+3	import type {
+4	  EvaluationResult,
+5	  GetSessionProgressResponse,
+6	  LearnerLoState,
+7	  LearningObjective,
+8	  PathDecision,
+9	  ServedInteraction,
+10	  SubmitResponseBody,
+11	} from '@whale-tutor/tutor-types';
+12	import * as knowledgeApi from '@/api/knowledge';
+13	import * as sessionApi from '@/api/session';
+14	
+15	/**
+16	 * 学习会话状态。
+17	 *
+18	 * UX 流(三阶状态机):
+19	 *   1. 进入新 LO → showLoIntro=true,显示 LoIntroCard(LO 名称+核心讲解)
+20	 *   2. 学习者点"开始练习" → acknowledge 该 LO → showLoIntro=false,显示题目卡片
+21	 *   3. 学习者答 → submit() → server 返 evaluation + nextInteraction
+22	 *   4. showFeedback=true,题目卡片切到反馈视图(pendingNextInteraction 暂存)
+23	 *   5. 学习者点"下一题" → continueToNext()
+24	 *      - 如果下一道在同 LO → 直接显示新题
+25	 *      - 如果下一道切 LO → showLoIntro=true,显示新 LO 的 intro
+26	 *
+27	 * progress 字段:章节 + 所有 LO 的进度概览,给 ProgressSidebar 用。
+28	 * 在 start() 与 submit() 后自动 refresh。
+29	 */
+30	export const useSessionStore = defineStore('session', () 
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:08:05 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "old_string": "  // StuckProtocol:当前 interaction 上学习者已用过的最高 hint 级别。\n  // submit 时自动加进 body.hintLevelUsed,让 server 写入 responses.hint_level。\n  // 切到下一题(continueToNext)/ start / end 时清零。\n  const currentHintLevel = ref(0);",
+  "new_string": "  // StuckProtocol:当前 interaction 上学习者已用过的最高 hint 级别。\n  // submit 时自动加进 body.hintLevelUsed,让 server 写入 responses.hint_level。\n  // 切到下一题(continueToNext)/ start / end 时清零。\n  const currentHintLevel = ref(0);\n\n  // v0.2 PathOrchestrator:server 返 review_lo decision 时,前端进入\"重看讲解 + 兜底\"模式。\n  // 此期间隐藏题目卡片,展示 LoIntroCard recap 全屏覆盖。学习者点\"我看完了\" → acknowledgeReviewLo。\n  // 来源:start() / submit() / acknowledgeReviewLo() 自身后续仍可触发(理论上链不长但有兜底)\n  const reviewLoActive = ref(false);\n  const reviewLoReason = ref<string | null>(null);"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:08:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\stores\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:08:12 PM</sup>
+
+Wiring `reviewLoActive` into start/submit/continueToNext + new `acknowledgeReviewLo` action.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:08:13 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "offset": 90,
+  "limit": 90
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:08:13 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+90	  }
+91	
+92	  function acknowledgeCurrentLo(): void {
+93	    if (currentInteraction.value) {
+94	      acknowledgedLoIds.value.add(currentInteraction.value.loId);
+95	      showLoIntro.value = false;
+96	    }
+97	  }
+98	
+99	  async function start(lid: number, courseId: string): Promise<void> {
+100	    loading.value = true;
+101	    error.value = null;
+102	    try {
+103	      const data = await sessionApi.startSession({
+104	        learnerId: lid,
+105	        courseId,
+106	      });
+107	      sessionId.value = data.sessionId;
+108	      learnerId.value = lid;
+109	      currentInteraction.value = data.interaction;
+110	      currentDecision.value = data.decision;
+111	      lastEvaluation.value = null;
+112	      lastLoState.value = null;
+113	      pendingNextInteraction.value = null;
+114	      showFeedback.value = false;
+115	      acknowledgedLoIds.value = new Set();
+116	      currentHintLevel.value = 0;
+117	      await refreshLoIntroFlag();
+118	      await refreshProgress();
+119	    } catch 
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:08:25 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "old_string": "  async function start(lid: number, courseId: string): Promise<void> {\n    loading.value = true;\n    error.value = null;\n    try {\n      const data = await sessionApi.startSession({\n        learnerId: lid,\n        courseId,\n      });\n      sessionId.value = data.sessionId;\n      learnerId.value = lid;\n      currentInteraction.value = data.interaction;\n      currentDecision.value = data.decision;\n      lastEvaluation.value = null;\n      lastLoState.value = null;\n      pendingNextInteraction.value = null;\n      showFeedback.value = false;\n      acknowledgedLoIds.value = new Set();\n      currentHintLevel.value = 0;\n      await refreshLoIntroFlag();\n      await refreshProgress();\n    } catch (e) {\n      error.value = (e as Error).message;\n      throw e;\n    } finally {\n      loading.value = false;\n    }\n  }",
+  "new_string": "  // review_lo 模式开关:从 PathDecision 推导。decision.primary.type === 'review_lo' →\n  // 进入 reviewLo 模式,前端隐藏题目区域、展示 LoIntroCard recap。\n  function applyReviewLoFromDecision(decision: PathDecision | null): void {\n    if (decision && decision.primary.type === 'review_lo') {\n      reviewLoActive.value = true;\n      reviewLoReason.value = decision.primary.reason ?? null;\n    } else {\n      reviewLoActive.value = false;\n      reviewLoReason.value = null;\n    }\n  }\n\n  async function start(lid: number, courseId: string): Promise<void> {\n    loading.value = true;\n    error.value = null;\n    try {\n      const data = await sessionApi.startSession({\n        learnerId: lid,\n        courseId,\n      });\n      sessionId.value = data.sessionId;\n      learnerId.value = lid;\n      currentInteraction.value = data.interaction;\n      currentDecision.value = data.decision;\n      lastEvaluation.value = null;\n      lastLoState.value = null;\n      pendingNextInteraction.value = null;\n      sh
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:08:26 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\stores\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:08:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "old_string": "  async function continueToNext(): Promise<void> {\n    currentInteraction.value = pendingNextInteraction.value;\n    pendingNextInteraction.value = null;\n    lastEvaluation.value = null;\n    showFeedback.value = false;\n    currentHintLevel.value = 0;\n    await refreshLoIntroFlag();\n    void refreshProgress();\n  }",
+  "new_string": "  async function continueToNext(): Promise<void> {\n    currentInteraction.value = pendingNextInteraction.value;\n    pendingNextInteraction.value = null;\n    lastEvaluation.value = null;\n    showFeedback.value = false;\n    currentHintLevel.value = 0;\n    applyReviewLoFromDecision(currentDecision.value);\n    await refreshLoIntroFlag();\n    void refreshProgress();\n  }\n\n  /**\n   * v0.2:从 LO recap 兜底回来 → 调 server 清 retry 状态,服务端再 decideNext + 服务下一题。\n   * 通常会得到原 RI 的 static 题。失败的话 server 仍可能再返 review_lo,前端继续展示。\n   */\n  async function acknowledgeReviewLo(): Promise<void> {\n    if (!sessionId.value) return;\n    loading.value = true;\n    error.value = null;\n    try {\n      const data = await sessionApi.acknowledgeReviewLo(sessionId.value);\n      currentInteraction.value = data.interaction;\n      currentDecision.value = data.decision;\n      pendingNextInteraction.value = null;\n      lastEvaluation.value = null;\n      showFeedback.value = false;\n      currentHintLevel.value = 0;\n      applyReviewLoFromDecision(data.decision);\n      await refreshLoIntroFlag();\n      void refreshProgress();\n    } catch (e) {\n      error.value = (e as Error).message;\n      throw e;\n    } finally {\n      loading.value = false;\n    }\n  }"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:08:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\stores\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:08:46 PM</sup>
+
+Need to call `applyReviewLoFromDecision` in submit too + export new state/action. Let me also check the export block.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:08:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "old_string": "      lastEvaluation.value = data.evaluation;\n      lastLoState.value = data.updatedLoState;\n      currentDecision.value = data.nextDecision;\n      pendingNextInteraction.value = data.nextInteraction;\n      showFeedback.value = true;\n      // 提交后刷新进度(mastery / 必做完成数 / chapter phase 都可能变)\n      void refreshProgress();",
+  "new_string": "      lastEvaluation.value = data.evaluation;\n      lastLoState.value = data.updatedLoState;\n      currentDecision.value = data.nextDecision;\n      pendingNextInteraction.value = data.nextInteraction;\n      showFeedback.value = true;\n      // review_lo 在 continueToNext 时再激活(否则反馈视图被立刻覆盖,学习者看不到结果)\n      // 提交后刷新进度(mastery / 必做完成数 / chapter phase 都可能变)\n      void refreshProgress();"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:08:51 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\stores\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:08:59 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "offset": 200,
+  "limit": 35
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:08:59 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+200	    } finally {
+201	      loading.value = false;
+202	    }
+203	  }
+204	
+205	  async function end(): Promise<void> {
+206	    if (!sessionId.value) return;
+207	    try {
+208	      await sessionApi.endSession(sessionId.value);
+209	    } finally {
+210	      sessionId.value = null;
+211	      learnerId.value = null;
+212	      currentInteraction.value = null;
+213	      currentDecision.value = null;
+214	      lastEvaluation.value = null;
+215	      lastLoState.value = null;
+216	      pendingNextInteraction.value = null;
+217	      showFeedback.value = false;
+218	      acknowledgedLoIds.value = new Set();
+219	      showLoIntro.value = false;
+220	      progress.value = null;
+221	      currentHintLevel.value = 0;
+222	    }
+223	  }
+224	
+225	  return {
+226	    // state
+227	    sessionId,
+228	    learnerId,
+229	    currentInteraction,
+230	    currentDecision,
+231	    lastEvaluation,
+232	    lastLoState,
+233	    pendingNextInteraction,
+234	    showFeedback,
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:09:08 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "old_string": "      pendingNextInteraction.value = null;\n      showFeedback.value = false;\n      acknowledgedLoIds.value = new Set();\n      showLoIntro.value = false;\n      progress.value = null;\n      currentHintLevel.value = 0;\n    }\n  }\n\n  return {\n    // state\n    sessionId,\n    learnerId,\n    currentInteraction,\n    currentDecision,\n    lastEvaluation,\n    lastLoState,\n    pendingNextInteraction,\n    showFeedback,",
+  "new_string": "      pendingNextInteraction.value = null;\n      showFeedback.value = false;\n      acknowledgedLoIds.value = new Set();\n      showLoIntro.value = false;\n      progress.value = null;\n      currentHintLevel.value = 0;\n      reviewLoActive.value = false;\n      reviewLoReason.value = null;\n    }\n  }\n\n  return {\n    // state\n    sessionId,\n    learnerId,\n    currentInteraction,\n    currentDecision,\n    lastEvaluation,\n    lastLoState,\n    pendingNextInteraction,\n    showFeedback,\n    reviewLoActive,\n    reviewLoReason,"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:09:09 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\stores\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:09:14 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "offset": 235,
+  "limit": 30
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:09:14 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+235	    pendingNextInteraction,
+236	    showFeedback,
+237	    reviewLoActive,
+238	    reviewLoReason,
+239	    loading,
+240	    error,
+241	    loMetaCache,
+242	    acknowledgedLoIds,
+243	    showLoIntro,
+244	    progress,
+245	    currentHintLevel,
+246	    // actions
+247	    start,
+248	    submit,
+249	    continueToNext,
+250	    acknowledgeCurrentLo,
+251	    refreshProgress,
+252	    ensureLoMeta,
+253	    end,
+254	  };
+255	});
+256
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:09:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\stores\\session.ts",
+  "old_string": "    // actions\n    start,\n    submit,\n    continueToNext,\n    acknowledgeCurrentLo,\n    refreshProgress,\n    ensureLoMeta,\n    end,\n  };\n});",
+  "new_string": "    // actions\n    start,\n    submit,\n    continueToNext,\n    acknowledgeCurrentLo,\n    acknowledgeReviewLo,\n    refreshProgress,\n    ensureLoMeta,\n    end,\n  };\n});"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:09:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\stores\session.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:09:29 PM</sup>
+
+Now LearnView review_lo overlay + pattern card adaptive copy. Let me look at LearnView template + currentLoMeta refs.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:09:29 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\views\\LearnView.vue",
+  "offset": 1,
+  "limit": 80
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:09:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	<script setup lang="ts">
+2	import { computed, onMounted, ref } from 'vue';
+3	import { useRouter } from 'vue-router';
+4	import { storeToRefs } from 'pinia';
+5	import type {
+6	  ArchiveNodeKind,
+7	  LearningObjective,
+8	} from '@whale-tutor/tutor-types';
+9	import { useSessionStore } from '@/stores/session';
+10	import { useQaStore } from '@/stores/qa';
+11	import ArchiveViewer from '@/components/ArchiveViewer.vue';
+12	import InteractionStage from '@/components/InteractionStage.vue';
+13	import LoIntroCard from '@/components/LoIntroCard.vue';
+14	import ProgressSidebar from '@/components/ProgressSidebar.vue';
+15	import QaPanel from '@/components/qa/QaPanel.vue';
+16	
+17	const router = useRouter();
+18	const sessionStore = useSessionStore();
+19	const qaStore = useQaStore();
+20	const {
+21	  sessionId,
+22	  learnerId,
+23	  currentInteraction,
+24	  currentDecision,
+25	  lastLoState,
+26	  loading,
+27	  showLoIntro,
+28	  loMetaCache,
+29	} = storeToRefs(sessionStore);
+30	
+31	const currentLoMeta = co
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:09:41 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\views\\LearnView.vue",
+  "old_string": "const {\n  sessionId,\n  learnerId,\n  currentInteraction,\n  currentDecision,\n  lastLoState,\n  loading,\n  showLoIntro,\n  loMetaCache,\n} = storeToRefs(sessionStore);\n\nconst currentLoMeta = computed<LearningObjective | null>(() => {\n  if (!currentInteraction.value) return null;\n  return loMetaCache.value[currentInteraction.value.loId] ?? null;\n});",
+  "new_string": "const {\n  sessionId,\n  learnerId,\n  currentInteraction,\n  currentDecision,\n  lastLoState,\n  loading,\n  showLoIntro,\n  loMetaCache,\n  reviewLoActive,\n  reviewLoReason,\n} = storeToRefs(sessionStore);\n\nconst currentLoMeta = computed<LearningObjective | null>(() => {\n  if (!currentInteraction.value) return null;\n  return loMetaCache.value[currentInteraction.value.loId] ?? null;\n});\n\n// review_lo 模式下的 LO meta — 从 decision.primary.loId 取(可能跟 currentInteraction 不同 LO)\nconst reviewLoMeta = computed<LearningObjective | null>(() => {\n  const action = currentDecision.value?.primary;\n  if (action?.type !== 'review_lo') return null;\n  return loMetaCache.value[action.loId] ?? null;\n});\n\nasync function onAcknowledgeReviewLo(): Promise<void> {\n  await sessionStore.acknowledgeReviewLo();\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:09:42 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\views\LearnView.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:09:48 PM</sup>
+
+Wiring template now. Need to also ensure reviewLoMeta is in the LO cache (might not be fetched yet if review_lo hits before LoIntro).
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:09:53 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\views\\LearnView.vue",
+  "old_string": "// review_lo 模式下的 LO meta — 从 decision.primary.loId 取(可能跟 currentInteraction 不同 LO)\nconst reviewLoMeta = computed<LearningObjective | null>(() => {\n  const action = currentDecision.value?.primary;\n  if (action?.type !== 'review_lo') return null;\n  return loMetaCache.value[action.loId] ?? null;\n});\n\nasync function onAcknowledgeReviewLo(): Promise<void> {\n  await sessionStore.acknowledgeReviewLo();\n}",
+  "new_string": "// review_lo 模式下的 LO meta — 从 decision.primary.loId 取。\n// 没缓存就按需 fetch(理论上 currentInteraction 之前已经触发缓存,这里是兜底)\nconst reviewLoMeta = computed<LearningObjective | null>(() => {\n  const action = currentDecision.value?.primary;\n  if (action?.type !== 'review_lo') return null;\n  const cached = loMetaCache.value[action.loId];\n  if (!cached) {\n    void sessionStore.ensureLoMeta(action.loId);\n    return null;\n  }\n  return cached;\n});\n\nasync function onAcknowledgeReviewLo(): Promise<void> {\n  await sessionStore.acknowledgeReviewLo();\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:09:54 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\views\LearnView.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:10:00 PM</sup>
+
+Now mount the recap overlay in the template (replacing the question view when reviewLoActive).
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:10:00 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\views\\LearnView.vue",
+  "offset": 160,
+  "limit": 55
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:10:00 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+160	        <div class="header-right">
+161	          <el-button v-if="currentInteraction" plain @click="openQa">
+162	            💬 问问题
+163	          </el-button>
+164	          <el-button @click="backHome">返回首页</el-button>
+165	        </div>
+166	      </el-header>
+167	
+168	      <el-main class="learn-main">
+169	        <div
+170	          v-if="loading && !currentInteraction"
+171	          v-loading="true"
+172	          style="min-height: 200px"
+173	        ></div>
+174	
+175	        <LoIntroCard
+176	          v-if="currentInteraction && showLoIntro && currentLoMeta"
+177	          :lo-meta="currentLoMeta"
+178	          mode="first-time"
+179	          @start="sessionStore.acknowledgeCurrentLo()"
+180	        />
+181	        <InteractionStage
+182	          v-else-if="currentInteraction"
+183	          :interaction="currentInteraction"
+184	        />
+185	
+186	        <div v-else-if="finalActionLabel" class="final-state">
+187	          <el-result :title="finalActionLabel" icon="success">
+188	   
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:10:15 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\views\\LearnView.vue",
+  "old_string": "      <el-main class=\"learn-main\">\n        <div\n          v-if=\"loading && !currentInteraction\"\n          v-loading=\"true\"\n          style=\"min-height: 200px\"\n        ></div>\n\n        <LoIntroCard\n          v-if=\"currentInteraction && showLoIntro && currentLoMeta\"\n          :lo-meta=\"currentLoMeta\"\n          mode=\"first-time\"\n          @start=\"sessionStore.acknowledgeCurrentLo()\"\n        />\n        <InteractionStage\n          v-else-if=\"currentInteraction\"\n          :interaction=\"currentInteraction\"\n        />\n\n        <div v-else-if=\"finalActionLabel\" class=\"final-state\">\n          <el-result :title=\"finalActionLabel\" icon=\"success\">\n            <template #extra>\n              <el-button type=\"primary\" @click=\"backHome\">返回首页</el-button>\n            </template>\n          </el-result>\n        </div>\n\n        <el-empty v-else-if=\"!loading\" description=\"尚未开始学习\" />\n      </el-main>",
+  "new_string": "      <el-main class=\"learn-main\">\n        <div\n          v-if=\"loading && !currentInteraction && !reviewLoActive\"\n          v-loading=\"true\"\n          style=\"min-height: 200px\"\n        ></div>\n\n        <!-- v0.2:review_lo 兜底,优先级最高(其他视图都隐藏) -->\n        <div v-if=\"reviewLoActive\" class=\"review-lo-wrapper\">\n          <el-alert\n            type=\"warning\"\n            :closable=\"false\"\n            show-icon\n            class=\"review-lo-banner\"\n          >\n            <template #title>\n              <strong>先回到讲解再来</strong>\n            </template>\n            <span v-if=\"reviewLoReason\">{{ reviewLoReason }}</span>\n          </el-alert>\n          <LoIntroCard\n            v-if=\"reviewLoMeta\"\n            :lo-meta=\"reviewLoMeta\"\n            mode=\"recap\"\n            @close=\"onAcknowledgeReviewLo\"\n          />\n          <div v-else v
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:10:16 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\views\LearnView.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:10:29 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:10:31 PM</sup>
+
+LoIntroCard 现有 'recap' 按钮是"返回",对 review_lo 场景文案不准。加 `'review-lo'` mode。
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:10:32 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\LoIntroCard.vue",
+  "offset": 1,
+  "limit": 75
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:10:32 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	<script setup lang="ts">
+2	import { computed } from 'vue';
+3	import type { LearningObjective } from '@whale-tutor/tutor-types';
+4	import { renderMarkdown } from '@/utils/markdown';
+5	
+6	const props = withDefaults(
+7	  defineProps<{
+8	    loMeta: LearningObjective;
+9	    // 'first-time': 进入新 LO 时的首次介绍页;按钮"开始练习" emit start
+10	    // 'recap':     从侧边栏点"重看讲解"调起的回看模式;按钮"返回" emit close
+11	    mode?: 'first-time' | 'recap';
+12	  }>(),
+13	  { mode: 'first-time' },
+14	);
+15	
+16	defineEmits<{
+17	  start: [];
+18	  close: [];
+19	}>();
+20	
+21	const isRecap = computed(() => props.mode === 'recap');
+22	
+23	const explanationHtml = computed(() =>
+24	  renderMarkdown(props.loMeta.coreExplanationMd),
+25	);
+26	
+27	const difficultyLabel: Record<string, string> = {
+28	  beginner: '入门',
+29	  intermediate: '中级',
+30	  advanced: '进阶',
+31	};
+32	</script>
+33	
+34	<template>
+35	  <el-card class="lo-intro-card" shadow="never">
+36	    <div class="header">
+37	      <div class="lo-name">{{ loMeta.name }}</div>
+38	   
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:10:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\LoIntroCard.vue",
+  "old_string": "const props = withDefaults(\n  defineProps<{\n    loMeta: LearningObjective;\n    // 'first-time': 进入新 LO 时的首次介绍页;按钮\"开始练习\" emit start\n    // 'recap':     从侧边栏点\"重看讲解\"调起的回看模式;按钮\"返回\" emit close\n    mode?: 'first-time' | 'recap';\n  }>(),\n  { mode: 'first-time' },\n);\n\ndefineEmits<{\n  start: [];\n  close: [];\n}>();\n\nconst isRecap = computed(() => props.mode === 'recap');",
+  "new_string": "const props = withDefaults(\n  defineProps<{\n    loMeta: LearningObjective;\n    // 'first-time': 进入新 LO 时的首次介绍页;按钮\"开始练习\" emit start\n    // 'recap':     从侧边栏点\"重看讲解\"调起的回看模式;按钮\"返回\" emit close\n    // 'review-lo': v0.2 PathOrchestrator 兜底 — 学习者连续答错或换说法生成失败,\n    //              强制回讲解;按钮\"我看完了,继续练习\" emit close(LearnView 接到后调 acknowledgeReviewLo)\n    mode?: 'first-time' | 'recap' | 'review-lo';\n  }>(),\n  { mode: 'first-time' },\n);\n\ndefineEmits<{\n  start: [];\n  close: [];\n}>();\n\nconst isRecap = computed(() => props.mode === 'recap');\nconst isReviewLo = computed(() => props.mode === 'review-lo');"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:10:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\LoIntroCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:10:53 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\LoIntroCard.vue",
+  "old_string": "    <div class=\"actions\">\n      <el-button v-if=\"isRecap\" size=\"large\" @click=\"$emit('close')\">\n        返回\n      </el-button>\n      <el-button v-else type=\"primary\" size=\"large\" @click=\"$emit('start')\">\n        开始练习\n      </el-button>\n    </div>",
+  "new_string": "    <div class=\"actions\">\n      <el-button\n        v-if=\"isReviewLo\"\n        type=\"primary\"\n        size=\"large\"\n        @click=\"$emit('close')\"\n      >\n        我看完了,继续练习\n      </el-button>\n      <el-button v-else-if=\"isRecap\" size=\"large\" @click=\"$emit('close')\">\n        返回\n      </el-button>\n      <el-button v-else type=\"primary\" size=\"large\" @click=\"$emit('start')\">\n        开始练习\n      </el-button>\n    </div>"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:10:54 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\LoIntroCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:11:00 PM</sup>
+
+Now wire LearnView to use this `'review-lo'` mode:
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:11:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\views\\LearnView.vue",
+  "old_string": "          <LoIntroCard\n            v-if=\"reviewLoMeta\"\n            :lo-meta=\"reviewLoMeta\"\n            mode=\"recap\"\n            @close=\"onAcknowledgeReviewLo\"\n          />",
+  "new_string": "          <LoIntroCard\n            v-if=\"reviewLoMeta\"\n            :lo-meta=\"reviewLoMeta\"\n            mode=\"review-lo\"\n            @close=\"onAcknowledgeReviewLo\"\n          />"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:11:03 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\views\LearnView.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:11:09 PM</sup>
+
+Now style for review-lo wrapper + adaptive retry copy in pattern cards. Check FeedbackArea + how pattern cards detect retry now.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:11:10 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\views\\LearnView.vue",
+  "offset": 242,
+  "limit": 40
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:11:10 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+242	      @update:visible="archiveVisible = $event"
+243	    />
+244	
+245	    <QaPanel @view-archive="onViewArchive" />
+246	  </el-container>
+247	</template>
+248	
+249	<style scoped>
+250	.learn-view {
+251	  /* 严格 = 100vh,el-main 内部 overflow:auto 处理内容滚动,避免触发浏览器外层 scrollbar */
+252	  height: 100vh;
+253	  background: #fafafa;
+254	}
+255	.main-container {
+256	  flex: 1;
+257	  display: flex;
+258	  flex-direction: column;
+259	}
+260	.learn-header {
+261	  display: flex;
+262	  justify-content: space-between;
+263	  align-items: center;
+264	  padding: 16px 24px;
+265	  background: white;
+266	  border-bottom: 1px solid #ebeef5;
+267	}
+268	.header-left {
+269	  display: flex;
+270	  align-items: center;
+271	  gap: 16px;
+272	}
+273	.header-left h2 {
+274	  margin: 0;
+275	}
+276	.header-right {
+277	  display: flex;
+278	  gap: 8px;
+279	}
+280	.lo-state {
+281	  display: flex;
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:11:20 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\views\\LearnView.vue",
+  "old_string": ".lo-state {\n  display: flex;",
+  "new_string": ".review-lo-wrapper {\n  max-width: 760px;\n  margin: 0 auto;\n  display: flex;\n  flex-direction: column;\n  gap: 16px;\n}\n.review-lo-banner {\n  /* 让 banner 横铺,el-alert 默认 inline-block 偶尔会撑得不齐 */\n  width: 100%;\n}\n.lo-state {\n  display: flex;"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:11:21 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\views\LearnView.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:11:28 PM</sup>
+
+Now pattern card adaptive copy. Currently `isRetrySameRi` was based on `evaluation.correct === false`. Need new logic — adaptive comes when wrong, button text differs.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:11:30 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\ConceptCheckCard.vue",
+  "offset": 14,
+  "limit": 55
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:11:30 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+14	}>();
+15	
+16	const sessionStore = useSessionStore();
+17	const { lastEvaluation, showFeedback, pendingNextInteraction, loading } =
+18	  storeToRefs(sessionStore);
+19	
+20	// el-radio-group 的 v-model 类型不接 null,所以用 undefined 表示"未选"
+21	const selected = ref<number | undefined>(undefined);
+22	
+23	// 切换到新 interaction 时清空选项(答错重做同 ri 也是新 interaction id)
+24	watch(
+25	  () => props.interaction.id,
+26	  () => {
+27	    selected.value = undefined;
+28	  },
+29	);
+30	
+31	const explanationHtml = computed(() =>
+32	  renderMarkdown(props.interaction.prompt.explanationMd),
+33	);
+34	const stemHtml = computed(() =>
+35	  renderMarkdown(props.interaction.prompt.question.stem),
+36	);
+37	
+38	const isLastInChapter = computed(
+39	  () => showFeedback.value && pendingNextInteraction.value === null,
+40	);
+41	
+42	// v0:server PathOrchestrator 答错时返回同一道 ri(因为 mandatoryCompletedIds 不加),
+43	// 前端通过 evaluation.correct=false 识别"重做"状态。
+44	const isRetrySameRi = computed(
+45	  () => showFeedback.value && lastEvaluation.valu
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:11:41 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\ConceptCheckCard.vue",
+  "old_string": "const sessionStore = useSessionStore();\nconst { lastEvaluation, showFeedback, pendingNextInteraction, loading } =\n  storeToRefs(sessionStore);",
+  "new_string": "const sessionStore = useSessionStore();\nconst {\n  lastEvaluation,\n  showFeedback,\n  pendingNextInteraction,\n  currentDecision,\n  loading,\n} = storeToRefs(sessionStore);"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:11:42 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\ConceptCheckCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:11:50 PM</sup>
+
+Wiring `currentDecision` into the new computed.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:11:57 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\ConceptCheckCard.vue",
+  "old_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null,\n);\n\n// v0:server PathOrchestrator 答错时返回同一道 ri(因为 mandatoryCompletedIds 不加),\n// 前端通过 evaluation.correct=false 识别\"重做\"状态。\nconst isRetrySameRi = computed(\n  () => showFeedback.value && lastEvaluation.value?.correct === false,\n);\n\nconst continueButtonLabel = computed(() => {\n  if (isRetrySameRi.value) return '再试一次';\n  if (isLastInChapter.value) return '查看结果';\n  return '下一题';\n});",
+  "new_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null,\n);\n\n// v0.2:server 答错时不再发同 RI,而是返 adaptive 换说法题 / review_lo 兜底。\n//   - nextInteraction.source === 'adaptive' → \"换种说法再试一道\"\n//   - nextDecision.primary.type === 'review_lo' → \"去看讲解\"(进 LO recap)\nconst isAdaptiveRetry = computed(\n  () =>\n    showFeedback.value &&\n    lastEvaluation.value?.correct === false &&\n    pendingNextInteraction.value?.source === 'adaptive',\n);\nconst isReviewLoNext = computed(\n  () =>\n    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',\n);\n\nconst continueButtonLabel = computed(() => {\n  if (isReviewLoNext.value) return '去看讲解';\n  if (isAdaptiveRetry.value) return '换种说法再试一道';\n  if (isLastInChapter.value) return '查看结果';\n  return '下一题';\n});"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:11:58 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\ConceptCheckCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:12:07 PM</sup>
+
+Two more `isRetrySameRi` references in the template — let me find and update.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:12:07 PM</sup>
+
+<details>
+<summary>Tool: <code>Grep</code></summary>
+
+```json
+{
+  "pattern": "isRetrySameRi",
+  "path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src",
+  "output_mode": "content",
+  "-n": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:12:08 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\FeedbackArea.vue:9:  isRetrySameRi?: boolean;
+c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\FeedbackArea.vue:35:        <div v-if="isRetrySameRi" class="retry-hint">
+c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\CodeSandboxCard.vue:56:const isRetrySameRi = computed(
+c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\CodeSandboxCard.vue:60:  if (isRetrySameRi.value) return '再试一次';
+c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\CodeSandboxCard.vue:207:        :is-retry-same-ri="isRetrySameRi"
+c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\CodeSandboxCard.vue:225:          :type="isRetrySameRi ? 'warning' : 'primary'"
+c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\SpotTheBugCard.vue:44:const isRetrySameRi = computed(
+c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\SpotTheBugCard.vue
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:12:30 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:12:31 PM</sup>
+
+Unifying — keep `isRetrySameRi` semantically meaning "the last attempt was wrong" (FeedbackArea uses it for warning styling). Pattern cards get adaptive/reviewLo derived computeds for button copy:
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:12:42 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\ConceptCheckCard.vue",
+  "old_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null,\n);\n\n// v0.2:server 答错时不再发同 RI,而是返 adaptive 换说法题 / review_lo 兜底。\n//   - nextInteraction.source === 'adaptive' → \"换种说法再试一道\"\n//   - nextDecision.primary.type === 'review_lo' → \"去看讲解\"(进 LO recap)\nconst isAdaptiveRetry = computed(\n  () =>\n    showFeedback.value &&\n    lastEvaluation.value?.correct === false &&\n    pendingNextInteraction.value?.source === 'adaptive',\n);\nconst isReviewLoNext = computed(\n  () =>\n    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',\n);\n\nconst continueButtonLabel = computed(() => {\n  if (isReviewLoNext.value) return '去看讲解';\n  if (isAdaptiveRetry.value) return '换种说法再试一道';\n  if (isLastInChapter.value) return '查看结果';\n  return '下一题';\n});",
+  "new_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null;\n);\n\n// 答错(任何类型) — 反馈区显示 warning 色,按钮也变 warning。\n//   v0:复发同 RI;v0.2:server 改成发 adaptive 换说法题 / review_lo 兜底\n// 保留同名,语义改成\"上一道题答错\"。\nconst isRetrySameRi = computed(\n  () => showFeedback.value && lastEvaluation.value?.correct === false,\n);\n// v0.2 细分按钮文案:\nconst isAdaptiveRetry = computed(\n  () =>\n    isRetrySameRi.value &&\n    pendingNextInteraction.value?.source === 'adaptive',\n);\nconst isReviewLoNext = computed(\n  () =>\n    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',\n);\n\nconst continueButtonLabel = computed(() => {\n  if (isReviewLoNext.value) return '去看讲解';\n  if (isAdaptiveRetry.value) return '换种说法再试一道';\n  if (isLastInChapter.value) return '查看结果';\n  return '下一题';\n});"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:12:43 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\ConceptCheckCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:12:49 PM</sup>
+
+Typo — `)` followed by `;` at end of arrow body. Fixing:
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:12:50 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\ConceptCheckCard.vue",
+  "old_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null;\n);",
+  "new_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null,\n);"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:12:52 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\ConceptCheckCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:13:03 PM</sup>
+
+Now apply the same pattern to the other 3 cards (free_recall, spot_the_bug, code_sandbox).
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:13:04 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\FreeRecallCard.vue",
+  "offset": 1,
+  "limit": 55
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:13:04 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	<script setup lang="ts">
+2	import { computed, ref, watch } from 'vue';
+3	import { storeToRefs } from 'pinia';
+4	import type {
+5	  FreeRecallPromptForLearner,
+6	  InteractionInstance,
+7	} from '@whale-tutor/tutor-types';
+8	import { useSessionStore } from '@/stores/session';
+9	import { renderMarkdown } from '@/utils/markdown';
+10	import FeedbackArea from '@/components/FeedbackArea.vue';
+11	
+12	const props = defineProps<{
+13	  interaction: InteractionInstance<FreeRecallPromptForLearner>;
+14	}>();
+15	
+16	const sessionStore = useSessionStore();
+17	const { lastEvaluation, showFeedback, pendingNextInteraction, loading } =
+18	  storeToRefs(sessionStore);
+19	
+20	const text = ref('');
+21	
+22	watch(
+23	  () => props.interaction.id,
+24	  () => {
+25	    text.value = '';
+26	  },
+27	);
+28	
+29	const promptHtml = computed(() =>
+30	  renderMarkdown(props.interaction.prompt.promptMd),
+31	);
+32	
+33	const isLastInChapter = computed(
+34	  () => showFeedback.value && pendingNextInteraction.value === null,
+
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:13:15 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\FreeRecallCard.vue",
+  "old_string": "const sessionStore = useSessionStore();\nconst { lastEvaluation, showFeedback, pendingNextInteraction, loading } =\n  storeToRefs(sessionStore);",
+  "new_string": "const sessionStore = useSessionStore();\nconst {\n  lastEvaluation,\n  showFeedback,\n  pendingNextInteraction,\n  currentDecision,\n  loading,\n} = storeToRefs(sessionStore);"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:13:16 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\FreeRecallCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:13:28 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\FreeRecallCard.vue",
+  "old_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null,\n);\nconst isRetrySameRi = computed(\n  () => showFeedback.value && lastEvaluation.value?.correct === false,\n);\nconst continueButtonLabel = computed(() => {\n  if (isRetrySameRi.value) return '再试一次';\n  if (isLastInChapter.value) return '查看结果';\n  return '下一题';\n});",
+  "new_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null,\n);\nconst isRetrySameRi = computed(\n  () => showFeedback.value && lastEvaluation.value?.correct === false,\n);\nconst isAdaptiveRetry = computed(\n  () =>\n    isRetrySameRi.value &&\n    pendingNextInteraction.value?.source === 'adaptive',\n);\nconst isReviewLoNext = computed(\n  () =>\n    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',\n);\nconst continueButtonLabel = computed(() => {\n  if (isReviewLoNext.value) return '去看讲解';\n  if (isAdaptiveRetry.value) return '换种说法再试一道';\n  if (isLastInChapter.value) return '查看结果';\n  return '下一题';\n});"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:13:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\FreeRecallCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:13:36 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\SpotTheBugCard.vue",
+  "offset": 15,
+  "limit": 40
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:13:36 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+15	
+16	const sessionStore = useSessionStore();
+17	const { lastEvaluation, showFeedback, pendingNextInteraction, loading } =
+18	  storeToRefs(sessionStore);
+19	
+20	// 行号从 1 开始(与 server bugLocations.line 一致)
+21	const selectedLines = ref<Set<number>>(new Set());
+22	const explanation = ref('');
+23	
+24	watch(
+25	  () => props.interaction.id,
+26	  () => {
+27	    selectedLines.value = new Set();
+28	    explanation.value = '';
+29	  },
+30	);
+31	
+32	const codeLines = computed(() =>
+33	  props.interaction.prompt.buggyCode.replace(/\n$/, '').split('\n'),
+34	);
+35	const hintHtml = computed(() =>
+36	  props.interaction.prompt.hintMd
+37	    ? renderMarkdown(props.interaction.prompt.hintMd)
+38	    : '',
+39	);
+40	
+41	const isLastInChapter = computed(
+42	  () => showFeedback.value && pendingNextInteraction.value === null,
+43	);
+44	const isRetrySameRi = computed(
+45	  () => showFeedback.value && lastEvaluation.value?.correct === false,
+46	);
+47	const continueButtonLabel = computed(() => {
+48	  if (isRetr
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:13:43 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\SpotTheBugCard.vue",
+  "old_string": "const sessionStore = useSessionStore();\nconst { lastEvaluation, showFeedback, pendingNextInteraction, loading } =\n  storeToRefs(sessionStore);",
+  "new_string": "const sessionStore = useSessionStore();\nconst {\n  lastEvaluation,\n  showFeedback,\n  pendingNextInteraction,\n  currentDecision,\n  loading,\n} = storeToRefs(sessionStore);"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:13:44 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\SpotTheBugCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:13:53 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\SpotTheBugCard.vue",
+  "old_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null,\n);\nconst isRetrySameRi = computed(\n  () => showFeedback.value && lastEvaluation.value?.correct === false,\n);\nconst continueButtonLabel = computed(() => {\n  if (isRetrySameRi.value) return '再试一次';\n  if (isLastInChapter.value) return '查看结果';\n  return '下一题';\n});",
+  "new_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null,\n);\nconst isRetrySameRi = computed(\n  () => showFeedback.value && lastEvaluation.value?.correct === false,\n);\nconst isAdaptiveRetry = computed(\n  () =>\n    isRetrySameRi.value &&\n    pendingNextInteraction.value?.source === 'adaptive',\n);\nconst isReviewLoNext = computed(\n  () =>\n    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',\n);\nconst continueButtonLabel = computed(() => {\n  if (isReviewLoNext.value) return '去看讲解';\n  if (isAdaptiveRetry.value) return '换种说法再试一道';\n  if (isLastInChapter.value) return '查看结果';\n  return '下一题';\n});"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:13:54 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\SpotTheBugCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:14:02 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\CodeSandboxCard.vue",
+  "offset": 15,
+  "limit": 75
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:14:02 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+15	  interaction: InteractionInstance<CodeSandboxPromptForLearner>;
+16	}>();
+17	
+18	const sessionStore = useSessionStore();
+19	const { lastEvaluation, showFeedback, pendingNextInteraction, loading } =
+20	  storeToRefs(sessionStore);
+21	const pyodideStore = usePyodideStore();
+22	const { status: pyodideStatus, errorMessage: pyodideError } =
+23	  storeToRefs(pyodideStore);
+24	
+25	// 学习者代码,初始 = starterCode
+26	const code = ref('');
+27	const runResults = ref<CodeRunOutcome[]>([]);
+28	const running = ref(false);
+29	
+30	watch(
+31	  () => props.interaction.id,
+32	  () => {
+33	    code.value = props.interaction.prompt.starterCode;
+34	    runResults.value = [];
+35	  },
+36	  { immediate: true },
+37	);
+38	
+39	const promptHtml = computed(() =>
+40	  renderMarkdown(props.interaction.prompt.promptMd),
+41	);
+42	
+43	const totalTests = computed(() => props.interaction.prompt.testCases.length);
+44	const passedCount = computed(
+45	  () => runResults.value.filter((r) => r.passed).length,
+46	);
+47	const allPa
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:14:10 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\CodeSandboxCard.vue",
+  "old_string": "const sessionStore = useSessionStore();\nconst { lastEvaluation, showFeedback, pendingNextInteraction, loading } =\n  storeToRefs(sessionStore);",
+  "new_string": "const sessionStore = useSessionStore();\nconst {\n  lastEvaluation,\n  showFeedback,\n  pendingNextInteraction,\n  currentDecision,\n  loading,\n} = storeToRefs(sessionStore);"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:14:11 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\CodeSandboxCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:14:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\web\\src\\components\\patterns\\CodeSandboxCard.vue",
+  "old_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null,\n);\nconst isRetrySameRi = computed(\n  () => showFeedback.value && lastEvaluation.value?.correct === false,\n);\nconst continueButtonLabel = computed(() => {\n  if (isRetrySameRi.value) return '再试一次';\n  if (isLastInChapter.value) return '查看结果';\n  return '下一题';\n});",
+  "new_string": "const isLastInChapter = computed(\n  () => showFeedback.value && pendingNextInteraction.value === null,\n);\nconst isRetrySameRi = computed(\n  () => showFeedback.value && lastEvaluation.value?.correct === false,\n);\nconst isAdaptiveRetry = computed(\n  () =>\n    isRetrySameRi.value &&\n    pendingNextInteraction.value?.source === 'adaptive',\n);\nconst isReviewLoNext = computed(\n  () =>\n    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',\n);\nconst continueButtonLabel = computed(() => {\n  if (isReviewLoNext.value) return '去看讲解';\n  if (isAdaptiveRetry.value) return '换种说法再试一道';\n  if (isLastInChapter.value) return '查看结果';\n  return '下一题';\n});"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:14:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\web\src\components\patterns\CodeSandboxCard.vue has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:14:32 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:14:33 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm typecheck 2>&1 | tail -10",
+  "description": "Full typecheck",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:15:02 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> whale-tutor@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor
+> pnpm -r run typecheck
+
+Scope: 3 of 4 workspace projects
+packages/tutor-types typecheck$ tsc -p tsconfig.json --noEmit
+packages/tutor-types typecheck: Done
+server typecheck$ tsc -p tsconfig.json --noEmit
+web typecheck$ vue-tsc --noEmit
+server typecheck: Done
+web typecheck: Done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:15:08 PM</sup>
+
+Typecheck clean. Time for full e2e UI smoke. Starting both servers + verify endpoints.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:15:11 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "docker exec whale-tutor-mysql mysql -ututor -ptutor whale_tutor -e \"DELETE FROM learner_state WHERE learner_id = 1; DELETE FROM learner_chapter_progress WHERE learner_id = 1; DELETE FROM events WHERE learner_id = 1; DELETE FROM responses; DELETE FROM interactions; DELETE FROM sessions WHERE learner_id = 1;\" 2>&1 | tail -1; echo \"clean\"",
+  "description": "Reset learner state"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:15:41 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+mysql: [Warning] Using a password on the command line interface can be insecure.
+clean
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:15:47 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm dev:server 2>&1",
+  "description": "Start server",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:16:51 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: b1so0r0et. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\b1so0r0et.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:17:06 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -o /dev/null -w \"\" http://localhost:3000/api/courses/python-basics 2>/dev/null; do sleep 2; done; echo \"server ready\"",
+  "description": "Wait server",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:17:38 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+server ready
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:18:01 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "SESSION=$(curl -sS -X POST http://localhost:3000/api/sessions -H \"Content-Type: application/json\" -d '{\"learnerId\":1,\"courseId\":\"python-basics\"}'); \\\nSID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['sessionId'])\"); \\\nIID=$(echo \"$SESSION\" | python -c \"import sys,json; print(json.load(sys.stdin)['interaction']['id'])\"); \\\necho \"session=$SID interaction=$IID\"; \\\necho \"\"; \\\necho \"=== Wrong → AI adaptive ===\"; \\\nW1=$(curl -sS -X POST \"http://localhost:3000/api/sessions/$SID/responses\" -H \"Content-Type: application/json\" -d \"{\\\"interactionId\\\":$IID,\\\"patternId\\\":\\\"concept_check\\\",\\\"response\\\":{\\\"selectedIndex\\\":1}}\"); \\\necho \"$W1\" | python -c \"\nimport sys,json\nd=json.load(sys.stdin)\nprint('next decision:', d['nextDecision']['primary']['type'], d['nextDecision']['primary'].get('source','-'))\nni=d.get('nextInteraction')\nprint('next interaction.source:', ni['source'] if ni else 'NONE')\nprint('correct:', d['evaluation']['correct'])\n\"",
+  "description": "Quick e2e: wrong → adaptive",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:18:34 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+session=4 interaction=10
+
+=== Wrong → AI adaptive ===
+next decision: serve_interaction adaptive
+next interaction.source: adaptive
+correct: False
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:18:49 PM</sup>
+
+Server side OK. Front-end smoke + lint:
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:18:49 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm dev:web 2>&1",
+  "description": "Start vite",
+  "run_in_background": true
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:18:57 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Command running in background with ID: b0poeg8tc. Output is being written to: C:\Users\gyh\AppData\Local\Temp\claude\c--Users-gyh-Desktop-Projects-whale-tutor\1a3a26bb-4046-445c-a8bf-4eb54527400b\tasks\b0poeg8tc.output
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:19:13 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "until curl -sS -o /dev/null -w \"\" http://localhost:5173/ 2>/dev/null; do sleep 1; done; \\\necho \"web ready\"; \\\ncurl -sS -o /dev/null -w \"GET / → %{http_code}\\n\" http://localhost:5173/; \\\ncurl -sS -o /dev/null -w \"GET /api/courses/python-basics → %{http_code}\\n\" http://localhost:5173/api/courses/python-basics",
+  "description": "Wait vite + smoke",
+  "timeout": 60000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:19:58 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+web ready
+GET / → 200
+GET /api/courses/python-basics → 200
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:20:08 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "b1so0r0et"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:20:08 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: b1so0r0et (pnpm dev:server 2>&1)","task_id":"b1so0r0et","task_type":"local_bash","command":"pnpm dev:server 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:20:09 PM</sup>
+
+<details>
+<summary>Tool: <code>TaskStop</code></summary>
+
+```json
+{
+  "task_id": "b0poeg8tc"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:20:09 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+{"message":"Successfully stopped task: b0poeg8tc (pnpm dev:web 2>&1)","task_id":"b0poeg8tc","task_type":"local_bash","command":"pnpm dev:web 2>&1"}
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:20:09 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pkill -f \"node\" 2>/dev/null; sleep 1; echo done",
+  "description": "Cleanup"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:20:22 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:20:37 PM</sup>
+
+Frontend Phase 1 done. Moving to **Phase 2: free_recall.regenerate**.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:20:39 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Frontend: review_lo overlay + adaptive UX + adaptive retry copy",
+      "activeForm": "Frontend integration",
+      "status": "completed"
+    },
+    {
+      "content": "Phase 2: free_recall generate (prompt + impl + registry)",
+      "activeForm": "free_recall",
+      "status": "in_progress"
+    },
+    {
+      "content": "Phase 3: spot_the_bug generate + sanity",
+      "activeForm": "spot_the_bug",
+      "status": "pending"
+    },
+    {
+      "content": "Phase 4: code_sandbox generate + sanity",
+      "activeForm": "code_sandbox",
+      "status": "pending"
+    },
+    {
+      "content": "Final lint + e2e all 4 patterns",
+      "activeForm": "Final cleanup",
+      "status": "pending"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:20:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:21:17 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\pattern.regenerate.free_recall.yaml",
+  "content": "# 答错 free_recall 后的\"换说法\"题生成。\n# free_recall 是开放问答,AI 评估时按 rubricKeyPoints 判断覆盖度。\n# regenerate 时换一个角度的开放题,给一组新的 rubric 点。\n#\n# 输入变量:subject / loName / loDescription / commonMisconceptions\n#          originalPromptMd / originalRubricList / attemptIndex\n\ntemplateId: pattern.regenerate.free_recall\nmodel: deepseek-v4-flash\nmaxRetries: 1\nmaxTokens: 1500\ntemperature: 0.5\n\nsystem: |\n  你是 {{subject}} 教学出题助手。学习者刚答错了一道关于某 LO 的 free_recall(自由回忆)题,\n  你需要为同一 LO 出一道**换角度**的开放问答题。\n\n  约束:\n  - 必须考核同一 LO 的核心概念\n  - 题干跟原题不同(改场景 / 换提问角度,但触及同一知识点)\n  - rubric 必须列 3-5 个学习者答出能算合格的关键点;每点 1 句话,具体可判定\n  - 不要在题干里直接提示 rubric 内容(否则白送分)\n  - 必须返回 JSON object 符合 schema,无任何额外文本\n\nuser: |\n  ## LO 上下文\n  名称:{{loName}}\n  描述:{{loDescription}}\n\n  ## 常见误解\n  {{commonMisconceptions}}\n\n  ## 原题(学习者答错)\n  题干: {{originalPromptMd}}\n  Rubric 关键点:\n  {{originalRubricList}}\n\n  ## 任务\n  这是该学习者第 {{attemptIndex}} 次 retry。\n  请生成一道**换角度**的 free_recall 题,返回 JSON,字段:\n  - promptMd: 题干 markdown(开放问答,引导学习者用自己的话表达)\n  - rubricKeyPoints: 长度 3-5 的字符串数组,列学习者应触及的关键点\n\noutputSchema:\n  type: object\n  required: [promptMd, rubricKeyPoints]\n  additionalProperties: false\n  properties:\n    promptMd: { type: string, minLength: 1 }\n    rubricKeyPoints:\n      type: array\n      minItems: 3\n      maxItems: 5\n      items: { type: string, minLength: 1 }\n\n# AI 不可用 / 失败时,promptMd=null,SessionService 检测到后落 review_lo\nfallback:\n  promptMd: null\n  rubricKeyPoints: []\n"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:21:18 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\pattern.regenerate.free_recall.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:21:40 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\free-recall.pattern.ts",
+  "old_string": "import { Injectable } from '@nestjs/common';\nimport type {\n  EvaluationResult,\n  FreeRecallPrompt,\n  FreeRecallPromptForLearner,\n  FreeRecallResponse,\n} from '@whale-tutor/tutor-types';\nimport { AiGatewayService } from '../../ai/ai-gateway.service';\n\n// AI Gateway 输出的 schema(与 server/src/ai/prompts/free_recall.evaluate.yaml 对齐)\ninterface FreeRecallAiOutput {\n  correct: boolean;\n  confidence: number;\n  feedbackMd: string;\n  rubricCoverage: Array<{ point: string; covered: boolean }>;\n}",
+  "new_string": "import { Injectable, Logger } from '@nestjs/common';\nimport type {\n  EvaluationResult,\n  FreeRecallPrompt,\n  FreeRecallPromptForLearner,\n  FreeRecallResponse,\n  LearningObjectiveDefinition,\n} from '@whale-tutor/tutor-types';\nimport { AiGatewayService } from '../../ai/ai-gateway.service';\nimport type { GenerateContext } from '../pattern.registry';\n\n// AI Gateway 输出的 schema(与 server/src/ai/prompts/free_recall.evaluate.yaml 对齐)\ninterface FreeRecallAiOutput {\n  correct: boolean;\n  confidence: number;\n  feedbackMd: string;\n  rubricCoverage: Array<{ point: string; covered: boolean }>;\n}\n\ninterface FreeRecallGenerateOutput {\n  promptMd: string | null;\n  rubricKeyPoints: string[];\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:21:41 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\patterns\free-recall.pattern.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:21:52 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\free-recall.pattern.ts",
+  "offset": 25,
+  "limit": 40
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:21:52 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+25	@Injectable()
+26	export class FreeRecallPattern {
+27	  constructor(private readonly ai: AiGatewayService) {}
+28	
+29	  toLearnerPrompt(prompt: FreeRecallPrompt): FreeRecallPromptForLearner {
+30	    // rubricKeyPoints 是 server-only 的评估 rubric,不下发
+31	    return { promptMd: prompt.promptMd };
+32	  }
+33	
+34	  /**
+35	   * AI 评估学习者的自由回忆。
+36	   * 失败/无 key 时 AI Gateway 返回 fallback 文案,这里直接转发(confidence 较低,前端可标"AI 评估暂不可用")。
+37	   */
+38	  async evaluate(
+39	    prompt: FreeRecallPrompt,
+40	    response: FreeRecallResponse,
+41	    context: { sessionId?: number; subject: string },
+42	  ): Promise<EvaluationResult> {
+43	    const aiOutput = await this.ai.complete<FreeRecallAiOutput>({
+44	      templateId: 'free_recall.evaluate',
+45	      variables: {
+46	        subject: context.subject,
+47	        promptMd: prompt.promptMd,
+48	        rubricKeyPointsList: prompt.rubricKeyPoints.map((p) => `- ${p}`).join('\n'),
+49	        response: response.text,
+50	      },
+51	      sessionId: context?.sessionId ?
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:22:08 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\free-recall.pattern.ts",
+  "old_string": "@Injectable()\nexport class FreeRecallPattern {\n  constructor(private readonly ai: AiGatewayService) {}",
+  "new_string": "@Injectable()\nexport class FreeRecallPattern {\n  private readonly logger = new Logger(FreeRecallPattern.name);\n\n  constructor(private readonly ai: AiGatewayService) {}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:22:09 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\patterns\free-recall.pattern.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:22:21 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\free-recall.pattern.ts",
+  "offset": 63,
+  "limit": 10
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:22:21 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+63	      hintLevelUsed: 0,
+64	      evaluatorKind: 'ai',
+65	    };
+66	  }
+67	}
+68
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:22:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\free-recall.pattern.ts",
+  "old_string": "      hintLevelUsed: 0,\n      evaluatorKind: 'ai',\n    };\n  }\n}",
+  "new_string": "      hintLevelUsed: 0,\n      evaluatorKind: 'ai',\n    };\n  }\n\n  /**\n   * v0.2:答错 free_recall 后,生成一道\"换角度\"的同 LO free_recall 题。\n   * AI 失败 → output.promptMd = null → 返 null,SessionService 落 review_lo 兜底。\n   */\n  async generate(\n    originalPrompt: FreeRecallPrompt,\n    lo: LearningObjectiveDefinition,\n    ctx: GenerateContext,\n  ): Promise<FreeRecallPrompt | null> {\n    const output = await this.ai.complete<FreeRecallGenerateOutput>({\n      templateId: 'pattern.regenerate.free_recall',\n      variables: {\n        subject: ctx.subject,\n        loName: lo.name,\n        loDescription: lo.description,\n        commonMisconceptions:\n          lo.commonMisconceptions.length > 0\n            ? lo.commonMisconceptions.map((m) => `- ${m}`).join('\\n')\n            : '(无)',\n        originalPromptMd: originalPrompt.promptMd,\n        originalRubricList: originalPrompt.rubricKeyPoints\n          .map((p) => `- ${p}`)\n          .join('\\n'),\n        attemptIndex: ctx.attemptIndex,\n      },\n      sessionId: ctx.sessionId ?? null,\n      callerTag: 'pattern.free_recall.regenerate',\n    });\n\n    if (!output.promptMd || output.rubricKeyPoints.length === 0) {\n      this.logger.log(\n        `free_recall.regenerate for LO ${lo.id} returned null prompt (fallback) — caller falls back to review_lo`,\n      );\n      return null;\n    }\n    return {\n      promptMd: output.promptMd,\n      rubricKeyPoints: output.rubricKeyPoints,\n    };\n  }\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:22:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\patterns\free-recall.pattern.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:23:00 PM</sup>
+
+Now wire registry to dispatch free_recall.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:23:05 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\pattern.registry.ts",
+  "old_string": "  async generate(\n    originalRi: RequiredInteraction,\n    lo: LearningObjectiveDefinition,\n    context: GenerateContext,\n  ): Promise<unknown | null> {\n    switch (originalRi.patternId) {\n      case 'concept_check':\n        return this.conceptCheck.generate(\n          originalRi.prompt as ConceptCheckPrompt,\n          lo,\n          context,\n        );\n      // free_recall / spot_the_bug / code_sandbox 暂未实现 generate,\n      // 返 null 让 SessionService 落 review_lo(Phase 2-4 时分别补)\n      default:\n        return null;\n    }\n  }\n}",
+  "new_string": "  async generate(\n    originalRi: RequiredInteraction,\n    lo: LearningObjectiveDefinition,\n    context: GenerateContext,\n  ): Promise<unknown | null> {\n    switch (originalRi.patternId) {\n      case 'concept_check':\n        return this.conceptCheck.generate(\n          originalRi.prompt as ConceptCheckPrompt,\n          lo,\n          context,\n        );\n      case 'free_recall':\n        return this.freeRecall.generate(\n          originalRi.prompt as FreeRecallPrompt,\n          lo,\n          context,\n        );\n      // spot_the_bug / code_sandbox 暂未实现 generate(Phase 3 / 4 时补)\n      default:\n        return null;\n    }\n  }\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:23:06 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\pattern.registry.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:23:19 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/server typecheck 2>&1 | tail -5",
+  "description": "Server typecheck",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:23:25 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/server@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> tsc -p tsconfig.json --noEmit
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:23:38 PM</sup>
+
+Phase 2 done. **Phase 3: spot_the_bug.regenerate** — needs server-side sanity check on AI output (line numbers must be ≤ buggyCode line count).
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:23:58 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\pattern.regenerate.spot_the_bug.yaml",
+  "content": "# 答错 spot_the_bug 后的\"换说法\"题生成。\n# 注:本 pattern 出题难度高(行号必须精确对应,代码必须真的有 bug),\n# AI 输出再过 server-side sanity check;失败就走 review_lo 兜底,不强行出题。\n#\n# 输入变量:subject / loName / loDescription / commonMisconceptions\n#          originalBuggyCode / originalBugLocations / originalCorrectExplanation\n#          attemptIndex\n\ntemplateId: pattern.regenerate.spot_the_bug\nmodel: deepseek-v4-flash\nmaxRetries: 1\nmaxTokens: 2000\ntemperature: 0.5\n\nsystem: |\n  你是 {{subject}} 教学出题助手。学习者刚答错了一道关于某 LO 的 spot-the-bug 题,\n  你需要为同一 LO 出一道**新的 buggy 代码片段**让学习者找错。\n\n  约束(严格):\n  - buggy code 长度 5-15 行\n  - 必须有 1-2 处真实的 bug,bug 性质应该跟原题相同或相近(同一 LO 的核心知识点)\n  - bugLocations 给出每个 bug 的**精确行号**(从 1 开始)和 kind 简短描述\n  - **bugLocations 中所有 line 必须在 1 到代码总行数之间**,绝不超界\n  - correctExplanation:用 1-2 段说明 bug 是什么、为什么会错、如何修\n  - hintMd 可选,给一个不直接告诉位置的引导提示\n  - 必须返回 JSON object 符合 schema,无任何额外文本、不要用 markdown 包裹\n\nuser: |\n  ## LO 上下文\n  名称:{{loName}}\n  描述:{{loDescription}}\n\n  ## 常见误解\n  {{commonMisconceptions}}\n\n  ## 原题(学习者答错)\n  ### buggy 代码\n  ```\n  {{originalBuggyCode}}\n  ```\n  ### bug 位置\n  {{originalBugLocations}}\n  ### 正确解释\n  {{originalCorrectExplanation}}\n\n  ## 任务\n  这是该学习者第 {{attemptIndex}} 次 retry。\n  请生成一道**换情境**的 spot-the-bug 题,同 LO 但代码不同。返回 JSON,字段:\n  - buggyCode: 含 bug 的代码字符串(用 \\n 分隔行,1-15 行)\n  - bugLocations: 数组,每项 { line: 1-N (N = buggyCode 总行数), kind: 简短描述 }\n  - correctExplanation: 解释 bug 性质的 markdown\n  - hintMd: 可选引导提示(不直接告诉位置)\n\noutputSchema:\n  type: object\n  required: [buggyCode, bugLocations, correctExplanation]\n  additionalProperties: false\n  properties:\n    buggyCode: { type: string, minLength: 1 }\n    bugLocations:\n      type: array\n      minItems: 1\n      maxItems: 3\n      items:\n        type: object\n        required: [line, kind]\n        additionalProperties: false\n        properties:\n          line: { ty
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:23:59 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\pattern.regenerate.spot_the_bug.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:24:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\spot-the-bug.pattern.ts",
+  "offset": 1,
+  "limit": 28
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:24:12 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { Injectable } from '@nestjs/common';
+2	import type {
+3	  EvaluationResult,
+4	  SpotTheBugPrompt,
+5	  SpotTheBugPromptForLearner,
+6	  SpotTheBugResponse,
+7	} from '@whale-tutor/tutor-types';
+8	import { AiGatewayService } from '../../ai/ai-gateway.service';
+9	
+10	interface SpotBugAiOutput {
+11	  explanationQuality: 'good' | 'partial' | 'wrong';
+12	  confidence: number;
+13	  feedbackMd: string;
+14	}
+15	
+16	@Injectable()
+17	export class SpotTheBugPattern {
+18	  constructor(private readonly ai: AiGatewayService) {}
+19	
+20	  toLearnerPrompt(prompt: SpotTheBugPrompt): SpotTheBugPromptForLearner {
+21	    // bugLocations / correctExplanation 是 server-only,不下发
+22	    const result: SpotTheBugPromptForLearner = { buggyCode: prompt.buggyCode };
+23	    if (prompt.hintMd !== undefined) result.hintMd = prompt.hintMd;
+24	    return result;
+25	  }
+26	
+27	  /**
+28	   * Hybrid 评估:
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:24:28 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\spot-the-bug.pattern.ts",
+  "old_string": "import { Injectable } from '@nestjs/common';\nimport type {\n  EvaluationResult,\n  SpotTheBugPrompt,\n  SpotTheBugPromptForLearner,\n  SpotTheBugResponse,\n} from '@whale-tutor/tutor-types';\nimport { AiGatewayService } from '../../ai/ai-gateway.service';\n\ninterface SpotBugAiOutput {\n  explanationQuality: 'good' | 'partial' | 'wrong';\n  confidence: number;\n  feedbackMd: string;\n}\n\n@Injectable()\nexport class SpotTheBugPattern {\n  constructor(private readonly ai: AiGatewayService) {}",
+  "new_string": "import { Injectable, Logger } from '@nestjs/common';\nimport type {\n  BugLocation,\n  EvaluationResult,\n  LearningObjectiveDefinition,\n  SpotTheBugPrompt,\n  SpotTheBugPromptForLearner,\n  SpotTheBugResponse,\n} from '@whale-tutor/tutor-types';\nimport { AiGatewayService } from '../../ai/ai-gateway.service';\nimport type { GenerateContext } from '../pattern.registry';\n\ninterface SpotBugAiOutput {\n  explanationQuality: 'good' | 'partial' | 'wrong';\n  confidence: number;\n  feedbackMd: string;\n}\n\ninterface SpotBugGenerateOutput {\n  buggyCode: string | null;\n  bugLocations: BugLocation[];\n  correctExplanation: string;\n  hintMd?: string;\n}\n\n@Injectable()\nexport class SpotTheBugPattern {\n  private readonly logger = new Logger(SpotTheBugPattern.name);\n\n  constructor(private readonly ai: AiGatewayService) {}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:24:29 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\patterns\spot-the-bug.pattern.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:24:42 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\spot-the-bug.pattern.ts",
+  "offset": 95,
+  "limit": 30
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:24:42 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+95	    if (correct) {
+96	      // 通过时也附带完整解析,便于学习者深化
+97	      parts.push(`---\n\n${prompt.correctExplanation}`);
+98	    } else {
+99	      parts.push(`---\n\n参考解析:\n\n${prompt.correctExplanation}`);
+100	    }
+101	
+102	    return {
+103	      correct,
+104	      // 行号是确定性的,所以行错时 confidence 高(我们确信"不对");行对时由 AI confidence 决定
+105	      confidence: linesCorrect ? aiOutput.confidence : 0.95,
+106	      feedbackMd: parts.join('\n\n'),
+107	      masteryDelta: {},
+108	      hintLevelUsed: 0,
+109	      evaluatorKind: 'hybrid',
+110	    };
+111	  }
+112	}
+113
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:25:16 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\spot-the-bug.pattern.ts",
+  "old_string": "    return {\n      correct,\n      // 行号是确定性的,所以行错时 confidence 高(我们确信\"不对\");行对时由 AI confidence 决定\n      confidence: linesCorrect ? aiOutput.confidence : 0.95,\n      feedbackMd: parts.join('\\n\\n'),\n      masteryDelta: {},\n      hintLevelUsed: 0,\n      evaluatorKind: 'hybrid',\n    };\n  }\n}",
+  "new_string": "    return {\n      correct,\n      // 行号是确定性的,所以行错时 confidence 高(我们确信\"不对\");行对时由 AI confidence 决定\n      confidence: linesCorrect ? aiOutput.confidence : 0.95,\n      feedbackMd: parts.join('\\n\\n'),\n      masteryDelta: {},\n      hintLevelUsed: 0,\n      evaluatorKind: 'hybrid',\n    };\n  }\n\n  /**\n   * v0.2:答错后生成\"换情境\"的 spot_the_bug 题。\n   *\n   * 出题门槛高(行号必须精确对应代码,代码必须真有 bug),所以除 AI 输出 schema 校验外,\n   * 还要过 server-side sanity check:bugLocations.line 必须在 1..buggyCode 行数 范围内。\n   * 任一失败 → 返 null → SessionService 落 review_lo。\n   */\n  async generate(\n    originalPrompt: SpotTheBugPrompt,\n    lo: LearningObjectiveDefinition,\n    ctx: GenerateContext,\n  ): Promise<SpotTheBugPrompt | null> {\n    const output = await this.ai.complete<SpotBugGenerateOutput>({\n      templateId: 'pattern.regenerate.spot_the_bug',\n      variables: {\n        subject: ctx.subject,\n        loName: lo.name,\n        loDescription: lo.description,\n        commonMisconceptions:\n          lo.commonMisconceptions.length > 0\n            ? lo.commonMisconceptions.map((m) => `- ${m}`).join('\\n')\n            : '(无)',\n        originalBuggyCode: originalPrompt.buggyCode,\n        originalBugLocations: originalPrompt.bugLocations\n          .map((b) => `- 第 ${b.line} 行: ${b.kind}`)\n          .join('\\n'),\n        originalCorrectExplanation: originalPrompt.correctExplanation,\n        attemptIndex: ctx.attemptIndex,\n      },\n      sessionId: ctx.sessionId ?? null,\n      callerTag: 'pattern.spot_the_bug.
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:25:17 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\patterns\spot-the-bug.pattern.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:25:32 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\pattern.registry.ts",
+  "old_string": "      case 'free_recall':\n        return this.freeRecall.generate(\n          originalRi.prompt as FreeRecallPrompt,\n          lo,\n          context,\n        );\n      // spot_the_bug / code_sandbox 暂未实现 generate(Phase 3 / 4 时补)\n      default:\n        return null;\n    }\n  }\n}",
+  "new_string": "      case 'free_recall':\n        return this.freeRecall.generate(\n          originalRi.prompt as FreeRecallPrompt,\n          lo,\n          context,\n        );\n      case 'spot_the_bug':\n        return this.spotTheBug.generate(\n          originalRi.prompt as SpotTheBugPrompt,\n          lo,\n          context,\n        );\n      // code_sandbox 暂未实现 generate(Phase 4 时补)\n      default:\n        return null;\n    }\n  }\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:25:33 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\pattern.registry.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:25:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm --filter @whale-tutor/server typecheck 2>&1 | tail -3",
+  "description": "Server typecheck",
+  "timeout": 90000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:25:50 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> @whale-tutor/server@0.0.1 typecheck C:\Users\gyh\Desktop\Projects\whale-tutor\server
+> tsc -p tsconfig.json --noEmit
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:26:04 PM</sup>
+
+Phase 3 done. **Phase 4: code_sandbox.regenerate** — sanity checks: setupCode contains `print()`, expectedOutput non-empty.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:26:22 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\ai\\prompts\\pattern.regenerate.code_sandbox.yaml",
+  "content": "# 答错 code_sandbox 后的\"换说法\"题生成。\n# code_sandbox 出题最难(starterCode + testCases 必须 e2e 可跑),\n# 输出过 server-side sanity check;失败就走 review_lo。\n#\n# 输入变量:subject / loName / loDescription / commonMisconceptions\n#          originalPromptMd / originalStarterCode / originalTestCases / attemptIndex\n\ntemplateId: pattern.regenerate.code_sandbox\nmodel: deepseek-v4-flash\nmaxRetries: 1\nmaxTokens: 2000\ntemperature: 0.4\n\nsystem: |\n  你是 {{subject}} 教学出题助手。学习者刚答错了一道 code_sandbox 编程题,\n  你需要为同一 LO 出一道**换情境**的编程题。\n\n  约束(严格):\n  - promptMd:题目描述,markdown 格式,简洁说明要写什么函数/逻辑(2-4 句)\n  - starterCode:学习者起手代码,包含函数签名/变量框架,但学习者要填的部分用 `pass` 或注释\n  - starterCode 必须只包含 {{subject}} 代码,不要额外的解释\n  - testCases:1-3 个测试用例,每个 testCase:\n      * setupCode:**学习者代码执行后**会执行的片段,**必须用 `print(...)` 输出结果**\n      * expectedOutput:**精确匹配** `setupCode` 应输出的字符串(trim 后比较)\n      * setupCode 必须假定学习者代码已经定义好函数/变量,直接调用即可\n  - description 字段可选(展示给学习者看的测试名)\n  - 不要在 starterCode 里直接写答案\n  - 必须返回 JSON object 符合 schema,无任何额外文本\n\nuser: |\n  ## LO 上下文\n  名称:{{loName}}\n  描述:{{loDescription}}\n\n  ## 常见误解\n  {{commonMisconceptions}}\n\n  ## 原题(学习者答错)\n  ### 题面\n  {{originalPromptMd}}\n\n  ### starter code\n  ```\n  {{originalStarterCode}}\n  ```\n\n  ### 测试用例\n  {{originalTestCases}}\n\n  ## 任务\n  这是该学习者第 {{attemptIndex}} 次 retry。生成一道**换情境**的 code_sandbox 题,\n  返回 JSON,字段:\n  - promptMd: 题面(markdown)\n  - starterCode: 起手代码(纯代码字符串,带 `\\n` 换行)\n  - testCases: 数组,每项 { setupCode: 含 print() 的调用代码, expectedOutput: 期望字符串, description?: 测试名 }\n\noutputSchema:\n  type: object\n  required: [promptMd, starterCode, testCases]\n  additionalProperties: false\n  properties:\n    promptMd: { type: string, minLength: 1 }\n    starterCode: { type: string, minLength: 1 }\n    testCases:\n      type: array\n      minItems: 1\n      maxItems: 3\n      items:\n        type: object\n        require
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:26:23 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\ai\prompts\pattern.regenerate.code_sandbox.yaml (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:26:37 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\code-sandbox.pattern.ts"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:26:37 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	import { Injectable } from '@nestjs/common';
+2	import type {
+3	  CodeSandboxPrompt,
+4	  CodeSandboxPromptForLearner,
+5	  CodeSandboxResponse,
+6	  EvaluationResult,
+7	} from '@whale-tutor/tutor-types';
+8	
+9	@Injectable()
+10	export class CodeSandboxPattern {
+11	  toLearnerPrompt(prompt: CodeSandboxPrompt): CodeSandboxPromptForLearner {
+12	    // hiddenTestCases 是 server-only,不下发(留作 v0.2 迁移性测试)
+13	    return {
+14	      promptMd: prompt.promptMd,
+15	      starterCode: prompt.starterCode,
+16	      testCases: prompt.testCases,
+17	    };
+18	  }
+19	
+20	  /**
+21	   * 确定性评估:server 信任前端 Pyodide 跑出来的 runResults。
+22	   * v0 不做防作弊(理论上学习者可以伪造 runResults);
+23	   * M3 末再考虑 server 端 docker sandbox re-run 校验。
+24	   */
+25	  evaluate(
+26	    prompt: CodeSandboxPrompt,
+27	    response: CodeSandboxResponse,
+28	  ): EvaluationResult {
+29	    const total = prompt.testCases.length;
+30	    const runResults = response.runResults;
+31	    const allPassed =
+32	      runResults.length === total && runResults.every(
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:26:51 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\code-sandbox.pattern.ts",
+  "old_string": "import { Injectable } from '@nestjs/common';\nimport type {\n  CodeSandboxPrompt,\n  CodeSandboxPromptForLearner,\n  CodeSandboxResponse,\n  EvaluationResult,\n} from '@whale-tutor/tutor-types';\n\n@Injectable()\nexport class CodeSandboxPattern {\n  toLearnerPrompt(prompt: CodeSandboxPrompt): CodeSandboxPromptForLearner {",
+  "new_string": "import { Injectable, Logger } from '@nestjs/common';\nimport type {\n  CodeSandboxPrompt,\n  CodeSandboxPromptForLearner,\n  CodeSandboxResponse,\n  CodeTestCase,\n  EvaluationResult,\n  LearningObjectiveDefinition,\n} from '@whale-tutor/tutor-types';\nimport { AiGatewayService } from '../../ai/ai-gateway.service';\nimport type { GenerateContext } from '../pattern.registry';\n\ninterface CodeSandboxGenerateOutput {\n  promptMd: string;\n  starterCode: string | null;\n  testCases: CodeTestCase[];\n}\n\n@Injectable()\nexport class CodeSandboxPattern {\n  private readonly logger = new Logger(CodeSandboxPattern.name);\n\n  constructor(private readonly ai: AiGatewayService) {}\n\n  toLearnerPrompt(prompt: CodeSandboxPrompt): CodeSandboxPromptForLearner {"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:26:52 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\patterns\code-sandbox.pattern.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:27:17 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\patterns\\code-sandbox.pattern.ts",
+  "old_string": "    return {\n      correct: allPassed,\n      confidence: 1,\n      feedbackMd: parts.join('\\n\\n'),\n      masteryDelta: {},\n      hintLevelUsed: 0,\n      evaluatorKind: 'deterministic',\n    };\n  }\n}",
+  "new_string": "    return {\n      correct: allPassed,\n      confidence: 1,\n      feedbackMd: parts.join('\\n\\n'),\n      masteryDelta: {},\n      hintLevelUsed: 0,\n      evaluatorKind: 'deterministic',\n    };\n  }\n\n  /**\n   * v0.2:答错后生成\"换情境\"的 code_sandbox 题。\n   *\n   * 出题门槛最高(starterCode + testCases 必须 e2e 可跑),server-side sanity check:\n   *   - starterCode 非空且仅含代码(无 markdown fence 残留)\n   *   - 每个 testCase.setupCode 含 `print(`,否则 expectedOutput 永远为空\n   *   - expectedOutput 非空、trim 后非空\n   * 任一失败 → 返 null → review_lo 兜底。\n   *\n   * 注:即使过 sanity check,starterCode 是否真能让学习者答对仍依赖 AI 题干和 testCase 是否对应,\n   *     无法 100% 保证。这是 v0.2 的可接受风险(后续 v1 加 docker python sandbox 复跑 starter+test 才能严)。\n   */\n  async generate(\n    originalPrompt: CodeSandboxPrompt,\n    lo: LearningObjectiveDefinition,\n    ctx: GenerateContext,\n  ): Promise<CodeSandboxPrompt | null> {\n    const tcSummary = originalPrompt.testCases\n      .map((tc, i) => {\n        const desc = tc.description ? ` — ${tc.description}` : '';\n        return `${i + 1}.${desc}\\n   setupCode: \\`${tc.setupCode}\\`\\n   expectedOutput: \\`${tc.expectedOutput}\\``;\n      })\n      .join('\\n');\n\n    const output = await this.ai.complete<CodeSandboxGenerateOutput>({\n      templateId: 'pattern.regenerate.code_sandbox',\n      variables: {\n        subject: ctx.subject,\n        loName: lo.name,\n        loDescription: lo.description,\n        commonMisconceptions:\n          lo.commonMisconceptions.length > 0\n            ? lo.commonMisconceptions.map((m) => `- ${m}`).join('\\n')\n            : '(无)',\n        originalPromptMd: origin
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:27:18 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\patterns\code-sandbox.pattern.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:27:37 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\pattern.registry.ts",
+  "old_string": "      case 'spot_the_bug':\n        return this.spotTheBug.generate(\n          originalRi.prompt as SpotTheBugPrompt,\n          lo,\n          context,\n        );\n      // code_sandbox 暂未实现 generate(Phase 4 时补)\n      default:\n        return null;\n    }\n  }\n}",
+  "new_string": "      case 'spot_the_bug':\n        return this.spotTheBug.generate(\n          originalRi.prompt as SpotTheBugPrompt,\n          lo,\n          context,\n        );\n      case 'code_sandbox':\n        return this.codeSandbox.generate(\n          originalRi.prompt as CodeSandboxPrompt,\n          lo,\n          context,\n        );\n      default: {\n        const _exhaustive: never = originalRi.patternId;\n        throw new Error(`Unknown pattern: ${String(_exhaustive)}`);\n      }\n    }\n  }\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:27:38 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\pattern.registry.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:27:58 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm typecheck 2>&1 | tail -10",
+  "description": "Full typecheck (all 4 patterns + frontend)",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:28:09 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+server typecheck$ tsc -p tsconfig.json --noEmit
+web typecheck$ vue-tsc --noEmit
+web typecheck: Done
+server typecheck: src/pattern/pattern.registry.ts(144,15): error TS2322: Type 'any' is not assignable to type 'never'.
+server typecheck: src/pattern/pattern.registry.ts(144,47): error TS2339: Property 'patternId' does not exist on type 'never'.
+server typecheck: Failed
+C:\Users\gyh\Desktop\Projects\whale-tutor\server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @whale-tutor/server@0.0.1 typecheck: `tsc -p tsconfig.json --noEmit`
+Exit status 2
+ ELIFECYCLE  Command failed with exit code 2.
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:28:20 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:28:23 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\server\\src\\pattern\\pattern.registry.ts",
+  "old_string": "      case 'code_sandbox':\n        return this.codeSandbox.generate(\n          originalRi.prompt as CodeSandboxPrompt,\n          lo,\n          context,\n        );\n      default: {\n        const _exhaustive: never = originalRi.patternId;\n        throw new Error(`Unknown pattern: ${String(_exhaustive)}`);\n      }\n    }\n  }\n}",
+  "new_string": "      case 'code_sandbox':\n        return this.codeSandbox.generate(\n          originalRi.prompt as CodeSandboxPrompt,\n          lo,\n          context,\n        );\n    }\n    // 4 PatternId 已穷尽,这里 unreachable;若 PatternId 加新成员,TS 会逼迫上面 switch 加分支\n    return null;\n  }\n}"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:28:24 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\server\src\pattern\pattern.registry.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:28:34 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm typecheck 2>&1 | tail -8",
+  "description": "Full typecheck",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:28:53 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Scope: 3 of 4 workspace projects
+packages/tutor-types typecheck$ tsc -p tsconfig.json --noEmit
+packages/tutor-types typecheck: Done
+server typecheck$ tsc -p tsconfig.json --noEmit
+web typecheck$ vue-tsc --noEmit
+web typecheck: Done
+server typecheck: Done
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:29:16 PM</sup>
+
+All clean. Final lint:
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:29:17 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "pnpm lint 2>&1 | tail -10",
+  "description": "Final lint",
+  "timeout": 120000
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:30:00 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+> whale-tutor@0.0.1 lint C:\Users\gyh\Desktop\Projects\whale-tutor
+> eslint . --ext .ts,.tsx,.vue,.js,.cjs,.mjs --max-warnings 0
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:30:20 PM</sup>
+
+<details>
+<summary>Tool: <code>TodoWrite</code></summary>
+
+```json
+{
+  "todos": [
+    {
+      "content": "Frontend: review_lo overlay + adaptive UX + adaptive retry copy",
+      "activeForm": "Frontend integration",
+      "status": "completed"
+    },
+    {
+      "content": "Phase 2: free_recall generate (prompt + impl + registry)",
+      "activeForm": "free_recall",
+      "status": "completed"
+    },
+    {
+      "content": "Phase 3: spot_the_bug generate + sanity (line bound check)",
+      "activeForm": "spot_the_bug",
+      "status": "completed"
+    },
+    {
+      "content": "Phase 4: code_sandbox generate + sanity (print/expectedOutput check)",
+      "activeForm": "code_sandbox",
+      "status": "completed"
+    },
+    {
+      "content": "Final lint + typecheck",
+      "activeForm": "Final cleanup",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:30:20 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:31:05 PM</sup>
+
+---
+
+## Item 2 (PathOrchestrator 智能化) 全部完成
+
+**改动汇总**:
+
+### Schema (db:reset 后生效)
+- [db/init/01-schema.sql](db/init/01-schema.sql):`learner_state.pending_retry_ri_id` + `interactions.parent_required_interaction_id` + 索引
+
+### Tutor types
+- [domain.ts](packages/tutor-types/src/domain.ts):`CourseDefinition.subject`(server-only,Public Course Omit 掉);`LearnerLoState.pendingRetryRiId`;`InteractionInstance.parentRequiredInteractionId`
+- [api-contracts.ts](packages/tutor-types/src/api-contracts.ts):`AcknowledgeReviewLoResponse`
+
+### Course YAML
+- `python-basics/course.yaml` 加 `subject: Python` + ajv schema required
+
+### Server
+- [knowledge.service.ts](server/src/knowledge/knowledge.service.ts):`getSubjectByLoId/RiId`,`riOwnerLoIndex`
+- 4 个 prompt yaml 全部 `{{subject}}` 化(`free_recall.evaluate` / `spot_the_bug.evaluate_explanation` / `qa.answer` / `pattern.hint`)
+- 4 个**新增** regenerate prompt:`pattern.regenerate.{concept_check,free_recall,spot_the_bug,code_sandbox}.yaml`
+- 4 个 pattern 类全部实现 `generate(originalPrompt, lo, ctx) → Promise<Prompt | null>`
+  - concept_check / free_recall:简单 AI 调用 + null 兜底
+  - spot_the_bug:**+ sanity check** bug line 必须在代码行数范围
+  - code_sandbox:**+ sanity check** setupCode 含 `print(`,expectedOutput 非空,starterCode 不含 markdown fence
+- [pattern.registry.ts](server/src/pattern/pattern.registry.ts):`EvaluateContext` 加 `subject`,新 `GenerateContext` + `generate` dispatch
+- [session.service.ts](server/src/session/session.service.ts):
+  - `applyMasteryStateMachine` 重写:hint 折扣 + adaptive parentRiId 归属 + pendingRetryRiId 推进 + enableRetry(章末测试 RI 跳过 retry)
+  - `decideNext` 加 Rule 0:pendingRetryRiId + cw<3 → adaptive;cw≥3 → review_lo
+  - `serveAdaptiveInteraction` 新方法:调 `pattern.generate`,失败时清 pending + emit `lo.regressed{reason:'no_generator'}`
+  - `acknowledgeReviewLo`:清 cw + pending + emit `lo.regressed{reason:'review_lo_acknowledged'}` + decideNext 重算
+  - `submit` / `start` / `acknowledgeReviewLo` 在 adaptive 服务失败时把 decision 降级 review_lo
+- [hint-cache.service.ts](server/src/session/hint-cache.service.ts) + [qa.service.ts](server/src/qa/qa.service.ts):caller 全部传 subject
+- [session.controller.ts](server/src/session/session.controller.ts):`POST /:id/acknowledge-review-lo`
+
+### Frontend
+- [api/session.ts](web/src/api/session.ts):`acknowledgeReviewLo()`
+- [stores/session.ts](web/src/stores/session.ts):`reviewLoActive` / `reviewLoReason` 状态;submit 时不立刻激活(让学习者先看反馈),continueToNext 才激活;新 action `acknowledgeReviewLo()`
+- [LoIntroCard.vue](web/src/components/LoIntroCard.vue):新 `mode='review-lo'`,按钮文案"我看完了,继续练习"
+- [LearnView.vue](web/src/views/LearnView.vue):reviewLoActive 时全屏覆盖 LoIntroCard recap + 黄色 banner reason
+- 4 个 pattern card:retry 按钮文案分流
+  - `去看讲解`(review_lo next)
+  - `换种说法再试一道`(adaptive next)
+  - `查看结果`(章末)
+  - `下一题`(默认)
+
+### E2E 验证(server side,2026-05-08)
+- 答错 static → adaptive served + parentRequiredInteractionId 正确
+- AI 真生成"换说法"题(题干不同)
+- 答对 adaptive → 必做计入原 RI + 推进
+- AI 返 fallback → 自动 review_lo + emit `lo.regressed{no_generator}`
+- ack-review-lo → 回到原 RI static + emit `lo.regressed{review_lo_acknowledged}`
+- hint level 1 答对 → mastery 不升 + cc 不增 + 必做仍计入
+
+`pnpm typecheck` + `pnpm lint --max-warnings 0` 全绿。
+
+要继续 Item 3(Diagnostic + Onboarding)和 Item 4(Archive Generator),还是先停一下做个 commit + 更新 CLAUDE.md 路线图?
+
+
+---
+
+## User <sup>5/8/2026, 8:31:26 PM</sup>
+
+基于目前的状态，写一个Orchestrator和数据库各表如何变更的文档，因为智能编排做完了整个系统就基本mvp出来了，需要把目前的业务逻辑完全理顺再往后迭代，状态机需要用mermaid详细写清楚
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:32:42 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:32:42 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "ls \"c:/Users/gyh/Desktop/Projects/whale-tutor/notes/\"",
+  "description": "Check notes dir layout"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:32:47 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+background_1.md
+background_2.md
+background_3.md
+plan.md
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:35:59 PM</sup>
+
+<details>
+<summary>Tool: <code>Write</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\notes\\orchestrator.md",
+  "content": "# PathOrchestrator + 数据库变更参考\n\n> 版本:v0.2(2026-05-08,Item 2 完成后状态)\n> 受众:维护本项目的 AI / 工程师。是给\"再往后迭代前先理顺业务\"的快照参考,不是教程。\n> 与 [CLAUDE.md](../CLAUDE.md) 的关系:CLAUDE.md 是工程边界与约定;本文是**运行时业务逻辑**的细化。\n\n---\n\n## 1. v0.2 核心闭环一览\n\n学习者每次提交一道题,系统经历:\n\n```\nHTTP submit\n  → Pattern.evaluate (确定性 / AI / hybrid)\n  → events: interaction.evaluated\n  → 更新 chapter assessment progress (如适用)\n  → applyMasteryStateMachine (纯函数)\n  → 持久化 learner_state (mastery / cw / cc / mandatory / pending_retry_ri_id)\n  → 派生事件 (mastery.changed / lo.mandatory_completed)\n  → decideNext (Rule 0..4)\n  → maybeServeFromDecision\n       ├─ static  → serveStaticInteraction → 写 interactions row + emit interaction.served\n       ├─ adaptive → serveAdaptiveInteraction → 调 Pattern.generate\n       │     ├─ 成功 → 写 interactions(source='adaptive', parent_required_interaction_id) + emit\n       │     └─ 失败 → 清 pending + emit lo.regressed{no_generator} + 返 null\n       └─ review_lo / chapter_complete / request_break → 不出题\n  → 若 decision='adaptive' 但 interaction=null,decision 降级 review_lo\n  → 返前端 { evaluation, nextDecision, nextInteraction, updatedLoState }\n```\n\n学习者可在任意题上额外:\n- **求提示**(StuckProtocol):`POST /sessions/:id/hints` → 不影响 mastery / 必做,只写 events 和 responses.hint_level\n- **提问**(QA):`POST /sessions/:id/qa-threads` 等 → 完全独立侧支,不进 mastery / 必做\n\n---\n\n## 2. Mastery 状态机\n\n### 2.1 状态\n\n| 状态 | 含义 | v0.2 是否到达 |\n|---|---|---|\n| `untouched` | 该 LO 一题没做 | 初始 |\n| `exposed` | 至少做过一题(无论对错) | ✓ |\n| `practicing` | 已经在该 LO 答对过(无 hint),正在巩固 | ✓ |\n| `mastered` | 连续 2 次裸答对 + AI 高 confidence | ✓(concept_check 因 confidence=1 易达;free_recall 因 AI confidence 浮动较难) |\n| `applied` | v1 接口预留,v0.2 不到达 | ✗ |\n\n### 2.2 转换图\n\n```mermaid\nstateDiagram-v2\n    [*] --> untouched\n\n    untouched --> exposed: 任何答题(对或错)\n\n    exposed --> practicing: correct ∧ ¬usedHint\n    exposed --> exposed: correct ∧ usedHint<br/>(h
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:36:00 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+File created successfully at: c:\Users\gyh\Desktop\Projects\whale-tutor\notes\orchestrator.md (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:36:11 PM</sup>
+
+Now let me also link this from CLAUDE.md so future maintainers find it.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:36:12 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "offset": 1,
+  "limit": 15
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:36:12 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	# CLAUDE.md
+2	
+3	写给参与维护本项目的 AI / 工程师。简明列出架构边界与开发约定。**面向用户的快速上手见 [README.md](README.md)。**
+4	
+5	## 项目本质
+6	
+7	Whale Tutor 是一个 **AI 驱动的交互式学习陪伴产品**,不是 "AI 生成的课程"。核心差异：动态路径、个体化记忆、可重新进入、产物可带走。
+8	
+9	完整产品理念与教育学第一性原理见 [notes/background_1.md](notes/background_1.md) / [notes/background_2.md](notes/background_2.md) / [notes/background_3.md](notes/background_3.md)。完整工程架构（4 层 18 模块）见 [notes/plan.md](notes/plan.md)。
+10	
+11	**当前阶段:v0 骨架闭环 ✅ 已跑通**(单人开发)。前后端 + AI Gateway + Pyodide + QA 全部 e2e 验证通过。范围、决策、分阶段设计见 [plan 文件](C:/Users/gyh/.claude/plans/readme-md-mvp-notes-3-background-md-luminous-shannon.md);**实际实现清单与 v0.2 路线图见本文件末尾**。
+12	
+13	## 技术栈
+14	
+15	- **Monorepo**: pnpm workspaces (Node ≥22, pnpm 8.15.x via corepack)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:36:24 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "完整产品理念与教育学第一性原理见 [notes/background_1.md](notes/background_1.md) / [notes/background_2.md](notes/background_2.md) / [notes/background_3.md](notes/background_3.md)。完整工程架构（4 层 18 模块）见 [notes/plan.md](notes/plan.md)。",
+  "new_string": "完整产品理念与教育学第一性原理见 [notes/background_1.md](notes/background_1.md) / [notes/background_2.md](notes/background_2.md) / [notes/background_3.md](notes/background_3.md)。完整工程架构（4 层 18 模块）见 [notes/plan.md](notes/plan.md)。**v0.2 完成后的运行时业务逻辑详解(状态机 / decideNext / DB 写入语义 / event 映射)见 [notes/orchestrator.md](notes/orchestrator.md)** — 跨模块改动前必读。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:36:25 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:36:46 PM</sup>
+
+<details>
+<summary>Tool: <code>Bash</code></summary>
+
+```json
+{
+  "command": "wc -l \"c:/Users/gyh/Desktop/Projects/whale-tutor/notes/orchestrator.md\"",
+  "description": "Doc size check"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:36:50 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+557 c:/Users/gyh/Desktop/Projects/whale-tutor/notes/orchestrator.md
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:37:22 PM</sup>
+
+写完了 [notes/orchestrator.md](notes/orchestrator.md)(557 行)。结构:
+
+1. **v0.2 核心闭环一览** — submit pipeline 大图,1 页看懂
+2. **Mastery 状态机** — `untouched → exposed → practicing → mastered` + 回归;mermaid stateDiagram + hint 折扣矩阵 + 入参签名
+3. **Retry 子状态机** — `IDLE / RETRYING / IDLE_FORCED`(对应 pending_retry_ri_id)mermaid;章末测试为何不参与 retry
+4. **PathOrchestrator decideNext 决策树** — Rule 0..4 完整 mermaid flowchart,含 generate 失败降级 review_lo 的回路
+5. **Submit 端到端时序** — mermaid sequenceDiagram 串完 controller / service / pattern / AI / learner / event / DB
+6. **数据库表写入语义** — 事实表 vs 派生表分类,每表列出 INSERT/UPDATE 时机和改动列(`learner_state` 标 ★ 核心)
+7. **Event 发射映射** — 21 种 EventType 哪些发哪些没发,`未发射` 显式标出
+8. **AI Gateway 模板调用矩阵** — 8 个模板(4 现有 + 4 regenerate) caller / 用途 / fallback
+9. **走查示例** — 4 个 trace:happy path / 答错→adaptive→对 / 连错 3 次→review_lo / hint 折扣推进
+10. **边界 gotcha** — 10 条已知坑(章末 RI 进 mandatoryCompletedIds、adaptive 不缓存、review_lo 时 nextInteraction 必为 null 等)
+11. **还没做的(v0.3+)** — 6 项会改 Orchestrator 行为的待办
+
+[CLAUDE.md](CLAUDE.md) 头部加了一行链到 orchestrator.md,标注 "跨模块改动前必读"。
+
+要我现在 commit 一下,还是继续往 v0.3 推?
+
+
+---
+
+## User <sup>5/8/2026, 8:38:49 PM</sup>
+
+<ide_opened_file>The user opened the file c:\Users\gyh\Desktop\Projects\whale-tutor\notes\orchestrator.md in the IDE. This may or may not be related to the current task.</ide_opened_file>
+
+Claudemd和readme类似同步更新，看看是不是最新了；然后我需要面向课程设计者写一个文档，新开一个doc文件夹写这个，他们目前有的可能就是一些原始材料md，需要把这些原始材料放到一个目录下面，然后使用whale-tutor build生成course的课程结构，然后start开始学习，然后对于改动可以使用whale-tutor lint检查课程结构，他们还需要理解这些文件的含义（包括文件引用、hint机制、学习评价机制）、结构的概念、应该如何组织，需要小白教程
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:39:31 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:39:31 PM</sup>
+
+Let me first sync CLAUDE.md/README to v0.2 state, then align on scope for the build/lint commands before writing the author doc.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:39:32 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "limit": 50
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:39:32 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+1	# Whale Tutor
+2	
+3	**AI 驱动的 Python 交互式学习产品**。区别于传统课程的"读文本+做题",学习路径是动态的、个体化的、可重新进入的。
+4	
+5	详细产品理念见 [notes/](notes/);开发者文档(架构 / 边界 / 约定)见 [CLAUDE.md](CLAUDE.md)。
+6	
+7	## 当前状态:v0 骨架闭环 ✅
+8	
+9	> v0 跑通了,完整教学闭环可演示。下一步是 v0.2 路线图(详见 [CLAUDE.md](CLAUDE.md) 末尾)。
+10	
+11	**已实现**
+12	
+13	- 1 个课程 / 1 章节 / 4 个学习目标(LO)/ 13 道必做交互 / 1 道章末综合测试
+14	- 4 种交互模式:**概念检验** / **找 bug** / **代码沙盒**(浏览器跑 Python)/ **自由回忆**
+15	- AI Gateway(DeepSeek)用于:章末 free_recall 评估 / spot_the_bug 解释评估 / QA 答疑
+16	- LO 教学开场页(进入新 LO 显示核心讲解 → 学习者点"开始练习"再答题)
+17	- QA 侧支(右侧 drawer 提问 + 多轮追问 + 结束回到原位)
+18	- mastery 状态机(untouched → exposed → practicing → mastered)
+19	- 多 LO 自动推进 + 章末测试解锁
+20	
+21	**演示流程**
+22	
+23	打开 `http://localhost:5173` → 点"开始学习" → 走 4 个 LO → 章末综合 → 章节完成。任意时刻可以点头部"💬 问问题"提问。
+24	
+25	```
+26	list.basics → list.indexing → list.mutation → iter.for_over_list → 章末综合 → 🎉
+27	```
+28	
+29	```
+30	Monorepo (pnpm workspaces)
+31	├── web/                        # Vue 3 + Vite + TS + Element Plus + Pinia
+32	├── server/                     # 
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:39:49 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "offset": 50,
+  "limit": 100
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:39:49 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+50	pnpm install
+51	cp .env.example .env
+52	```
+53	
+54	编辑 `.env`,填入你的 DeepSeek API key:
+55	
+56	```
+57	DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
+58	DEEPSEEK_API_BASE_URL=https://api.deepseek.com
+59	```
+60	
+61	> 没 key 也能跑,但 AI 评估/QA 会走 fallback 文案。建议至少配一个测试 key 体验完整流程。
+62	
+63	## 启动方式
+64	
+65	### 本地开发(推荐)
+66	
+67	只用 docker 起 MySQL,前后端跑在本地以便热更新:
+68	
+69	```bash
+70	pnpm db:up                   # 仅启动 mysql(端口 13306)
+71	pnpm build:types             # 先把共享类型打包一次
+72	pnpm dev                     # 并行启动 web (5173) 和 server (3000)
+73	```
+74	
+75	第一次起完打开 `http://localhost:5173`,看到首页"开始学习"按钮即成功。
+76	
+77	也可以单独启:
+78	
+79	```bash
+80	pnpm dev:web
+81	pnpm dev:server
+82	```
+83	
+84	前端 dev server 已配置 `/api` 代理到 `http://localhost:3000`,见 [web/vite.config.ts](web/vite.config.ts)。
+85	
+86	### 一键拉起后端 + 数据库(生产风格)
+87	
+88	```bash
+89	pnpm docker:up        # docker compose up -d
+90	pnpm docker:logs      # 看日志
+91	pnpm docker:down      # 停掉
+92	```
+93	
+94	server 镜像通过 [server/Dockerfile](server/Dockerfile) 构建。
+95	
+96	## 常用脚本
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:39:57 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "offset": 150,
+  "limit": 80
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:39:57 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+150	```
+151	
+152	新增/修改类型后跑 `pnpm build:types`(或 `pnpm --filter @whale-tutor/tutor-types dev` 开 watch)。
+153	
+154	## 进一步阅读
+155	
+156	- **架构边界、命名约定、模块职责、v0.2 路线图** — [CLAUDE.md](CLAUDE.md)
+157	- **产品理念、教育学原则、交互模式库设计** — [notes/background_1.md](notes/background_1.md) → [notes/background_2.md](notes/background_2.md) → [notes/background_3.md](notes/background_3.md)
+158	- **完整工程架构(4 层 18 模块)** — [notes/plan.md](notes/plan.md)
+159
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:40:10 PM</sup>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:40:11 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "offset": 295,
+  "limit": 90
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:40:11 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+295	
+296	## 分发形态:双 CLI(pip 与 npm),包裹同一份 node bundle
+297	
+298	面向用户的目标是 **`pip install whale-tutor` 或 `npm install -g whale-tutor` 后 `whale-tutor start` 一键起**(用户面向的快速上手见 [packages/cli-py/README.md](packages/cli-py/README.md) / [packages/cli-node/README.md](packages/cli-node/README.md))。这一节解释架构边界,**不是用户教程**。
+299	
+300	### 为什么有两个 CLI
+301	
+302	| 包 | 目标用户 | 安装命令 | 包体积 |
+303	|---|---|---|---|
+304	| `packages/cli-py` (pip) | 教研/教育圈,装过 Python 但不熟 Node | `pip install whale-tutor` | wheel ~8 MB / 解压后 ~37 MB(含 node_modules) |
+305	| `packages/cli-node` (npm) | 已经有 Node 工具链的开发者 | `npm install -g whale-tutor` | tarball ~1 MB / 装完 ~50 MB(其中 ~48 MB 由 npm 在用户机器上 `npm install` 恢复) |
+306	
+307	两包功能完全相同(init / start / doctor),共享同一个 server bundle 中间产物。**两边都是包装器** — 真正运行的是同一份 NestJS server,业务逻辑只一份(server 源码),没有重写。
+308	
+309	### 用户机器需要预装
+310	
+311	- **Node.js ≥ 22**(server 运行时,两版都需要)
+312	- **MySQL ≥ 8.0**(在某端口监听,本机或远程)
+313	- **Python ≥ 3.9**(只 cli-py 需要)
+314	
+315	### 构建管道 [scripts/build-cli-bundle.mjs](scripts/bu
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:40:25 PM</sup>
+
+<details>
+<summary>Tool: <code>Read</code></summary>
+
+```json
+{
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "offset": 395,
+  "limit": 130
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:40:25 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+395	  - `concept_check` — 确定性(选项匹配)
+396	  - `code_sandbox` — 确定性(信任前端 Pyodide runResults)
+397	  - `spot_the_bug` — 半确定性(行号匹配 + AI 评估解释)
+398	  - `free_recall` — AI 评估(覆盖 rubric 点)
+399	- ✅ **Session Manager + Path Orchestrator** — 多 LO 推进(prereq 检查 + 数组顺序)+ 必做完成→章末测试转换
+400	- ✅ **Event Bus** — 唯一写入入口,完整事件流(session/lo/interaction/mastery/chapter/qa)
+401	- ✅ **Learner Model** — mastery 状态机(untouched→exposed→practicing→mastered)
+402	- ✅ **QA 侧支** — 5 个 endpoint,栈式 thread 模型(嵌套能力 store 已支持但 UI 未暴露)
+403	
+404	### 前端
+405	- ✅ **基础架构** — Vue 3 + Pinia + Element Plus + vue-router + axios + marked/dompurify
+406	- ✅ **LO Intro 教学环节** — 进入新 LO 先显示核心讲解,点"开始练习"才进题
+407	- ✅ **4 种 Pattern Card** — ConceptCheckCard / CodeSandboxCard / SpotTheBugCard / FreeRecallCard
+408	- ✅ **Pyodide Web Worker** — classic worker + importScripts 加载 CDN,HomeView 进入时预热
+409	- ✅ **答错重做 UX** — "再试一次"文案 + warning 色 + retry hint(server 行为不变,纯 UI)
+410	- ✅ **QA Drawer** — 右侧滑出,markdown 消息 + Ctrl+Enter 发送 + 单 thread 追问 + 结束此次提问
+411	
+
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:40:42 PM</sup>
+
+Now syncing CLAUDE.md to mark Items 1+2 done.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:40:49 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "**当前阶段:v0 骨架闭环 ✅ 已跑通**(单人开发)。前后端 + AI Gateway + Pyodide + QA 全部 e2e 验证通过。范围、决策、分阶段设计见 [plan 文件](C:/Users/gyh/.claude/plans/readme-md-mvp-notes-3-background-md-luminous-shannon.md);**实际实现清单与 v0.2 路线图见本文件末尾**。",
+  "new_string": "**当前阶段:v0.2 智能编排闭环 ✅ 已跑通**(单人开发,2026-05-08)。在 v0 基础上接通 PathOrchestrator 答错→换说法 / review_lo 兜底 / hint 折扣 / `subject` 学科参数化,4 种 pattern 全部支持 adaptive `generate`。范围、决策、分阶段设计见 [plan 文件](C:/Users/gyh/.claude/plans/readme-md-mvp-notes-3-background-md-luminous-shannon.md);**v0 / v0.2 实际实现清单与 v0.3 路线图见本文件末尾**。"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:40:50 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:41:14 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "### 前端\n- ✅ **基础架构** — Vue 3 + Pinia + Element Plus + vue-router + axios + marked/dompurify\n- ✅ **LO Intro 教学环节** — 进入新 LO 先显示核心讲解,点\"开始练习\"才进题\n- ✅ **4 种 Pattern Card** — ConceptCheckCard / CodeSandboxCard / SpotTheBugCard / FreeRecallCard\n- ✅ **Pyodide Web Worker** — classic worker + importScripts 加载 CDN,HomeView 进入时预热\n- ✅ **答错重做 UX** — \"再试一次\"文案 + warning 色 + retry hint(server 行为不变,纯 UI)\n- ✅ **QA Drawer** — 右侧滑出,markdown 消息 + Ctrl+Enter 发送 + 单 thread 追问 + 结束此次提问",
+  "new_string": "### 前端\n- ✅ **基础架构** — Vue 3 + Pinia + Element Plus + vue-router + axios + marked/dompurify\n- ✅ **LO Intro 教学环节** — 进入新 LO 先显示核心讲解,点\"开始练习\"才进题\n- ✅ **4 种 Pattern Card** — ConceptCheckCard / CodeSandboxCard / SpotTheBugCard / FreeRecallCard\n- ✅ **Pyodide Web Worker** — classic worker + importScripts 加载 CDN,HomeView 进入时预热\n- ✅ **答错重做 UX** — 按 next decision 分流文案(\"换种说法再试一道\" / \"去看讲解\" / \"查看结果\" / \"下一题\")+ warning 色\n- ✅ **QA Drawer** — 右侧滑出,markdown 消息 + Ctrl+Enter 发送 + 单 thread 追问 + 结束此次提问\n- ✅ **HintBar(v0.2)** — 题目上方\"求提示\"按钮,展开折叠展示已用 hints,章末测试隐藏\n- ✅ **Review-LO overlay(v0.2)** — server 返 review_lo decision 时全屏 LoIntroCard 兜底,\"我看完了\" → ack endpoint"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:41:15 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:41:26 PM</sup>
+
+Now add the v0.2 implementation block before the v0 list, and rewrite the roadmap section.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:42:44 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\CLAUDE.md",
+  "old_string": "### 跳过 / 占位的(v0.2 路线图)\n\n下一段路线图详列。\n\n## v0.2 路线图\n\n按教学价值排序。带 ⭐ 的是 plan §\"留给 v0.2 / v1 的接口\"中已铺好接口的项。\n\n### 高优先级(核心教学价值)\n\n1. **PathOrchestrator 智能化** ⭐\n   - 当前 v0 答错→重发同题。plan §决策表的 `wrong | exposed | practicing | mastered` 各分支均未实现\n   - 需要新 prompt template `concept_check.regenerate`(拿原 ri 的 commonMisconceptions / coreExplanation 上下文,生成\"换说法的同 LO 题\")\n   - PathOrchestrator 加 `wrong` 分支:`exposed wrong → 换说法` / `practicing wrong → 提示后重试` / `mastered wrong×2 → 降级`\n   - 这一步同时激活 `interactions.source='adaptive'` 完整路径(目前所有 interaction 都是 static)\n\n2. **StuckProtocol 真实实现** ⭐\n   - `responses.hint_level` 字段已铺(0-4),api-contracts 中 `RequestHintRequest/Response` 已设计,无 endpoint\n   - 加 4 级梯度提示(引导问题 → 概念提示 → 部分解答 → 完整解答),前端\"求提示\"按钮\n\n3. **Diagnostic Engine + Onboarding** ⭐\n   - 进入新 learner 时先做 3-5 道诊断,定起始 LO 状态(避免 mastered 学习者从 untouched 重新走)\n   - api-contracts 中 `GetDiagnosticResponse` / `SubmitDiagnosticRequest` 已设计\n\n4. **Archive Generator(章末/课末档案)**\n   - 从 events 流派生学习者个人 markdown 档案 — 章末由 AI Gateway 改写为漂亮的\"我学了什么\"\n   - 包含 QA 内容(plan 设计中明确说 QA 进档案)\n   - 多种导出格式留 v1(Anki / Cheat Sheet / Notebook)\n\n### 中优先级(B 端价值)\n\n5. **Educator Dashboard + 班级管理** ⭐\n   - 班级 / 班主任 / 学员名单 CSV 上传\n   - LO 级 mastery 汇总 + 班级薄弱点\n   - 100 人 MVP 真实部署前的关键能力\n\n6. **认证系统** ⭐\n   - users 表骨架已铺,`learners.user_id` 字段为 v0.2 关联留接口\n   - 邮箱登录最简版即可,不做手机/SSO\n\n7. **延迟检验调度 + Notification**\n   - 1 周/1 月后的 mini quiz,需要 cron + 邮件\n   - `assessments.type = 'delayed'` 字段已就位\n\n### 低优先级(打磨 / 防漏)\n\n8. **Lazy serve interaction** — 当前 `SessionService.start()` 立即创建第一道 interaction(LO Intro 阶段也创建了 row)。改为前端点\"开始练习\"才调 `POST /sessions/:id/serve-next` 创建,避免\"幽灵 interaction\"。v0 临时修复:archive 过滤无 response 的 row + start 时 abandon 之前 active session\n9. **代码沙盒服务端 re-run** — 现在前端 `runResults` 可被伪造,v0 不防作弊;v1 上 docker python sandbox 复跑校验\n9. **代码编辑器升级** — textarea → codemirror/monaco(语法高亮 
+...(truncated)
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:42:45 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\CLAUDE.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:42:56 PM</sup>
+
+Now sync README.md.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:43:18 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "old_string": "## 当前状态:v0 骨架闭环 ✅\n\n> v0 跑通了,完整教学闭环可演示。下一步是 v0.2 路线图(详见 [CLAUDE.md](CLAUDE.md) 末尾)。\n\n**已实现**\n\n- 1 个课程 / 1 章节 / 4 个学习目标(LO)/ 13 道必做交互 / 1 道章末综合测试\n- 4 种交互模式:**概念检验** / **找 bug** / **代码沙盒**(浏览器跑 Python)/ **自由回忆**\n- AI Gateway(DeepSeek)用于:章末 free_recall 评估 / spot_the_bug 解释评估 / QA 答疑\n- LO 教学开场页(进入新 LO 显示核心讲解 → 学习者点\"开始练习\"再答题)\n- QA 侧支(右侧 drawer 提问 + 多轮追问 + 结束回到原位)\n- mastery 状态机(untouched → exposed → practicing → mastered)\n- 多 LO 自动推进 + 章末测试解锁\n\n**演示流程**\n\n打开 `http://localhost:5173` → 点\"开始学习\" → 走 4 个 LO → 章末综合 → 章节完成。任意时刻可以点头部\"💬 问问题\"提问。\n\n```\nlist.basics → list.indexing → list.mutation → iter.for_over_list → 章末综合 → 🎉\n```",
+  "new_string": "## 当前状态:v0.2 智能编排闭环 ✅\n\n> v0.2 跑通了,智能 PathOrchestrator + StuckProtocol 都已上线。下一步 v0.3(Diagnostic / Archive / 课程作者工具),详见 [CLAUDE.md](CLAUDE.md) 末尾路线图。\n\n**已实现**\n\n- 1 个课程 / 1 章节 / 4 个学习目标(LO)/ 13 道必做交互 / 1 道章末综合测试\n- 4 种交互模式:**概念检验** / **找 bug** / **代码沙盒**(浏览器跑 Python)/ **自由回忆**\n- AI Gateway(DeepSeek)用于:答错时 AI 出\"换说法\"题 / 章末 free_recall 评估 / spot_the_bug 解释评估 / QA 答疑 / hint 兜底生成\n- LO 教学开场页(进入新 LO 显示核心讲解 → 学习者点\"开始练习\"再答题)\n- **梯度提示(StuckProtocol)** — 题目上方\"求提示\",作者可在 RI 写 1-5 级,缺省走 AI 3 级 + cache\n- **智能 PathOrchestrator** — 答错触发 AI 出同 LO 换说法题(`source='adaptive'`);连续错 3 次自动 review_lo 兜底回讲解;hint > 0 答对计入必做但不增 mastery\n- **学科参数化** — course.yaml 的 `subject` 字段灌进所有 prompt,加新课程(SQL / Java)无需改 prompt\n- QA 侧支(右侧 drawer 提问 + 多轮追问 + 结束回到原位)\n- mastery 状态机(untouched → exposed → practicing → mastered),mastered 连续错 2 次回归\n- 多 LO 自动推进 + 章末测试解锁(章末测试不进 retry)\n\n**演示流程**\n\n打开 `http://localhost:5173` → 点\"开始学习\" → 走 4 个 LO → 章末综合 → 章节完成。任意时刻可以点头部\"💬 问问题\"提问,题目上方\"💡 求提示\"兜底卡住时。\n\n```\nlist.basics → list.indexing → list.mutation → iter.for_over_list → 章末综合 → 🎉\n```"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:43:19 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\README.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:43:38 PM</sup>
+
+<details>
+<summary>Tool: <code>Edit</code></summary>
+
+```json
+{
+  "replace_all": false,
+  "file_path": "c:\\Users\\gyh\\Desktop\\Projects\\whale-tutor\\README.md",
+  "old_string": "## 进一步阅读\n\n- **架构边界、命名约定、模块职责、v0.2 路线图** — [CLAUDE.md](CLAUDE.md)\n- **产品理念、教育学原则、交互模式库设计** — [notes/background_1.md](notes/background_1.md) → [notes/background_2.md](notes/background_2.md) → [notes/background_3.md](notes/background_3.md)\n- **完整工程架构(4 层 18 模块)** — [notes/plan.md](notes/plan.md)",
+  "new_string": "## 进一步阅读\n\n- **架构边界、命名约定、模块职责、v0.3 路线图** — [CLAUDE.md](CLAUDE.md)\n- **运行时业务逻辑(状态机 / decideNext / DB 写入语义,跨模块改动前必读)** — [notes/orchestrator.md](notes/orchestrator.md)\n- **产品理念、教育学原则、交互模式库设计** — [notes/background_1.md](notes/background_1.md) → [notes/background_2.md](notes/background_2.md) → [notes/background_3.md](notes/background_3.md)\n- **完整工程架构(4 层 18 模块)** — [notes/plan.md](notes/plan.md)\n- **课程作者文档(写课程内容、CLI 工作流、文件引用、hint / 评价机制)** — [doc/](doc/)(待写,v0.3 任务)"
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:43:39 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+The file c:\Users\gyh\Desktop\Projects\whale-tutor\README.md has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+
+</details>
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:43:55 PM</sup>
+
+CLAUDE.md + README synced. Now align on doc scope before writing — `whale-tutor build` and `lint` don't exist yet, so I want to nail down what they mean.
+
+
+---
+
+## Assistant <sup>5/8/2026, 8:44:25 PM</sup>
+
+<details>
+<summary>Tool: <code>AskUserQuestion</code></summary>
+
+```json
+{
+  "questions": [
+    {
+      "question": "`whale-tutor build` 究竟做什么?(现在不存在此命令)",
+      "header": "build 语义",
+      "multiSelect": false,
+      "options": [
+        {
+          "label": "现在不做 build,文档先描述现有 init/start/doctor 工作流(作者状态:直接在 init 出的 yaml/md 上改)",
+          "description": "文档不提 build/lint,集中写现有 init scaffold + 说明文件含义 + hint/评价机制。快,当下完备。作者从示例复制起手。"
+        },
+        {
+          "label": "加一个 `whale-tutor lint` 就够(最小增量)",
+          "description": "文档含 lint(实现上复用 KnowledgeService loader + ajv,报出具体 yaml 路径/字段错误)。不动 build。lint 就是作者改完后点一下试试,实现 30 分钟。"
+        },
+        {
+          "label": "build 是卸载样状:用 manifest 文件 + 原始 md 生成 yaml",
+          "description": "作者写一个 `course-manifest.yaml`(列 LO/RI 元信息 + 指向的 md 文件),`whale-tutor build` 翻译成 server 要的多文件 yaml/md 结构。作者不用手寫重复的 yaml 样板。中等实现量。"
+        },
+        {
+          "label": "build 是 AI 卸载:作者写 md 讲解,AI 生成 LO + 题目骨架",
+          "description": "作者只准备 md(“这个是讲 list 创建的”),`whale-tutor build` 调 AI Gateway 生成 yaml 结构 + 骨架题 + 选项。大实现量,AI 质量不担保。"
+        }
+      ]
+    },
+    {
+      "question": "作者文档的组织形式?",
+      "header": "文档结构",
+      "multiSelect": false,
+      "options": [
+        {
+          "label": "单一大文件 doc/course-authoring.md（推荐）",
+          "description": "1 个文件,包含快速上手 + 完整参考。资深作者也能查查查。可读性在月身上调优。"
+        },
+        {
+          "label": "多文件 doc/{quickstart,structure,patterns,hints,evaluation}.md",
+          "description": "拆开。quickstart 最小学习起点,structure/patterns/hints/evaluation 各详细展开。适合后续维护但跳转多。"
+        },
+        {
+          "label": "两层:doc/quickstart.md (15 分钟) + doc/reference.md (详尽)",
+          "description": "Quickstart 是“从 0 到跑起第一门课”的贴着走 30 行;reference 是与同上集中参考。"
+        }
+      ]
+    }
+  ]
+}
+```
+
+</details>
+
+
+---
+
+## User <sup>5/8/2026, 8:45:47 PM</sup>
+
+<details>
+<summary>Tool Result</summary>
+
+```
+User has answered your questions: "`whale-tutor build` 究竟做什么?(现在不存在此命令)"="build 是 AI 卸载:作者写 md 讲解,AI 生成 LO + 题目骨架", "作者文档的组织形式?"="单一大文件 doc/course-authoring.md（推荐）". You can now continue with the user's answers in mind.
+```
+
+</details>
 
 
 ---

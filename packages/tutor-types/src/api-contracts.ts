@@ -91,6 +91,17 @@ export interface EndSessionResponse {
 }
 
 // ============================================================
+// /api/sessions/:id/acknowledge-review-lo
+// v0.2:学习者从 LO recap 回来后调用,清 pending_retry_ri_id + consecutive_wrong=0,
+// 服务端再次决定下一题(理想情况是回到原 RI 静态题)。
+// ============================================================
+
+export interface AcknowledgeReviewLoResponse {
+  decision: PathDecision;
+  interaction: ServedInteraction | null;
+}
+
+// ============================================================
 // /api/sessions/:id/hints
 // v0.2 实施:静态梯度提示协议(server/src/session/hint-cache.service.ts)
 //   - 作者在 RI.hints 写好 1-5 级文案 → 直接返

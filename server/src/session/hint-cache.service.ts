@@ -16,6 +16,7 @@ import type { HintLevel, RequiredInteraction } from '@whale-tutor/tutor-types';
 import { AiGatewayService } from '../ai/ai-gateway.service';
 
 interface HintGenerateContext {
+  subject: string;
   loName: string;
   commonMisconceptions: string[]; // 章末测试 RI 没有 owning LO,传 []
   sessionId?: number | null;
@@ -89,6 +90,7 @@ export class HintCacheService {
     const output = await this.ai.complete<AiHintOutput>({
       templateId: 'pattern.hint',
       variables: {
+        subject: ctx.subject,
         patternId: ri.patternId,
         loName: ctx.loName,
         promptJson: JSON.stringify(ri.prompt, null, 2),

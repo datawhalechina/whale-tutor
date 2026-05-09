@@ -55,6 +55,12 @@ export const useSessionStore = defineStore('session', () => {
   // 切到下一题(continueToNext)/ start / end 时清零。
   const currentHintLevel = ref(0);
 
+  // v0.2 PathOrchestrator:server 返 review_lo decision 时,前端进入"重看讲解 + 兜底"模式。
+  // 此期间隐藏题目卡片,展示 LoIntroCard recap 全屏覆盖。学习者点"我看完了" → acknowledgeReviewLo。
+  // 来源:start() / submit() / acknowledgeReviewLo() 自身后续仍可触发(理论上链不长但有兜底)
+  const reviewLoActive = ref(false);
+  const reviewLoReason = ref<string | null>(null);
+
   async function ensureLoMeta(loId: string): Promise<LearningObjective> {
     if (loMetaCache.value[loId]) return loMetaCache.value[loId];
     const meta = await knowledgeApi.getLearningObjective(loId);
@@ -90,6 +96,18 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  // review_lo 模式开关:从 PathDecision 推导。decision.primary.type === 'review_lo' →
+  // 进入 reviewLo 模式,前端隐藏题目区域、展示 LoIntroCard recap。
+  function applyReviewLoFromDecision(decision: PathDecision | null): void {
+    if (decision && decision.primary.type === 'review_lo') {
+      reviewLoActive.value = true;
+      reviewLoReason.value = decision.primary.reason ?? null;
+    } else {
+      reviewLoActive.value = false;
+      reviewLoReason.value = null;
+    }
+  }
+
   async function start(lid: number, courseId: string): Promise<void> {
     loading.value = true;
     error.value = null;
@@ -108,6 +126,7 @@ export const useSessionStore = defineStore('session', () => {
       showFeedback.value = false;
       acknowledgedLoIds.value = new Set();
       currentHintLevel.value = 0;
+      applyReviewLoFromDecision(data.decision);
       await refreshLoIntroFlag();
       await refreshProgress();
     } catch (e) {
@@ -134,6 +153,7 @@ export const useSessionStore = defineStore('session', () => {
       currentDecision.value = data.nextDecision;
       pendingNextInteraction.value = data.nextInteraction;
       showFeedback.value = true;
+      // review_lo 在 continueToNext 时再激活(否则反馈视图被立刻覆盖,学习者看不到结果)
       // 提交后刷新进度(mastery / 必做完成数 / chapter phase 都可能变)
       void refreshProgress();
     } catch (e) {
@@ -150,8 +170,36 @@ export const useSessionStore = defineStore('session', () => {
     lastEvaluation.value = null;
     showFeedback.value = false;
     currentHintLevel.value = 0;
+    applyReviewLoFromDecision(currentDecision.value);
     await refreshLoIntroFlag();
     void refreshProgress();
+  }
+
+  /**
+   * v0.2:从 LO recap 兜底回来 → 调 server 清 retry 状态,服务端再 decideNext + 服务下一题。
+   * 通常会得到原 RI 的 static 题。失败的话 server 仍可能再返 review_lo,前端继续展示。
+   */
+  async function acknowledgeReviewLo(): Promise<void> {
+    if (!sessionId.value) return;
+    loading.value = true;
+    error.value = null;
+    try {
+      const data = await sessionApi.acknowledgeReviewLo(sessionId.value);
+      currentInteraction.value = data.interaction;
+      currentDecision.value = data.decision;
+      pendingNextInteraction.value = null;
+      lastEvaluation.value = null;
+      showFeedback.value = false;
+      currentHintLevel.value = 0;
+      applyReviewLoFromDecision(data.decision);
+      await refreshLoIntroFlag();
+      void refreshProgress();
+    } catch (e) {
+      error.value = (e as Error).message;
+      throw e;
+    } finally {
+      loading.value = false;
+    }
   }
 
   async function end(): Promise<void> {
@@ -171,6 +219,8 @@ export const useSessionStore = defineStore('session', () => {
       showLoIntro.value = false;
       progress.value = null;
       currentHintLevel.value = 0;
+      reviewLoActive.value = false;
+      reviewLoReason.value = null;
     }
   }
 
@@ -184,6 +234,8 @@ export const useSessionStore = defineStore('session', () => {
     lastLoState,
     pendingNextInteraction,
     showFeedback,
+    reviewLoActive,
+    reviewLoReason,
     loading,
     error,
     loMetaCache,
@@ -196,6 +248,7 @@ export const useSessionStore = defineStore('session', () => {
     submit,
     continueToNext,
     acknowledgeCurrentLo,
+    acknowledgeReviewLo,
     refreshProgress,
     ensureLoMeta,
     end,

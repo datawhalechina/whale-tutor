@@ -1,4 +1,5 @@
 import type {
+  AcknowledgeReviewLoResponse,
   EndSessionResponse,
   GetSessionProgressResponse,
   RequestHintRequest,
@@ -51,6 +52,15 @@ export async function requestHint(
   const res = await http.post<RequestHintResponse>(
     `/sessions/${sessionId}/hints`,
     body,
+  );
+  return res.data;
+}
+
+export async function acknowledgeReviewLo(
+  sessionId: number,
+): Promise<AcknowledgeReviewLoResponse> {
+  const res = await http.post<AcknowledgeReviewLoResponse>(
+    `/sessions/${sessionId}/acknowledge-review-lo`,
   );
   return res.data;
 }

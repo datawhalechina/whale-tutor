@@ -107,6 +107,10 @@ export interface ChapterDefinition {
 export interface CourseDefinition {
   id: string;                       // e.g. "python-basics"
   name: string;
+  // 学科 / 领域名,作为 AI prompt 模板的 {{subject}} 变量。
+  // 例:"Python" / "SQL" / "Java"。让 prompt 不依赖 hardcoded 学科,加新课程时无需改 prompt yaml。
+  // server-only(下方公开版 Course Omit 掉)。
+  subject: string;
   description: string;
   chapters: ChapterDefinition[];
 }
@@ -158,7 +162,7 @@ export type Chapter = Omit<
   assessment: ChapterAssessmentSummary | null;
 };
 
-export type Course = Omit<CourseDefinition, 'chapters'> & {
+export type Course = Omit<CourseDefinition, 'chapters' | 'subject'> & {
   chapters: Chapter[];
 };
 
@@ -195,6 +199,9 @@ export interface LearnerLoState {
   mandatoryCompletedIds: string[];
   // 派生字段（mandatoryCompletedIds.length === LO 的 requiredInteractionCount）
   mandatoryAllCompleted: boolean;
+  // v0.2 PathOrchestrator:学习者答错某 RI 后,在 retry 哪个 RI(非空 → 下一题出 adaptive)
+  // 答对 adaptive / review_lo ack / connsecutive_wrong ≥ 3 都会清空
+  pendingRetryRiId: string | null;
   lastSeenAt: string | null;
   updatedAt: string;
 }
@@ -258,6 +265,8 @@ export interface InteractionInstance<TPrompt = unknown> {
   source: 'static' | 'adaptive';
   // static 时指向 RequiredInteraction.id;adaptive 时为 null
   requiredInteractionId: string | null;
+  // v0.2:adaptive 题对原 RI 的引用,答对此题视为原 RI 通关
+  parentRequiredInteractionId: string | null;
   createdAt: string;
 }
 

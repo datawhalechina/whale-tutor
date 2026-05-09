@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { sql } from 'kysely';
 import type {
+  AcknowledgeReviewLoResponse,
   ChapterAssessmentAction,
   ChapterPhase,
   EndSessionResponse,
@@ -98,13 +99,28 @@ export class SessionService {
       payload: {},
     });
 
-    const decision = await this.decideNext(sessionId, input.learnerId, firstLo.id);
-    const interaction = await this.maybeServeFromDecision(
+    let decision = await this.decideNext(sessionId, input.learnerId, firstLo.id);
+    let interaction = await this.maybeServeFromDecision(
       sessionId,
       input.learnerId,
       firstLo.id,
       decision,
     );
+    // 同 submit:adaptive 服务失败 → 把 decision 降级为 review_lo
+    if (
+      decision.primary.type === 'serve_interaction' &&
+      decision.primary.source === 'adaptive' &&
+      interaction === null
+    ) {
+      decision = {
+        primary: {
+          type: 'review_lo',
+          loId: firstLo.id,
+          reason: '换说法生成失败,先回到讲解再来',
+        },
+        alternatives: [],
+      };
+    }
 
     return { sessionId, decision, interaction };
   }
@@ -132,6 +148,7 @@ export class SessionService {
     // 评估。concept_check 同步,free_recall 走 AI Gateway 异步;统一 await。
     const evaluation = await this.patterns.evaluate(patternId, promptPayload, body.response, {
       sessionId,
+      subject: this.knowledge.getSubjectByLoId(loId),
     });
 
     await this.db
@@ -175,11 +192,23 @@ export class SessionService {
       loId,
       lo.requiredInteractions.length,
     );
-    const delta = applyMasteryStateMachine(
-      oldState,
+    // 章末测试 RI 不参与 retry/review_lo 流程(综合考核,答错就累计错次,不出 adaptive)。
+    // 通过 RI 是否属于该 LO 来判定:章末测试 RI 不在 LO.requiredInteractions 中。
+    const isAssessmentRi =
+      interactionRow.source === 'static' &&
+      !!interactionRow.required_interaction_id &&
+      !lo.requiredInteractions.some(
+        (ri) => ri.id === interactionRow.required_interaction_id,
+      );
+    const delta = applyMasteryStateMachine({
+      state: oldState,
       evaluation,
-      interactionRow.required_interaction_id,
-    );
+      source: interactionRow.source,
+      riId: interactionRow.required_interaction_id,
+      parentRiId: interactionRow.parent_required_interaction_id,
+      hintLevelUsed: body.hintLevelUsed ?? 0,
+      enableRetry: !isAssessmentRi,
+    });
     const updatedLoState = await this.learners.applyEvaluation({
       learnerId,
       loId,
@@ -188,6 +217,7 @@ export class SessionService {
       consecutiveCorrect: delta.consecutiveCorrect,
       consecutiveWrong: delta.consecutiveWrong,
       mandatoryCompletedIds: delta.mandatoryCompletedIds,
+      pendingRetryRiId: delta.pendingRetryRiId,
       requiredInteractionTotal: lo.requiredInteractions.length,
     });
 
@@ -229,13 +259,29 @@ export class SessionService {
     }
 
     // 决定下一动作
-    const nextDecision = await this.decideNext(sessionId, learnerId, loId);
-    const nextInteraction = await this.maybeServeFromDecision(
+    let nextDecision = await this.decideNext(sessionId, learnerId, loId);
+    let nextInteraction = await this.maybeServeFromDecision(
       sessionId,
       learnerId,
       loId,
       nextDecision,
     );
+    // serveAdaptiveInteraction 在 generate 全失败时会清 pending_retry_ri_id 并返 null。
+    // 此时 decision 和 interaction 不一致 — 把 decision 也降级为 review_lo,前端弹 LO recap。
+    if (
+      nextDecision.primary.type === 'serve_interaction' &&
+      nextDecision.primary.source === 'adaptive' &&
+      nextInteraction === null
+    ) {
+      nextDecision = {
+        primary: {
+          type: 'review_lo',
+          loId,
+          reason: '换说法生成失败,先回到讲解再来',
+        },
+        alternatives: [],
+      };
+    }
 
     return {
       evaluation,
@@ -268,6 +314,79 @@ export class SessionService {
 
     // M1 暂不生成 archive,留给 M3
     return {};
+  }
+
+  // ========================================================
+  // v0.2:Review-LO 兜底确认
+  // ------------------------------------------------------------
+  // 学习者从 LO recap 回来后调用:清当前 LO 的 pending_retry_ri_id + consecutive_wrong=0,
+  // 重新 decideNext。理想情况是回到原 RI 重新出 static 题。
+  // emit lo.regressed(reason: review_lo_acknowledged)用于事件溯源。
+  // ========================================================
+
+  async acknowledgeReviewLo(sessionId: number): Promise<AcknowledgeReviewLoResponse> {
+    const session = await this.db
+      .selectFrom('sessions')
+      .selectAll()
+      .where('id', '=', sessionId)
+      .executeTakeFirst();
+    if (!session) throw new NotFoundException(`Session not found: ${sessionId}`);
+    if (!session.current_lo_id) {
+      throw new NotFoundException(`Session ${sessionId} has no current LO`);
+    }
+    const learnerId = session.learner_id;
+    const loId = session.current_lo_id;
+
+    const lo = this.knowledge.getLoDefinition(loId);
+    const state = await this.learners.getOrInitLoState(
+      learnerId,
+      loId,
+      lo.requiredInteractions.length,
+    );
+
+    // 重置 retry 上下文(mastery / 必做 / correct count 不动)
+    await this.learners.applyEvaluation({
+      learnerId,
+      loId,
+      correct: false, // attempts++ 但 correct_count 不增。这里更像是状态校正,无所谓 correct
+      nextMasteryLevel: state.masteryLevel,
+      consecutiveCorrect: state.consecutiveCorrect,
+      consecutiveWrong: 0, // 重置连续错
+      mandatoryCompletedIds: state.mandatoryCompletedIds,
+      pendingRetryRiId: null, // 脱离 retry
+      requiredInteractionTotal: lo.requiredInteractions.length,
+    });
+
+    await this.events.emit({
+      sessionId,
+      learnerId,
+      loId,
+      type: 'lo.regressed',
+      payload: { reason: 'review_lo_acknowledged' },
+    });
+
+    let decision = await this.decideNext(sessionId, learnerId, loId);
+    let interaction = await this.maybeServeFromDecision(
+      sessionId,
+      learnerId,
+      loId,
+      decision,
+    );
+    if (
+      decision.primary.type === 'serve_interaction' &&
+      decision.primary.source === 'adaptive' &&
+      interaction === null
+    ) {
+      decision = {
+        primary: {
+          type: 'review_lo',
+          loId,
+          reason: '换说法生成失败,先回到讲解再来',
+        },
+        alternatives: [],
+      };
+    }
+    return { decision, interaction };
   }
 
   // ========================================================
@@ -313,6 +432,7 @@ export class SessionService {
     const result = await this.hints.getHint(
       ri,
       {
+        subject: this.knowledge.getSubjectByRiId(riId),
         loName: owningLo?.name ?? '章末综合测试',
         commonMisconceptions: owningLo?.commonMisconceptions ?? [],
         sessionId,
@@ -456,6 +576,32 @@ export class SessionService {
       lo.requiredInteractions.length,
     );
 
+    // Rule 0(v0.2 加):若 pendingRetryRiId 非空,优先出 adaptive "换说法" 题。
+    // 连续错 ≥ 3 次或 generate 返 null → 落 review_lo,前端弹 LO recap。
+    if (state.pendingRetryRiId) {
+      if (state.consecutiveWrong >= 3) {
+        return {
+          primary: {
+            type: 'review_lo',
+            loId,
+            reason: `连续答错 ${state.consecutiveWrong} 次,先回到讲解再来`,
+          },
+          alternatives: [],
+        };
+      }
+      return {
+        primary: {
+          type: 'serve_interaction',
+          loId,
+          patternId: this.knowledge.getRequiredInteraction(state.pendingRetryRiId).patternId,
+          source: 'adaptive',
+          requiredInteractionId: null,
+          rationale: `换种说法再试 (第 ${state.consecutiveWrong} 次)`,
+        },
+        alternatives: [],
+      };
+    }
+
     // Rule 1: 当前 LO 必做按序推进
     const completedSet = new Set(state.mandatoryCompletedIds);
     const nextRi = lo.requiredInteractions.find((ri) => !completedSet.has(ri.id));
@@ -573,11 +719,16 @@ export class SessionService {
   ): Promise<ServedInteraction | null> {
     const action = decision.primary;
     if (action.type === 'serve_interaction') {
+      if (action.source === 'adaptive') {
+        // adaptive:从 learner_state.pending_retry_ri_id 取原 RI,调 Pattern.generate
+        return this.serveAdaptiveInteraction(sessionId, learnerId, action.loId);
+      }
       return this.serveStaticInteraction(sessionId, learnerId, action.loId, action);
     }
     if (action.type === 'chapter_assessment') {
       return this.serveStaticInteraction(sessionId, learnerId, loId, action);
     }
+    // review_lo / chapter_complete / request_break — 不出题
     return null;
   }
 
@@ -590,7 +741,7 @@ export class SessionService {
     let riId: string;
     if (action.type === 'serve_interaction') {
       if (action.source !== 'static' || !action.requiredInteractionId) {
-        throw new Error('M1 only supports static serve_interaction');
+        throw new Error('serveStaticInteraction called with non-static action');
       }
       riId = action.requiredInteractionId;
     } else {
@@ -607,6 +758,7 @@ export class SessionService {
         pattern_id: ri.patternId,
         source: 'static',
         required_interaction_id: ri.id,
+        parent_required_interaction_id: null,
         prompt_payload: JSON.stringify(ri.prompt),
         expected: null,
       })
@@ -633,6 +785,115 @@ export class SessionService {
       prompt: learnerPrompt,
       source: 'static',
       requiredInteractionId: ri.id,
+      parentRequiredInteractionId: null,
+      createdAt: new Date().toISOString(),
+    } as ServedInteraction;
+  }
+
+  /**
+   * v0.2:adaptive 题。从 learner_state.pending_retry_ri_id 取原 RI,
+   * 调 Pattern.generate 生成换说法 prompt;失败 / pattern 不支持 generate
+   * → 清 pending + 自动转 review_lo(由调用方再 decideNext)。
+   */
+  private async serveAdaptiveInteraction(
+    sessionId: number,
+    learnerId: number,
+    loId: string,
+  ): Promise<ServedInteraction | null> {
+    const lo = this.knowledge.getLoDefinition(loId);
+    const state = await this.learners.getOrInitLoState(
+      learnerId,
+      loId,
+      lo.requiredInteractions.length,
+    );
+    if (!state.pendingRetryRiId) {
+      // 不该到这里;decideNext 已经检查过
+      return null;
+    }
+    const originalRi = this.knowledge.getRequiredInteraction(state.pendingRetryRiId);
+
+    let generatedPrompt: unknown;
+    try {
+      generatedPrompt = await this.patterns.generate(originalRi, lo, {
+        sessionId,
+        subject: this.knowledge.getSubjectByLoId(loId),
+        attemptIndex: state.consecutiveWrong, // 第 N 次 retry
+      });
+    } catch (e) {
+      this.logger.warn(
+        `Pattern.generate failed for RI ${originalRi.id}: ${(e as Error).message} — falling back to review_lo`,
+      );
+      generatedPrompt = null;
+    }
+
+    if (!generatedPrompt) {
+      // 生成不出来 → 清 pending,让上层走 review_lo 路径
+      // (我们 emit 一条 lo.regressed 事件让外部分析能看到这次降级)
+      await this.learners.applyEvaluation({
+        learnerId,
+        loId,
+        correct: false,
+        nextMasteryLevel: state.masteryLevel,
+        consecutiveCorrect: state.consecutiveCorrect,
+        consecutiveWrong: state.consecutiveWrong,
+        mandatoryCompletedIds: state.mandatoryCompletedIds,
+        pendingRetryRiId: null, // 清 retry,让 review_lo 接手
+        requiredInteractionTotal: lo.requiredInteractions.length,
+      });
+      await this.events.emit({
+        sessionId,
+        learnerId,
+        loId,
+        type: 'lo.regressed',
+        payload: { reason: 'no_generator', riId: originalRi.id },
+      });
+      return null;
+    }
+
+    const result = await this.db
+      .insertInto('interactions')
+      .values({
+        session_id: sessionId,
+        learner_id: learnerId,
+        lo_id: loId,
+        pattern_id: originalRi.patternId,
+        source: 'adaptive',
+        required_interaction_id: null,
+        parent_required_interaction_id: originalRi.id,
+        prompt_payload: JSON.stringify(generatedPrompt),
+        expected: null,
+      })
+      .executeTakeFirstOrThrow();
+    const interactionId = Number(result.insertId);
+
+    await this.events.emit({
+      sessionId,
+      learnerId,
+      loId,
+      patternId: originalRi.patternId,
+      type: 'interaction.served',
+      payload: {
+        interactionId,
+        parentRequiredInteractionId: originalRi.id,
+        source: 'adaptive',
+      },
+    });
+
+    const learnerPrompt = this.patterns.toLearnerPrompt(
+      originalRi.patternId,
+      generatedPrompt,
+    );
+
+    return {
+      id: interactionId,
+      sessionId,
+      learnerId,
+      loId,
+      patternId: originalRi.patternId,
+      prompt: learnerPrompt,
+      source: 'adaptive',
+      requiredInteractionId: null,
+      parentRequiredInteractionId: originalRi.id,
       createdAt: new Date().toISOString(),
     } as ServedInteraction;
   }
@@ -728,21 +989,69 @@ interface StateMachineDelta {
   consecutiveCorrect: number;
   consecutiveWrong: number;
   mandatoryCompletedIds: string[];
+  // v0.2:retry 上下文。null = 清空(脱离 retry 或不在 retry)
+  pendingRetryRiId: string | null;
 }
 
-function applyMasteryStateMachine(
-  state: LearnerLoState,
-  evaluation: EvaluationResult,
-  riId: string | null,
-): StateMachineDelta {
+interface StateMachineInput {
+  state: LearnerLoState;
+  evaluation: EvaluationResult;
+  source: 'static' | 'adaptive';
+  /** static 时:本道题对应的 RI id。adaptive 时:null */
+  riId: string | null;
+  /** adaptive 时:这道 retry 题对应的原 RI id;static 时:null */
+  parentRiId: string | null;
+  /** 学习者用过的最高 hint 级别(0 = 未求助) */
+  hintLevelUsed: number;
+  /** false → 不更新 pendingRetryRiId(章末测试 RI 不参与 retry/review_lo 流程) */
+  enableRetry: boolean;
+}
+
+/**
+ * v0.2 PathOrchestrator 状态机。
+ *
+ * 关键改动 vs v0:
+ *   - 答对 adaptive 题 → 把 parentRiId 加入 mandatoryCompletedIds(原 RI 视为通关)
+ *   - 答对 static 题 → 同 v0,把 riId 加入 mandatoryCompletedIds
+ *   - 答对任何题 → 清空 pendingRetryRiId(脱离 retry)
+ *   - 答错 static 题 → pendingRetryRiId = riId(进入 retry,decideNext 会出 adaptive)
+ *   - 答错 adaptive 题 → pendingRetryRiId 不变(continue retry,connsecutive_wrong 累加)
+ *   - hint 折扣:hintLevelUsed > 0 答对仍计 mandatoryCompletedIds,但 consecutiveCorrect 不增加
+ *     (mastered 门槛拿不到,鼓励学习者后续不靠 hint 答对)
+ */
+function applyMasteryStateMachine(input: StateMachineInput): StateMachineDelta {
+  const { state, evaluation, source, riId, parentRiId, hintLevelUsed, enableRetry } = input;
   const correct = evaluation.correct;
-  const consecutiveCorrect = correct ? state.consecutiveCorrect + 1 : 0;
+
+  // hint 折扣:用过 hint 答对 → consecutiveCorrect 不增,但 wrong 计数照常重置
+  const usedHint = hintLevelUsed > 0;
+  const consecutiveCorrect = correct
+    ? usedHint
+      ? state.consecutiveCorrect
+      : state.consecutiveCorrect + 1
+    : 0;
   const consecutiveWrong = correct ? 0 : state.consecutiveWrong + 1;
 
-  // 必做完成跟踪:仅 ri 来源 + 答对才计入
+  // 必做完成跟踪 — static 用 riId,adaptive 用 parentRiId(retry 答对算原 RI 通关)
   let mandatoryCompletedIds = state.mandatoryCompletedIds;
-  if (correct && riId && !state.mandatoryCompletedIds.includes(riId)) {
-    mandatoryCompletedIds = [...state.mandatoryCompletedIds, riId];
+  if (correct) {
+    const targetRi = source === 'static' ? riId : parentRiId;
+    if (targetRi && !state.mandatoryCompletedIds.includes(targetRi)) {
+      mandatoryCompletedIds = [...state.mandatoryCompletedIds, targetRi];
+    }
+  }
+
+  // pending retry 状态推进。enableRetry=false(章末测试 RI)→ 不动 pendingRetryRiId。
+  let pendingRetryRiId = state.pendingRetryRiId;
+  if (enableRetry) {
+    if (correct) {
+      // 任何答对 → 脱离 retry
+      pendingRetryRiId = null;
+    } else if (source === 'static' && riId) {
+      // 静态题答错 → 进入 retry
+      pendingRetryRiId = riId;
+    }
+    // adaptive 答错 → pendingRetryRiId 保持(继续 retry 同 RI)
   }
 
   // mastery 状态机
@@ -750,7 +1059,8 @@ function applyMasteryStateMachine(
   if (state.masteryLevel === 'untouched') {
     next = 'exposed';
   } else if (state.masteryLevel === 'exposed') {
-    if (correct) next = 'practicing';
+    if (correct && !usedHint) next = 'practicing';
+    // 用 hint 答对 → 暂不前进(保持 exposed,等无 hint 答对)
   } else if (state.masteryLevel === 'practicing') {
     if (correct && consecutiveCorrect >= 2 && evaluation.confidence > 0.7) {
       next = 'mastered';
@@ -766,5 +1076,6 @@ function applyMasteryStateMachine(
     consecutiveCorrect,
     consecutiveWrong,
     mandatoryCompletedIds,
+    pendingRetryRiId,
   };
 }

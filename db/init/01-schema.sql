@@ -83,20 +83,23 @@ CREATE TABLE IF NOT EXISTS events (
 --   source='adaptive' — 必做完成后由 AI Gateway 动态生成
 -- prompt_payload 存完整 prompt（含答案/expected/rubric）,下发前端时由 service 层 sanitize。
 CREATE TABLE IF NOT EXISTS interactions (
-  id                      BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  session_id              BIGINT UNSIGNED NOT NULL,
-  learner_id              BIGINT UNSIGNED NOT NULL,
-  lo_id                   VARCHAR(64) NOT NULL,
-  pattern_id              VARCHAR(64) NOT NULL,
-  source                  ENUM('static','adaptive') NOT NULL,
-  required_interaction_id VARCHAR(64) NULL COMMENT 'source=static 时指向 YAML 中的 requiredInteraction.id',
-  prompt_payload          JSON NOT NULL,
-  expected                JSON NULL COMMENT '确定性评估的预期数据;AI 评估时为 NULL',
-  created_at              DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  id                              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  session_id                      BIGINT UNSIGNED NOT NULL,
+  learner_id                      BIGINT UNSIGNED NOT NULL,
+  lo_id                           VARCHAR(64) NOT NULL,
+  pattern_id                      VARCHAR(64) NOT NULL,
+  source                          ENUM('static','adaptive') NOT NULL,
+  required_interaction_id         VARCHAR(64) NULL COMMENT 'source=static 时指向 YAML 中的 requiredInteraction.id',
+  -- v0.2 PathOrchestrator:adaptive 题对原 RI 的引用,答对此题视为原 RI 通关
+  parent_required_interaction_id  VARCHAR(64) NULL COMMENT 'source=adaptive 时,该 retry 题对应的原 RI(来自 learner_state.pending_retry_ri_id)',
+  prompt_payload                  JSON NOT NULL,
+  expected                        JSON NULL COMMENT '确定性评估的预期数据;AI 评估时为 NULL',
+  created_at                      DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   KEY ix_interactions_session_created (session_id, created_at),
   KEY ix_interactions_lo_pattern (lo_id, pattern_id),
-  KEY ix_interactions_source (learner_id, source, required_interaction_id)
+  KEY ix_interactions_source (learner_id, source, required_interaction_id),
+  KEY ix_interactions_parent_ri (parent_required_interaction_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 学习者对 interaction 的回答以及评估结果。
@@ -152,6 +155,10 @@ CREATE TABLE IF NOT EXISTS learner_state (
   -- 已完成的 required_interaction id 数组（YAML 静态预置题目）
   -- 长度 == LO YAML 中的 requiredInteractions 数 → mandatory_all_completed = true
   mandatory_completed_ids JSON NULL,
+  -- v0.2 PathOrchestrator:学习者答错某 RI 后,这里记录"在 retry 哪个 RI"。
+  -- 非空 → decideNext 优先出 adaptive(同 LO,parent_required_interaction_id=该 RI)。
+  -- 答对 adaptive 题 → 标 RI 完成 + 清空此字段。connsecutive_wrong ≥ 3 → 触发 review_lo + 清空。
+  pending_retry_ri_id     VARCHAR(64) NULL DEFAULT NULL,
   last_seen_at            DATETIME(3) NULL,
   updated_at              DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (learner_id, lo_id),

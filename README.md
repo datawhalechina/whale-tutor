@@ -4,23 +4,26 @@
 
 详细产品理念见 [notes/](notes/);开发者文档(架构 / 边界 / 约定)见 [CLAUDE.md](CLAUDE.md)。
 
-## 当前状态:v0 骨架闭环 ✅
+## 当前状态:v0.2 智能编排闭环 ✅
 
-> v0 跑通了,完整教学闭环可演示。下一步是 v0.2 路线图(详见 [CLAUDE.md](CLAUDE.md) 末尾)。
+> v0.2 跑通了,智能 PathOrchestrator + StuckProtocol 都已上线。下一步 v0.3(Diagnostic / Archive / 课程作者工具),详见 [CLAUDE.md](CLAUDE.md) 末尾路线图。
 
 **已实现**
 
 - 1 个课程 / 1 章节 / 4 个学习目标(LO)/ 13 道必做交互 / 1 道章末综合测试
 - 4 种交互模式:**概念检验** / **找 bug** / **代码沙盒**(浏览器跑 Python)/ **自由回忆**
-- AI Gateway(DeepSeek)用于:章末 free_recall 评估 / spot_the_bug 解释评估 / QA 答疑
+- AI Gateway(DeepSeek)用于:答错时 AI 出"换说法"题 / 章末 free_recall 评估 / spot_the_bug 解释评估 / QA 答疑 / hint 兜底生成
 - LO 教学开场页(进入新 LO 显示核心讲解 → 学习者点"开始练习"再答题)
+- **梯度提示(StuckProtocol)** — 题目上方"求提示",作者可在 RI 写 1-5 级,缺省走 AI 3 级 + cache
+- **智能 PathOrchestrator** — 答错触发 AI 出同 LO 换说法题(`source='adaptive'`);连续错 3 次自动 review_lo 兜底回讲解;hint > 0 答对计入必做但不增 mastery
+- **学科参数化** — course.yaml 的 `subject` 字段灌进所有 prompt,加新课程(SQL / Java)无需改 prompt
 - QA 侧支(右侧 drawer 提问 + 多轮追问 + 结束回到原位)
-- mastery 状态机(untouched → exposed → practicing → mastered)
-- 多 LO 自动推进 + 章末测试解锁
+- mastery 状态机(untouched → exposed → practicing → mastered),mastered 连续错 2 次回归
+- 多 LO 自动推进 + 章末测试解锁(章末测试不进 retry)
 
 **演示流程**
 
-打开 `http://localhost:5173` → 点"开始学习" → 走 4 个 LO → 章末综合 → 章节完成。任意时刻可以点头部"💬 问问题"提问。
+打开 `http://localhost:5173` → 点"开始学习" → 走 4 个 LO → 章末综合 → 章节完成。任意时刻可以点头部"💬 问问题"提问,题目上方"💡 求提示"兜底卡住时。
 
 ```
 list.basics → list.indexing → list.mutation → iter.for_over_list → 章末综合 → 🎉
@@ -153,6 +156,8 @@ import type { LearningObjective, ServedInteraction } from '@whale-tutor/tutor-ty
 
 ## 进一步阅读
 
-- **架构边界、命名约定、模块职责、v0.2 路线图** — [CLAUDE.md](CLAUDE.md)
+- **架构边界、命名约定、模块职责、v0.3 路线图** — [CLAUDE.md](CLAUDE.md)
+- **运行时业务逻辑(状态机 / decideNext / DB 写入语义,跨模块改动前必读)** — [notes/orchestrator.md](notes/orchestrator.md)
 - **产品理念、教育学原则、交互模式库设计** — [notes/background_1.md](notes/background_1.md) → [notes/background_2.md](notes/background_2.md) → [notes/background_3.md](notes/background_3.md)
 - **完整工程架构(4 层 18 模块)** — [notes/plan.md](notes/plan.md)
+- **课程作者文档(写课程内容、CLI 工作流、文件引用、hint / 评价机制)** — [doc/](doc/)(待写,v0.3 任务)

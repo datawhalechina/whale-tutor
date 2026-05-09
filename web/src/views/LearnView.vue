@@ -26,12 +26,31 @@ const {
   loading,
   showLoIntro,
   loMetaCache,
+  reviewLoActive,
+  reviewLoReason,
 } = storeToRefs(sessionStore);
 
 const currentLoMeta = computed<LearningObjective | null>(() => {
   if (!currentInteraction.value) return null;
   return loMetaCache.value[currentInteraction.value.loId] ?? null;
 });
+
+// review_lo 模式下的 LO meta — 从 decision.primary.loId 取。
+// 没缓存就按需 fetch(理论上 currentInteraction 之前已经触发缓存,这里是兜底)
+const reviewLoMeta = computed<LearningObjective | null>(() => {
+  const action = currentDecision.value?.primary;
+  if (action?.type !== 'review_lo') return null;
+  const cached = loMetaCache.value[action.loId];
+  if (!cached) {
+    void sessionStore.ensureLoMeta(action.loId);
+    return null;
+  }
+  return cached;
+});
+
+async function onAcknowledgeReviewLo(): Promise<void> {
+  await sessionStore.acknowledgeReviewLo();
+}
 
 // === Recap overlay state ===
 const recapVisible = ref(false);
@@ -148,13 +167,35 @@ async function onOpenHistory(): Promise<void> {
 
       <el-main class="learn-main">
         <div
-          v-if="loading && !currentInteraction"
+          v-if="loading && !currentInteraction && !reviewLoActive"
           v-loading="true"
           style="min-height: 200px"
         ></div>
 
+        <!-- v0.2:review_lo 兜底,优先级最高(其他视图都隐藏) -->
+        <div v-if="reviewLoActive" class="review-lo-wrapper">
+          <el-alert
+            type="warning"
+            :closable="false"
+            show-icon
+            class="review-lo-banner"
+          >
+            <template #title>
+              <strong>先回到讲解再来</strong>
+            </template>
+            <span v-if="reviewLoReason">{{ reviewLoReason }}</span>
+          </el-alert>
+          <LoIntroCard
+            v-if="reviewLoMeta"
+            :lo-meta="reviewLoMeta"
+            mode="review-lo"
+            @close="onAcknowledgeReviewLo"
+          />
+          <div v-else v-loading="true" style="min-height: 200px"></div>
+        </div>
+
         <LoIntroCard
-          v-if="currentInteraction && showLoIntro && currentLoMeta"
+          v-else-if="currentInteraction && showLoIntro && currentLoMeta"
           :lo-meta="currentLoMeta"
           mode="first-time"
           @start="sessionStore.acknowledgeCurrentLo()"
@@ -235,6 +276,17 @@ async function onOpenHistory(): Promise<void> {
 .header-right {
   display: flex;
   gap: 8px;
+}
+.review-lo-wrapper {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.review-lo-banner {
+  /* 让 banner 横铺,el-alert 默认 inline-block 偶尔会撑得不齐 */
+  width: 100%;
 }
 .lo-state {
   display: flex;

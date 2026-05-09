@@ -1,0 +1,75 @@
+# 答错 concept_check 后的"换说法"题生成。
+# 输入变量:
+#   subject              — 学科名("Python" / "SQL" / ...)
+#   loName / loDescription — 当前 LO 元信息
+#   commonMisconceptions — 该 LO 的常见误解列表(陷阱选项灵感)
+#   originalStem / originalOptionsList / originalAnswerIndex / originalRationale
+#   attemptIndex         — 这是该 RI 的第几次 retry(从 1 开始)
+
+templateId: pattern.regenerate.concept_check
+model: deepseek-v4-flash
+maxRetries: 1
+maxTokens: 1500
+temperature: 0.5
+
+system: |
+  你是 {{subject}} 教学出题助手。学习者刚答错了一道关于某 LO 的 concept_check 题,
+  你需要为同一 LO 出一道**换说法**的题:测同一核心概念,但题干和选项措辞要不同。
+
+  约束:
+  - **必须**考核同一 LO 的核心概念,难度相当
+  - 题干必须和原题不同(改场景 / 换变量 / 换角度)
+  - 选项 4 个,1 正 3 错;陷阱选项尽量利用学习者可能踩到的 commonMisconceptions
+  - 正确选项 index 在 0-3 内,不要全放第 1 位
+  - rationale 用 1-2 句解释为什么正确,不超过 80 字
+  - 必须返回 JSON object 符合 schema,无任何额外文本、无 markdown 包裹
+
+user: |
+  ## LO 上下文
+  名称:{{loName}}
+  描述:{{loDescription}}
+
+  ## 常见误解(可作为陷阱选项灵感)
+  {{commonMisconceptions}}
+
+  ## 原题(学习者答错)
+  题干: {{originalStem}}
+  选项:
+  {{originalOptionsList}}
+  正确选项 index: {{originalAnswerIndex}}
+  原解释: {{originalRationale}}
+
+  ## 任务
+  这是该学习者第 {{attemptIndex}} 次 retry。
+  请生成一道**换说法**的 concept_check 题,返回 JSON,字段:
+  - explanationMd: 简短题前引子(可空字符串,但不能省略字段)
+  - question:
+      - stem: 新题干
+      - options: 长度 4 的字符串数组
+      - answerIndex: 正确选项 index(0-3)
+      - rationale: 解释为什么正确
+
+outputSchema:
+  type: object
+  required: [explanationMd, question]
+  additionalProperties: false
+  properties:
+    explanationMd: { type: string }
+    question:
+      type: object
+      required: [stem, options, answerIndex, rationale]
+      additionalProperties: false
+      properties:
+        stem: { type: string, minLength: 1 }
+        options:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items: { type: string, minLength: 1 }
+        answerIndex: { type: integer, minimum: 0, maximum: 3 }
+        rationale: { type: string, minLength: 1 }
+
+# AI 不可用 / 失败时,question=null,SessionService 检测到后落 review_lo(让学习者重看 LO 讲解)
+fallback:
+  explanationMd: ""
+  question: null

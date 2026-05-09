@@ -7,7 +7,9 @@ import type {
   EvaluationResult,
   FreeRecallPrompt,
   FreeRecallResponse,
+  LearningObjectiveDefinition,
   PatternId,
+  RequiredInteraction,
   SpotTheBugPrompt,
   SpotTheBugResponse,
 } from '@whale-tutor/tutor-types';
@@ -16,8 +18,19 @@ import { ConceptCheckPattern } from './patterns/concept-check.pattern';
 import { FreeRecallPattern } from './patterns/free-recall.pattern';
 import { SpotTheBugPattern } from './patterns/spot-the-bug.pattern';
 
+// 评估上下文 — 让 evaluator 拿到调用方的 sessionId(写 ai_calls)+ subject(prompt 变量)。
+// subject 必填,从课程定义解析(KnowledgeService.getSubjectByLoId)。
 export interface EvaluateContext {
   sessionId?: number;
+  subject: string;
+}
+
+// 生成 adaptive 题(answer-wrong 时换说法)的上下文。
+// attemptIndex:该 RI 的第几次 retry(从 1 开始,让 AI 知道学习者已经卡了几次)。
+export interface GenerateContext {
+  sessionId?: number;
+  subject: string;
+  attemptIndex: number;
 }
 
 /**
@@ -61,7 +74,7 @@ export class PatternRegistry {
     patternId: PatternId,
     prompt: unknown,
     response: unknown,
-    context?: EvaluateContext,
+    context: EvaluateContext,
   ): Promise<EvaluationResult> {
     switch (patternId) {
       case 'concept_check':
@@ -91,5 +104,44 @@ export class PatternRegistry {
         throw new Error(`Unknown pattern: ${String(_exhaustive)}`);
       }
     }
+  }
+
+  /**
+   * 生成 adaptive "换说法"题。原 RI 的 prompt 完整传入(含答案),AI 用作出题灵感。
+   * 返 null → 该 pattern 不支持 generate(或 AI 全部失败),由调用方落 review_lo 兜底。
+   */
+  async generate(
+    originalRi: RequiredInteraction,
+    lo: LearningObjectiveDefinition,
+    context: GenerateContext,
+  ): Promise<unknown | null> {
+    switch (originalRi.patternId) {
+      case 'concept_check':
+        return this.conceptCheck.generate(
+          originalRi.prompt as ConceptCheckPrompt,
+          lo,
+          context,
+        );
+      case 'free_recall':
+        return this.freeRecall.generate(
+          originalRi.prompt as FreeRecallPrompt,
+          lo,
+          context,
+        );
+      case 'spot_the_bug':
+        return this.spotTheBug.generate(
+          originalRi.prompt as SpotTheBugPrompt,
+          lo,
+          context,
+        );
+      case 'code_sandbox':
+        return this.codeSandbox.generate(
+          originalRi.prompt as CodeSandboxPrompt,
+          lo,
+          context,
+        );
+    }
+    // 4 PatternId 已穷尽,这里 unreachable;若 PatternId 加新成员,TS 会逼迫上面 switch 加分支
+    return null;
   }
 }

@@ -1,5 +1,8 @@
 id: python-basics
 name: Python 基础
+# 学科名,做为 AI prompt 模板的 {{subject}} 变量(server-only,不下发到前端)。
+# 加新课程(SQL / Pandas / Java 等)时改这里就好,prompt 模板不用动。
+subject: Python
 description: { $ref: ./course-description.md }
 chapters:
   - { $ref: ./chapters/list_and_iter/chapter.yaml }

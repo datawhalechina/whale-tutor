@@ -132,6 +132,35 @@ export class KnowledgeService implements OnModuleInit {
     return this.riOwnerLoIndex.get(riId) ?? null;
   }
 
+  /**
+   * 取 LO 所在课程的 subject(如 "Python" / "SQL")。
+   * 给 AI prompt 的 {{subject}} 变量,让 prompt 不依赖 hardcoded 学科。
+   */
+  getSubjectByLoId(loId: string): string {
+    const e = this.loIndex.get(loId);
+    if (!e) throw new NotFoundException(`LO not found: ${loId}`);
+    return e.course.subject;
+  }
+
+  /**
+   * 取 RI 所在课程的 subject。RI 可能在 LO 内或章末测试内。
+   * 章末测试的 RI 通过 chapter.assessment → chapter → 找到 course。
+   */
+  getSubjectByRiId(riId: string): string {
+    // 先查 LO-内的 RI
+    const lo = this.riOwnerLoIndex.get(riId);
+    if (lo) return this.getSubjectByLoId(lo.id);
+    // 章末测试的 RI:扫一遍 assessmentIndex 找 owning chapter,再取 course.subject
+    for (const entry of this.assessmentIndex.values()) {
+      if (entry.assessment.requiredInteractions.some((ri) => ri.id === riId)) {
+        // 找 chapter 所在 course(loIndex 任一 LO 同 chapter 都行)
+        const sampleLo = entry.chapter.learningObjectives[0];
+        if (sampleLo) return this.getSubjectByLoId(sampleLo.id);
+      }
+    }
+    throw new NotFoundException(`RequiredInteraction not found: ${riId}`);
+  }
+
   getChapterAssessmentDefinition(assessmentId: string): ChapterAssessmentDefinition {
     const e = this.assessmentIndex.get(assessmentId);
     if (!e) throw new NotFoundException(`ChapterAssessment not found: ${assessmentId}`);

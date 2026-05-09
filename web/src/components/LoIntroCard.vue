@@ -8,7 +8,9 @@ const props = withDefaults(
     loMeta: LearningObjective;
     // 'first-time': 进入新 LO 时的首次介绍页;按钮"开始练习" emit start
     // 'recap':     从侧边栏点"重看讲解"调起的回看模式;按钮"返回" emit close
-    mode?: 'first-time' | 'recap';
+    // 'review-lo': v0.2 PathOrchestrator 兜底 — 学习者连续答错或换说法生成失败,
+    //              强制回讲解;按钮"我看完了,继续练习" emit close(LearnView 接到后调 acknowledgeReviewLo)
+    mode?: 'first-time' | 'recap' | 'review-lo';
   }>(),
   { mode: 'first-time' },
 );
@@ -19,6 +21,7 @@ defineEmits<{
 }>();
 
 const isRecap = computed(() => props.mode === 'recap');
+const isReviewLo = computed(() => props.mode === 'review-lo');
 
 const explanationHtml = computed(() =>
   renderMarkdown(props.loMeta.coreExplanationMd),
@@ -59,7 +62,15 @@ const difficultyLabel: Record<string, string> = {
     </div>
 
     <div class="actions">
-      <el-button v-if="isRecap" size="large" @click="$emit('close')">
+      <el-button
+        v-if="isReviewLo"
+        type="primary"
+        size="large"
+        @click="$emit('close')"
+      >
+        我看完了,继续练习
+      </el-button>
+      <el-button v-else-if="isRecap" size="large" @click="$emit('close')">
         返回
       </el-button>
       <el-button v-else type="primary" size="large" @click="$emit('start')">

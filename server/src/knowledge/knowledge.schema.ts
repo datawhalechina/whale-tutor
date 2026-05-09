@@ -12,11 +12,13 @@ const ajv = new Ajv({ allErrors: true, strict: false });
  */
 const courseSchema = {
   type: 'object',
-  required: ['id', 'name', 'description', 'chapters'],
+  required: ['id', 'name', 'subject', 'description', 'chapters'],
   additionalProperties: false,
   properties: {
     id: { type: 'string', minLength: 1 },
     name: { type: 'string', minLength: 1 },
+    // 学科名,作 AI prompt 的 {{subject}} 变量。例 "Python" / "SQL"
+    subject: { type: 'string', minLength: 1 },
     description: { type: 'string' },
     chapters: {
       type: 'array',
