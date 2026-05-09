@@ -82,10 +82,7 @@ export class HintCacheService {
     return promise;
   }
 
-  private async generate(
-    ri: RequiredInteraction,
-    ctx: HintGenerateContext,
-  ): Promise<string[]> {
+  private async generate(ri: RequiredInteraction, ctx: HintGenerateContext): Promise<string[]> {
     const startedAt = Date.now();
     const output = await this.ai.complete<AiHintOutput>({
       templateId: 'pattern.hint',
@@ -108,9 +105,7 @@ export class HintCacheService {
         `AI hint output for ${ri.id} has ${output.hints?.length ?? 0} levels,expected 3`,
       );
     }
-    this.logger.log(
-      `Generated AI hints for ${ri.id} in ${Date.now() - startedAt}ms (cached)`,
-    );
+    this.logger.log(`Generated AI hints for ${ri.id} in ${Date.now() - startedAt}ms (cached)`);
     return output.hints;
   }
 }

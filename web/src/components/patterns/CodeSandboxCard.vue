@@ -16,16 +16,10 @@ const props = defineProps<{
 }>();
 
 const sessionStore = useSessionStore();
-const {
-  lastEvaluation,
-  showFeedback,
-  pendingNextInteraction,
-  currentDecision,
-  loading,
-} = storeToRefs(sessionStore);
+const { lastEvaluation, showFeedback, pendingNextInteraction, currentDecision, loading } =
+  storeToRefs(sessionStore);
 const pyodideStore = usePyodideStore();
-const { status: pyodideStatus, errorMessage: pyodideError } =
-  storeToRefs(pyodideStore);
+const { status: pyodideStatus, errorMessage: pyodideError } = storeToRefs(pyodideStore);
 
 // 学习者代码,初始 = starterCode
 const code = ref('');
@@ -41,34 +35,21 @@ watch(
   { immediate: true },
 );
 
-const promptHtml = computed(() =>
-  renderMarkdown(props.interaction.prompt.promptMd),
-);
+const promptHtml = computed(() => renderMarkdown(props.interaction.prompt.promptMd));
 
 const totalTests = computed(() => props.interaction.prompt.testCases.length);
-const passedCount = computed(
-  () => runResults.value.filter((r) => r.passed).length,
-);
+const passedCount = computed(() => runResults.value.filter((r) => r.passed).length);
 const allPassed = computed(
-  () =>
-    runResults.value.length === totalTests.value &&
-    runResults.value.every((r) => r.passed),
+  () => runResults.value.length === totalTests.value && runResults.value.every((r) => r.passed),
 );
 
-const isLastInChapter = computed(
-  () => showFeedback.value && pendingNextInteraction.value === null,
-);
-const isRetrySameRi = computed(
-  () => showFeedback.value && lastEvaluation.value?.correct === false,
-);
+const isLastInChapter = computed(() => showFeedback.value && pendingNextInteraction.value === null);
+const isRetrySameRi = computed(() => showFeedback.value && lastEvaluation.value?.correct === false);
 const isAdaptiveRetry = computed(
-  () =>
-    isRetrySameRi.value &&
-    pendingNextInteraction.value?.source === 'adaptive',
+  () => isRetrySameRi.value && pendingNextInteraction.value?.source === 'adaptive',
 );
 const isReviewLoNext = computed(
-  () =>
-    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
+  () => showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
 );
 const continueButtonLabel = computed(() => {
   if (isReviewLoNext.value) return '去看讲解';
@@ -174,11 +155,7 @@ function continueToNext(): void {
       >
         {{ pyodideStatus === 'loading' ? '加载 Python 中…' : '运行测试' }}
       </el-button>
-      <span
-        v-if="runResults.length > 0"
-        class="run-summary"
-        :class="{ 'all-passed': allPassed }"
-      >
+      <span v-if="runResults.length > 0" class="run-summary" :class="{ 'all-passed': allPassed }">
         {{ passedCount }} / {{ totalTests }} 通过
       </span>
     </div>
@@ -193,7 +170,10 @@ function continueToNext(): void {
         <div class="test-header">
           <span class="test-icon">{{ r.passed ? '✓' : '✗' }}</span>
           <span class="test-name">
-            测试 {{ i + 1 }}<template v-if="interaction.prompt.testCases[i]?.description"> — {{ interaction.prompt.testCases[i].description }}</template>
+            测试 {{ i + 1
+            }}<template v-if="interaction.prompt.testCases[i]?.description">
+              — {{ interaction.prompt.testCases[i].description }}</template
+            >
           </span>
         </div>
         <div v-if="!r.passed" class="test-detail">
@@ -226,20 +206,12 @@ function continueToNext(): void {
     <!-- 操作按钮 -->
     <div class="actions">
       <template v-if="!showFeedback">
-        <el-button
-          type="success"
-          :disabled="!allPassed"
-          :loading="loading"
-          @click="submit"
-        >
+        <el-button type="success" :disabled="!allPassed" :loading="loading" @click="submit">
           {{ allPassed ? '提交答案' : '通过全部测试再提交' }}
         </el-button>
       </template>
       <template v-else>
-        <el-button
-          :type="isRetrySameRi ? 'warning' : 'primary'"
-          @click="continueToNext"
-        >
+        <el-button :type="isRetrySameRi ? 'warning' : 'primary'" @click="continueToNext">
           {{ continueButtonLabel }}
         </el-button>
       </template>

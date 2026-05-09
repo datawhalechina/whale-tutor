@@ -76,6 +76,6 @@ outputSchema:
 
 # AI 失败 / sanity check 不过 → starterCode=null → review_lo 兜底
 fallback:
-  promptMd: ""
+  promptMd: ''
   starterCode: null
   testCases: []

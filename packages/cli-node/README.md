@@ -39,30 +39,30 @@ npx whale-tutor start
 
 ## 命令参考
 
-| 命令 | 作用 |
-| --- | --- |
-| `whale-tutor init` | 在当前目录 scaffold 完整 python-basics 示例 + 配置文件模板 |
-| `whale-tutor start [--no-open]` | 启动 server(自动应用 schema + serve API + 静态前端) |
-| `whale-tutor lint` | 校验当前目录的课程 yaml/$ref/pattern 结构是否合法 |
-| `whale-tutor build <source> [--force] [--output <dir>]` | 从原始 markdown(course.md + chapters/*.md)AI 生成完整课程骨架 |
-| `whale-tutor doctor` | 健康检查(node 版本 / bundle / mysql 连通 / API key 是否设) |
-| `whale-tutor --version` | 打印版本 |
+| 命令                                                    | 作用                                                           |
+| ------------------------------------------------------- | -------------------------------------------------------------- |
+| `whale-tutor init`                                      | 在当前目录 scaffold 完整 python-basics 示例 + 配置文件模板     |
+| `whale-tutor start [--no-open]`                         | 启动 server(自动应用 schema + serve API + 静态前端)            |
+| `whale-tutor lint`                                      | 校验当前目录的课程 yaml/$ref/pattern 结构是否合法              |
+| `whale-tutor build <source> [--force] [--output <dir>]` | 从原始 markdown(course.md + chapters/\*.md)AI 生成完整课程骨架 |
+| `whale-tutor doctor`                                    | 健康检查(node 版本 / bundle / mysql 连通 / API key 是否设)     |
+| `whale-tutor --version`                                 | 打印版本                                                       |
 
 ## 配置文件 `whale-tutor.config.yaml`
 
 ```yaml
-courses_dir: ./courses              # 课程内容根目录
-database:                           # mysql 连接
+courses_dir: ./courses # 课程内容根目录
+database: # mysql 连接
   host: localhost
   port: 13306
   user: tutor
   password: tutor
   database: whale_tutor
 ai:
-  deepseek_api_key: sk-xxxxx        # 留空则 AI 评估走 fallback;build 命令必填
+  deepseek_api_key: sk-xxxxx # 留空则 AI 评估走 fallback;build 命令必填
   deepseek_api_base_url: https://api.deepseek.com
 server:
-  port: 3000                        # 学习者访问地址 http://localhost:<port>
+  port: 3000 # 学习者访问地址 http://localhost:<port>
 ```
 
 环境变量 override 优先级最高:`DATABASE_HOST` / `DEEPSEEK_API_KEY` 等设了会盖过 yaml。
@@ -88,6 +88,7 @@ courses/python-basics/
 ```
 
 **核心约定**:
+
 - YAML 里写**结构**(题型 / 选项 / 答案 / 学习目标)
 - Markdown 里写**长内容**(讲解 / 题干 / 反馈),用 `{ $ref: ./xxx.md }` 引用
 - 多课程并存:`courses_dir` 下每个含 `course.yaml` 的子目录都会被自动加载

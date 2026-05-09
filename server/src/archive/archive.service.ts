@@ -50,11 +50,7 @@ export class ArchiveService {
 
   async loToMarkdown(learnerId: number, loId: string): Promise<ArchiveOutput> {
     const lo = this.knowledge.getLoDefinition(loId);
-    const state = await this.learners.getLoState(
-      learnerId,
-      loId,
-      lo.requiredInteractions.length,
-    );
+    const state = await this.learners.getLoState(learnerId, loId, lo.requiredInteractions.length);
 
     // 拉这个 learner+lo 的所有 interactions
     const interactions = await this.db
@@ -99,15 +95,11 @@ export class ArchiveService {
     lines.push('');
     lines.push(`> ${lo.description}`);
     lines.push('');
-    lines.push(
-      `**当前掌握等级**:\`${state?.masteryLevel ?? 'untouched'}\``,
-    );
+    lines.push(`**当前掌握等级**:\`${state?.masteryLevel ?? 'untouched'}\``);
     lines.push(
       `**必做完成**:${state?.mandatoryCompletedIds.length ?? 0} / ${lo.requiredInteractions.length}`,
     );
-    lines.push(
-      `**尝试次数**:${state?.attempts ?? 0}(其中正确 ${state?.correctCount ?? 0})`,
-    );
+    lines.push(`**尝试次数**:${state?.attempts ?? 0}(其中正确 ${state?.correctCount ?? 0})`);
     lines.push('');
     lines.push('---');
     lines.push('');
@@ -121,9 +113,7 @@ export class ArchiveService {
     lines.push('');
 
     // 过滤掉"幽灵 interaction"(start 时立即创建但学习者没提交答案就退出的)
-    const submitted = interactions.filter((i) =>
-      responsesByInteraction.has(i.id),
-    );
+    const submitted = interactions.filter((i) => responsesByInteraction.has(i.id));
 
     // 同一 ri 多次提交(答错重做或跨 session 重做),只保留**最后一次**;
     // 同时统计每条 ri 的总尝试数,显示"共尝试 N 次"。
@@ -142,10 +132,9 @@ export class ArchiveService {
         adaptiveInteractions.push(i);
       }
     }
-    const dedupedInteractions = [
-      ...lastByRi.values(),
-      ...adaptiveInteractions,
-    ].sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+    const dedupedInteractions = [...lastByRi.values(), ...adaptiveInteractions].sort(
+      (a, b) => a.created_at.getTime() - b.created_at.getTime(),
+    );
 
     if (dedupedInteractions.length === 0) {
       lines.push('*尚未提交任何答案*');
@@ -154,16 +143,14 @@ export class ArchiveService {
         const r = responsesByInteraction.get(interaction.id)!;
         lines.push(`### 第 ${i + 1} 题 — ${interaction.pattern_id}`);
         lines.push('');
-        const sourceLabel =
-          interaction.source === 'static' ? '必做' : 'AI 生成';
+        const sourceLabel = interaction.source === 'static' ? '必做' : 'AI 生成';
         const riHint = interaction.required_interaction_id
           ? ` · 题目 ID \`${interaction.required_interaction_id}\``
           : '';
         const attempts = interaction.required_interaction_id
           ? (attemptCountByRi.get(interaction.required_interaction_id) ?? 1)
           : 1;
-        const attemptsHint =
-          attempts > 1 ? ` · 共尝试 ${attempts} 次,显示最后一次` : '';
+        const attemptsHint = attempts > 1 ? ` · 共尝试 ${attempts} 次,显示最后一次` : '';
         lines.push(`> 来源:${sourceLabel}${riHint}${attemptsHint}`);
         lines.push('');
 
@@ -182,9 +169,7 @@ export class ArchiveService {
 
         const correct = r.evaluation.correct ? '✓ 答对' : '✗ 答错';
         const conf =
-          typeof r.evaluation.confidence === 'number'
-            ? r.evaluation.confidence.toFixed(2)
-            : '-';
+          typeof r.evaluation.confidence === 'number' ? r.evaluation.confidence.toFixed(2) : '-';
         const kind = r.evaluation.evaluatorKind ?? '-';
         lines.push(`**结果**:${correct} · 置信度 ${conf} · ${kind}`);
         lines.push('');
@@ -370,9 +355,7 @@ function renderSpotTheBugDetail(
   lines.push('```');
   lines.push('');
   if (Array.isArray(prompt.bugLocations) && prompt.bugLocations.length > 0) {
-    const locs = prompt.bugLocations
-      .map((l) => `第 ${l.line} 行(${l.kind})`)
-      .join('、');
+    const locs = prompt.bugLocations.map((l) => `第 ${l.line} 行(${l.kind})`).join('、');
     lines.push(`**bug 实际位置**:${locs}`);
   }
   if (Array.isArray(response?.selectedLines) && response.selectedLines.length > 0) {

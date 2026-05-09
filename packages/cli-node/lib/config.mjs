@@ -28,9 +28,7 @@ export function loadConfig(configPath) {
   const configDir = dirname(configPath);
 
   const coursesDirRaw = raw.courses_dir ?? './courses';
-  const coursesDir = isAbsolute(coursesDirRaw)
-    ? coursesDirRaw
-    : resolve(configDir, coursesDirRaw);
+  const coursesDir = isAbsolute(coursesDirRaw) ? coursesDirRaw : resolve(configDir, coursesDirRaw);
 
   const dbRaw = raw.database ?? {};
   const database = {
@@ -43,8 +41,7 @@ export function loadConfig(configPath) {
 
   const aiRaw = raw.ai ?? {};
   const ai = {
-    deepseekApiKey:
-      process.env.DEEPSEEK_API_KEY ?? aiRaw.deepseek_api_key ?? '',
+    deepseekApiKey: process.env.DEEPSEEK_API_KEY ?? aiRaw.deepseek_api_key ?? '',
     deepseekApiBaseUrl:
       process.env.DEEPSEEK_API_BASE_URL ??
       aiRaw.deepseek_api_base_url ??

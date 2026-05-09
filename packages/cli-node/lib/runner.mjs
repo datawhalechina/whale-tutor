@@ -56,9 +56,7 @@ export async function startServer(cfg, bundleRoot, { openBrowser = true } = {}) 
 
   if (!existsSync(serverMain)) {
     console.error(
-      kleur.red(
-        `✗ 找不到 server bundle (${serverMain})。可能是 npm 包损坏,试试重装 whale-tutor。`,
-      ),
+      kleur.red(`✗ 找不到 server bundle (${serverMain})。可能是 npm 包损坏,试试重装 whale-tutor。`),
     );
     process.exit(1);
   }

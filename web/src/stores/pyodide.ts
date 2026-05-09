@@ -32,10 +32,9 @@ export const usePyodideStore = defineStore('pyodide', () => {
 
   function ensureWorker(): Worker {
     if (worker) return worker;
-    worker = new Worker(
-      new URL('@/workers/pyodide.worker.js', import.meta.url),
-      { type: 'classic' },
-    );
+    worker = new Worker(new URL('@/workers/pyodide.worker.js', import.meta.url), {
+      type: 'classic',
+    });
     worker.onmessage = (event: MessageEvent) => {
       const msg = event.data as {
         id: number;
@@ -54,7 +53,7 @@ export const usePyodideStore = defineStore('pyodide', () => {
     };
     worker.onerror = (err) => {
       // 全局 worker 错误 — 比如 importScripts 加载 pyodide.js 失败
-       
+
       console.error('[pyodide.worker] error:', err);
       status.value = 'error';
       errorMessage.value = err.message || 'pyodide worker error';
@@ -106,10 +105,7 @@ export const usePyodideStore = defineStore('pyodide', () => {
     });
   }
 
-  async function runCode(
-    code: string,
-    setupCode: string,
-  ): Promise<RunResult> {
+  async function runCode(code: string, setupCode: string): Promise<RunResult> {
     if (status.value !== 'ready') await preload();
     if (status.value !== 'ready') {
       throw new Error(errorMessage.value ?? 'Pyodide not ready');

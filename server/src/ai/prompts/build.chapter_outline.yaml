@@ -77,12 +77,21 @@ outputSchema:
       maxItems: 6
       items:
         type: object
-        required: [slug, name, description, estimatedDurationMin, difficultyBand, coreExplanationMd, prerequisites]
+        required:
+          [
+            slug,
+            name,
+            description,
+            estimatedDurationMin,
+            difficultyBand,
+            coreExplanationMd,
+            prerequisites,
+          ]
         additionalProperties: false
         properties:
           slug:
             type: string
-            pattern: "^[a-z0-9](?:_?[a-z0-9])*$"
+            pattern: '^[a-z0-9](?:_?[a-z0-9])*$'
             minLength: 2
             maxLength: 20
           name: { type: string, minLength: 1, maxLength: 60 }
@@ -96,6 +105,6 @@ outputSchema:
 
 # AI 失败时返回单个"占位 LO",build.service.ts 检测后改为提示用户手动拆
 fallback:
-  name: "_FALLBACK_"
-  description: "_FALLBACK_"
+  name: '_FALLBACK_'
+  description: '_FALLBACK_'
   los: []

@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
 import type {
   AcknowledgeReviewLoResponse,
   EndSessionResponse,
@@ -43,9 +36,7 @@ export class SessionController {
   }
 
   @Post(':id/end')
-  end(
-    @Param('id', ParseIntPipe) sessionId: number,
-  ): Promise<EndSessionResponse> {
+  end(@Param('id', ParseIntPipe) sessionId: number): Promise<EndSessionResponse> {
     return this.sessions.end(sessionId);
   }
 
@@ -73,9 +64,7 @@ export class SessionController {
   }
 
   @Get(':id/progress')
-  getProgress(
-    @Param('id', ParseIntPipe) sessionId: number,
-  ): Promise<GetSessionProgressResponse> {
+  getProgress(@Param('id', ParseIntPipe) sessionId: number): Promise<GetSessionProgressResponse> {
     return this.sessions.getProgress(sessionId);
   }
 }

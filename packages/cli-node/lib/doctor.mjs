@@ -81,8 +81,6 @@ export async function runDoctor(cfg, bundleRoot) {
   if (allOk) {
     console.log(kleur.green().bold('全部就绪,可以 `whale-tutor start` 了。'));
   } else {
-    console.log(
-      kleur.yellow().bold('有项目不通过。修复后再试 `whale-tutor start`。'),
-    );
+    console.log(kleur.yellow().bold('有项目不通过。修复后再试 `whale-tutor start`。'));
   }
 }

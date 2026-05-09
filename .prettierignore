@@ -1,7 +1,28 @@
+# 依赖 / 缓存
 node_modules
-dist
-build
-coverage
-pnpm-lock.yaml
 .pnpm-store
+.cache
+.vite
+
+# 构建产物(不要格式化生成物;源在 server/src/, web/src/, packages/cli-node/)
+dist
+**/dist/
+build
+**/build/
+packages/cli-node/_bundle/
+
+# Lock 文件(由 pnpm/npm 维护,人工不该改)
+pnpm-lock.yaml
+package-lock.json
+
+# 日志 / 测试覆盖
 *.log
+coverage
+
+# 内部草稿(gitignored)
+notes/
+.cc-history/
+
+# 课程内容(作者手写的 yaml/md;prettier 会改 markdown 表格 / 自动 wrap,
+# 不希望默认覆盖作者意图。以后若想统一格式,删下面这行再 pnpm format)
+server/src/knowledge/data/

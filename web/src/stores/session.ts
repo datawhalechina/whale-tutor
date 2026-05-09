@@ -84,7 +84,7 @@ export const useSessionStore = defineStore('session', () => {
       progress.value = await sessionApi.getSessionProgress(sessionId.value);
     } catch (e) {
       // 进度 fetch 失败不阻塞主流(sidebar 缺数据但其他可继续)
-       
+
       console.warn('[session] refreshProgress failed:', (e as Error).message);
     }
   }

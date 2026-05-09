@@ -36,14 +36,10 @@ export class CodeSandboxPattern {
    * v0 不做防作弊(理论上学习者可以伪造 runResults);
    * M3 末再考虑 server 端 docker sandbox re-run 校验。
    */
-  evaluate(
-    prompt: CodeSandboxPrompt,
-    response: CodeSandboxResponse,
-  ): EvaluationResult {
+  evaluate(prompt: CodeSandboxPrompt, response: CodeSandboxResponse): EvaluationResult {
     const total = prompt.testCases.length;
     const runResults = response.runResults;
-    const allPassed =
-      runResults.length === total && runResults.every((r) => r.passed);
+    const allPassed = runResults.length === total && runResults.every((r) => r.passed);
     const passedCount = runResults.filter((r) => r.passed).length;
 
     const parts: string[] = [];

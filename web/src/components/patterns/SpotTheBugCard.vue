@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import type {
-  InteractionInstance,
-  SpotTheBugPromptForLearner,
-} from '@whale-tutor/tutor-types';
+import type { InteractionInstance, SpotTheBugPromptForLearner } from '@whale-tutor/tutor-types';
 import { useSessionStore } from '@/stores/session';
 import { renderMarkdown } from '@/utils/markdown';
 import FeedbackArea from '@/components/FeedbackArea.vue';
@@ -14,13 +11,8 @@ const props = defineProps<{
 }>();
 
 const sessionStore = useSessionStore();
-const {
-  lastEvaluation,
-  showFeedback,
-  pendingNextInteraction,
-  currentDecision,
-  loading,
-} = storeToRefs(sessionStore);
+const { lastEvaluation, showFeedback, pendingNextInteraction, currentDecision, loading } =
+  storeToRefs(sessionStore);
 
 // 行号从 1 开始(与 server bugLocations.line 一致)
 const selectedLines = ref<Set<number>>(new Set());
@@ -34,29 +26,18 @@ watch(
   },
 );
 
-const codeLines = computed(() =>
-  props.interaction.prompt.buggyCode.replace(/\n$/, '').split('\n'),
-);
+const codeLines = computed(() => props.interaction.prompt.buggyCode.replace(/\n$/, '').split('\n'));
 const hintHtml = computed(() =>
-  props.interaction.prompt.hintMd
-    ? renderMarkdown(props.interaction.prompt.hintMd)
-    : '',
+  props.interaction.prompt.hintMd ? renderMarkdown(props.interaction.prompt.hintMd) : '',
 );
 
-const isLastInChapter = computed(
-  () => showFeedback.value && pendingNextInteraction.value === null,
-);
-const isRetrySameRi = computed(
-  () => showFeedback.value && lastEvaluation.value?.correct === false,
-);
+const isLastInChapter = computed(() => showFeedback.value && pendingNextInteraction.value === null);
+const isRetrySameRi = computed(() => showFeedback.value && lastEvaluation.value?.correct === false);
 const isAdaptiveRetry = computed(
-  () =>
-    isRetrySameRi.value &&
-    pendingNextInteraction.value?.source === 'adaptive',
+  () => isRetrySameRi.value && pendingNextInteraction.value?.source === 'adaptive',
 );
 const isReviewLoNext = computed(
-  () =>
-    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
+  () => showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
 );
 const continueButtonLabel = computed(() => {
   if (isReviewLoNext.value) return '去看讲解';
@@ -65,9 +46,7 @@ const continueButtonLabel = computed(() => {
   return '下一题';
 });
 
-const sortedSelected = computed(() =>
-  [...selectedLines.value].sort((a, b) => a - b),
-);
+const sortedSelected = computed(() => [...selectedLines.value].sort((a, b) => a - b));
 
 const trimmedExplanation = computed(() => explanation.value.trim());
 const canSubmit = computed(
@@ -147,20 +126,12 @@ function continueToNext(): void {
 
     <div class="actions">
       <template v-if="!showFeedback">
-        <el-button
-          type="primary"
-          :disabled="!canSubmit"
-          :loading="loading"
-          @click="submit"
-        >
+        <el-button type="primary" :disabled="!canSubmit" :loading="loading" @click="submit">
           提交
         </el-button>
       </template>
       <template v-else>
-        <el-button
-          :type="isRetrySameRi ? 'warning' : 'primary'"
-          @click="continueToNext"
-        >
+        <el-button :type="isRetrySameRi ? 'warning' : 'primary'" @click="continueToNext">
           {{ continueButtonLabel }}
         </el-button>
       </template>

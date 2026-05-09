@@ -29,23 +29,13 @@ const copySuccess = ref(false);
 const html = computed(() => renderMarkdown(contentMd.value));
 
 async function load(): Promise<void> {
-  if (
-    !props.visible ||
-    !props.kind ||
-    props.id === null ||
-    props.id === undefined
-  )
-    return;
+  if (!props.visible || !props.kind || props.id === null || props.id === undefined) return;
   loading.value = true;
   error.value = null;
   contentMd.value = '';
   title.value = '';
   try {
-    const data = await getArchive(
-      props.kind,
-      props.id,
-      props.learnerId ?? undefined,
-    );
+    const data = await getArchive(props.kind, props.id, props.learnerId ?? undefined);
     title.value = data.title;
     contentMd.value = data.contentMd;
   } catch (e) {
@@ -91,13 +81,7 @@ function close(): void {
     @update:model-value="emit('update:visible', $event)"
   >
     <div v-if="loading" v-loading="true" class="loading-area"></div>
-    <el-alert
-      v-else-if="error"
-      type="error"
-      :title="error"
-      :closable="false"
-      show-icon
-    />
+    <el-alert v-else-if="error" type="error" :title="error" :closable="false" show-icon />
     <div v-else class="markdown-body archive-content" v-html="html"></div>
 
     <template #footer>

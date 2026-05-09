@@ -85,7 +85,10 @@ const dirty = check('git status --porcelain');
 if (dirty) {
   fail(
     '工作区不干净,先 commit / stash 再发版:\n' +
-      dirty.split('\n').map((l) => '    ' + l).join('\n'),
+      dirty
+        .split('\n')
+        .map((l) => '    ' + l)
+        .join('\n'),
   );
 }
 
@@ -100,10 +103,7 @@ if (branch !== 'main') {
 try {
   check('git rev-parse --abbrev-ref --symbolic-full-name @{u}');
 } catch {
-  fail(
-    '当前分支没有 upstream remote (无法 push)。',
-    '先跑 git push -u origin main',
-  );
+  fail('当前分支没有 upstream remote (无法 push)。', '先跑 git push -u origin main');
 }
 
 // === 2. build bundle ===
@@ -120,7 +120,10 @@ const dirtyAfterInstall = check('git status --porcelain');
 if (dirtyAfterInstall) {
   fail(
     'npm install 后工作区变脏了,这不应该发生:\n' +
-      dirtyAfterInstall.split('\n').map((l) => '    ' + l).join('\n'),
+      dirtyAfterInstall
+        .split('\n')
+        .map((l) => '    ' + l)
+        .join('\n'),
     '排查 cli-node/.gitignore 是不是漏了 package-lock.json 或 node_modules',
   );
 }
@@ -146,7 +149,11 @@ const commitMsg = `release(cli): ${tagName}`;
 
 // === 5. 显式 commit + tag ===
 
-run(`git add ${CLI_PKG.replace(ROOT + '\\', '').replace(ROOT + '/', '').replace(/\\/g, '/')}`);
+run(
+  `git add ${CLI_PKG.replace(ROOT + '\\', '')
+    .replace(ROOT + '/', '')
+    .replace(/\\/g, '/')}`,
+);
 run(`git commit -m "${commitMsg}"`);
 run(`git tag -a ${tagName} -m "${tagName}"`);
 

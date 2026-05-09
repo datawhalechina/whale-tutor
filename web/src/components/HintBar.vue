@@ -56,14 +56,12 @@ const buttonLabel = computed(() => {
   if (loading.value) return '正在生成…';
   if (noHintAvailable.value) return '本题无提示';
   if (usedLevel.value === 0) return '求提示';
-  if (totalLevels.value > 0 && usedLevel.value >= totalLevels.value)
-    return '已是最详细提示';
+  if (totalLevels.value > 0 && usedLevel.value >= totalLevels.value) return '已是最详细提示';
   return '再来一级';
 });
 
 async function fetchNextHint(): Promise<void> {
-  if (!currentInteraction.value || !sessionId.value || !canRequestMore.value)
-    return;
+  if (!currentInteraction.value || !sessionId.value || !canRequestMore.value) return;
   loading.value = true;
   try {
     const next = (usedLevel.value + 1) as HintLevel;
@@ -91,18 +89,13 @@ async function fetchNextHint(): Promise<void> {
   <div v-if="kind === 'lo'" class="hint-bar">
     <!-- 已展示的提示堆叠在按钮上方,level 1 在最上 -->
     <transition-group name="fade-stack" tag="div" class="hints-stack">
-      <div
-        v-for="(hint, idx) in shownHints"
-        :key="idx"
-        class="hint-block"
-      >
+      <div v-for="(hint, idx) in shownHints" :key="idx" class="hint-block">
         <div class="hint-header">
           <span class="hint-bulb">💡</span>
           <span class="hint-level-label">提示 {{ idx + 1 }}</span>
-          <span
-            v-if="idx + 1 === totalLevels && totalLevels > 0"
-            class="hint-final-tag"
-          >最详细</span>
+          <span v-if="idx + 1 === totalLevels && totalLevels > 0" class="hint-final-tag"
+            >最详细</span
+          >
         </div>
         <div class="markdown-body hint-content" v-html="renderMarkdown(hint)"></div>
       </div>
@@ -181,7 +174,9 @@ async function fetchNextHint(): Promise<void> {
 
 .fade-stack-enter-active,
 .fade-stack-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 .fade-stack-enter-from {
   opacity: 0;

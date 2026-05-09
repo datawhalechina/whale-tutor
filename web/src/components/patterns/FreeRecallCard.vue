@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import type {
-  FreeRecallPromptForLearner,
-  InteractionInstance,
-} from '@whale-tutor/tutor-types';
+import type { FreeRecallPromptForLearner, InteractionInstance } from '@whale-tutor/tutor-types';
 import { useSessionStore } from '@/stores/session';
 import { renderMarkdown } from '@/utils/markdown';
 import FeedbackArea from '@/components/FeedbackArea.vue';
@@ -14,13 +11,8 @@ const props = defineProps<{
 }>();
 
 const sessionStore = useSessionStore();
-const {
-  lastEvaluation,
-  showFeedback,
-  pendingNextInteraction,
-  currentDecision,
-  loading,
-} = storeToRefs(sessionStore);
+const { lastEvaluation, showFeedback, pendingNextInteraction, currentDecision, loading } =
+  storeToRefs(sessionStore);
 
 const text = ref('');
 
@@ -31,24 +23,15 @@ watch(
   },
 );
 
-const promptHtml = computed(() =>
-  renderMarkdown(props.interaction.prompt.promptMd),
-);
+const promptHtml = computed(() => renderMarkdown(props.interaction.prompt.promptMd));
 
-const isLastInChapter = computed(
-  () => showFeedback.value && pendingNextInteraction.value === null,
-);
-const isRetrySameRi = computed(
-  () => showFeedback.value && lastEvaluation.value?.correct === false,
-);
+const isLastInChapter = computed(() => showFeedback.value && pendingNextInteraction.value === null);
+const isRetrySameRi = computed(() => showFeedback.value && lastEvaluation.value?.correct === false);
 const isAdaptiveRetry = computed(
-  () =>
-    isRetrySameRi.value &&
-    pendingNextInteraction.value?.source === 'adaptive',
+  () => isRetrySameRi.value && pendingNextInteraction.value?.source === 'adaptive',
 );
 const isReviewLoNext = computed(
-  () =>
-    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
+  () => showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
 );
 const continueButtonLabel = computed(() => {
   if (isReviewLoNext.value) return '去看讲解';
@@ -98,20 +81,12 @@ function continueToNext(): void {
 
     <div class="actions">
       <template v-if="!showFeedback">
-        <el-button
-          type="primary"
-          :disabled="!trimmed"
-          :loading="loading"
-          @click="submit"
-        >
+        <el-button type="primary" :disabled="!trimmed" :loading="loading" @click="submit">
           提交
         </el-button>
       </template>
       <template v-else>
-        <el-button
-          :type="isRetrySameRi ? 'warning' : 'primary'"
-          @click="continueToNext"
-        >
+        <el-button :type="isRetrySameRi ? 'warning' : 'primary'" @click="continueToNext">
           {{ continueButtonLabel }}
         </el-button>
       </template>

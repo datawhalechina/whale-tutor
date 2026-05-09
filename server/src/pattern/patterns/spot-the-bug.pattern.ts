@@ -69,9 +69,7 @@ export class SpotTheBugPattern {
         correctExplanation: prompt.correctExplanation,
         learnerExplanation: response.explanation,
         linesSelected:
-          response.selectedLines.length > 0
-            ? response.selectedLines.join(', ')
-            : '(未选)',
+          response.selectedLines.length > 0 ? response.selectedLines.join(', ') : '(未选)',
         linesAreCorrect: linesCorrect ? '正确' : '不正确',
       },
       sessionId: context?.sessionId ?? null,
@@ -86,9 +84,8 @@ export class SpotTheBugPattern {
     const parts: string[] = [];
     if (!linesCorrect) {
       const expected = [...expectedLines].sort((a, b) => a - b).join(', ');
-      const selected = response.selectedLines.length > 0
-        ? response.selectedLines.join(', ')
-        : '(未选)';
+      const selected =
+        response.selectedLines.length > 0 ? response.selectedLines.join(', ') : '(未选)';
       parts.push(`**选行不完全正确**。bug 在第 ${expected} 行,你选了 ${selected}。`);
     }
     parts.push(aiOutput.feedbackMd);

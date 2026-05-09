@@ -3,6 +3,7 @@
 欢迎给 Whale Tutor 贡献!这份文档帮你判断"你想做什么 → 走哪条路径 → 需要看哪些文档"。
 
 > **TL;DR**:
+>
 > - **想用这个工具教自己的课**(写 yaml/markdown 内容) → [AUTHORING.md](AUTHORING.md)
 > - **想给项目贡献代码 / 改 bug / 加 feature** → 继续往下看
 > - **想报 bug / 提 feature 但不动代码** → 直接开 GitHub Issue
@@ -39,6 +40,7 @@
 ## 2. 报 bug / 提 feature
 
 **报 bug**:开 [GitHub Issue](https://github.com/datawhalechina/whale-tutor/issues/new),给至少这些信息:
+
 - 你跑的是哪个版本(`whale-tutor --version` 或 git commit hash)
 - 复现步骤(尽量最小化)
 - 期望行为 vs 实际行为
@@ -46,6 +48,7 @@
 - 操作系统 / Node 版本 / MySQL 版本
 
 **提 feature**:开 Issue 描述:
+
 - 你的使用场景(为什么需要)
 - 期望的行为 / API
 - 跟现有功能的关系(替换 / 增强 / 全新)
@@ -68,6 +71,7 @@
 6. PR 描述里贴一张 LearnView 截图证明能跑
 
 **课程贡献 checklist**:
+
 - [ ] `course.yaml` 必须有 `subject` 字段
 - [ ] 所有 `$ref` 路径都对(用 `whale-tutor lint` 验证)
 - [ ] 每个 LO 至少 3-5 道必做题,覆盖核心概念
@@ -80,14 +84,14 @@
 
 **适合贡献的方向**(按门槛从低到高):
 
-| 方向 | 难度 | 入口 |
-|---|---|---|
-| 文案 / 文档错别字 / 链接修复 | 🟢 低 | 直接 PR |
-| 一种新的 Pattern(如 fill-in-blank / matching) | 🟡 中 | 看 [CLAUDE.md](CLAUDE.md) "新增一种 Pattern",讨论后开 PR |
-| 一种新的事件类型 / 新的 endpoint | 🟡 中 | 看 [CLAUDE.md](CLAUDE.md),讨论后开 PR |
-| UI 改进(dark mode / 移动端 / i18n) | 🟡 中 | 直接 PR,带截图 |
-| 课程作者工具增强(`build --watch` / 题型转换器) | 🟠 高 | 先开 Issue 对齐方向 |
-| 核心架构改动(PathOrchestrator / 评估机制) | 🔴 高 | **必须先开 Issue 详细讨论**,改前看 [CLAUDE.md](CLAUDE.md) 5 条核心原则 |
+| 方向                                           | 难度  | 入口                                                                   |
+| ---------------------------------------------- | ----- | ---------------------------------------------------------------------- |
+| 文案 / 文档错别字 / 链接修复                   | 🟢 低 | 直接 PR                                                                |
+| 一种新的 Pattern(如 fill-in-blank / matching)  | 🟡 中 | 看 [CLAUDE.md](CLAUDE.md) "新增一种 Pattern",讨论后开 PR               |
+| 一种新的事件类型 / 新的 endpoint               | 🟡 中 | 看 [CLAUDE.md](CLAUDE.md),讨论后开 PR                                  |
+| UI 改进(dark mode / 移动端 / i18n)             | 🟡 中 | 直接 PR,带截图                                                         |
+| 课程作者工具增强(`build --watch` / 题型转换器) | 🟠 高 | 先开 Issue 对齐方向                                                    |
+| 核心架构改动(PathOrchestrator / 评估机制)      | 🔴 高 | **必须先开 Issue 详细讨论**,改前看 [CLAUDE.md](CLAUDE.md) 5 条核心原则 |
 
 ---
 
@@ -115,17 +119,30 @@ pnpm dev                         # 并行起 web (5173) + server (3000)
 
 打开 `http://localhost:5173`,选课开始学习。
 
+### Git hooks(自动跑,装完 `pnpm install` 自动启用)
+
+- **pre-commit**:对 staged 的源码文件自动跑 `prettier --write` + `eslint --fix`(由 [lint-staged](https://github.com/lint-staged/lint-staged) 驱动)。改 1 个文件只跑这 1 个,不会全仓库扫,**通常 < 2 秒**
+- **commit-msg**:用 [commitlint](https://commitlint.js.org/) 校验 commit message 格式,不符合 [Commit message 约定](#commit-message-约定)就拒绝
+
+如果某个 commit 真的需要绕过 hook(极少需要):
+
+```bash
+git commit --no-verify -m "..."     # 跳过 pre-commit 和 commit-msg
+```
+
+不推荐常用 `--no-verify`,被 maintainer 看到会让你重写。
+
 ### 常用脚本
 
-| 命令 | 作用 |
-| --- | --- |
-| `pnpm dev` | 并行起 web + server |
-| `pnpm build` | 递归 build 所有包 |
-| `pnpm typecheck` | 全包 tsc 检查(PR 前必跑) |
-| `pnpm lint` / `pnpm lint:fix` | ESLint(PR 前必跑) |
-| `pnpm format` / `pnpm format:check` | Prettier |
-| `pnpm db:reset` | 删卷重启 mysql + 重跑 schema(改了 db/init/01-schema.sql 后用) |
-| `pnpm build:cli-bundle` | 构建 cli-node 分发产物(发版前用) |
+| 命令                                | 作用                                                             |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| `pnpm dev`                          | 并行起 web + server                                              |
+| `pnpm build`                        | 递归 build 所有包                                                |
+| `pnpm typecheck`                    | 全包 tsc 检查(PR 前必跑)                                         |
+| `pnpm lint` / `pnpm lint:fix`       | ESLint(PR 前必跑)                                                |
+| `pnpm format` / `pnpm format:check` | Prettier(pre-commit 钩子已自动跑 staged 文件,这俩用于全仓库批量) |
+| `pnpm db:reset`                     | 删卷重启 mysql + 重跑 schema(改了 db/init/01-schema.sql 后用)    |
+| `pnpm build:cli-bundle`             | 构建 cli-node 分发产物(发版前用)                                 |
 
 ### 仓库结构
 
@@ -206,6 +223,7 @@ gh release create vX.Y.Z --generate-notes
 传统 npm 流程是 publish→push,但 npm 一发出去就没法撤回(`npm unpublish` 有 72 小时窗口且条件苛刻)。如果 publish 成功 push 失败,你的 bump commit 就悬空在本地 — 必须手工补 push,而且容易忘记,**这就是上一版踩到的坑**。
 
 反过来 push→publish:
+
 - push 失败可以原地重试(commit + tag 已在本地,不丢)
 - publish 失败也可以重试(`cd packages/cli-node && npm publish --access public`)
 - bump commit **总是先入 git**,不会出现"npm 上有这个版本但 GitHub 没"的反向悬空
@@ -214,12 +232,12 @@ gh release create vX.Y.Z --generate-notes
 
 #### 失败时怎么办
 
-| 失败步 | 状态 | 修复 |
-|---|---|---|
-| 4-5(bump / commit / tag) | package.json 可能改了,git 状态不全 | `git checkout packages/cli-node/package.json` 撤回 + 排查 + 重跑 `pnpm release:cli` |
-| 6(push) | 本地有 commit + tag,远端没 | 排查(常见:网络 / 权限),修复后跑 `git push --follow-tags`,**不要重跑整个脚本** |
-| 7(publish) | commit + tag 已在 GitHub,npm 没该版本 | 修问题(常见:没 `npm login`),跑 `cd packages/cli-node && npm publish --access public` 重试 |
-| 完全撤回(已 publish) | 全推送 + 已发布 | `npm unpublish whale-tutor@X.Y.Z`(72h 内)+ `git push origin :refs/tags/vX.Y.Z` 删远端 tag + `git revert <commit>` |
+| 失败步                   | 状态                                  | 修复                                                                                                              |
+| ------------------------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 4-5(bump / commit / tag) | package.json 可能改了,git 状态不全    | `git checkout packages/cli-node/package.json` 撤回 + 排查 + 重跑 `pnpm release:cli`                               |
+| 6(push)                  | 本地有 commit + tag,远端没            | 排查(常见:网络 / 权限),修复后跑 `git push --follow-tags`,**不要重跑整个脚本**                                     |
+| 7(publish)               | commit + tag 已在 GitHub,npm 没该版本 | 修问题(常见:没 `npm login`),跑 `cd packages/cli-node && npm publish --access public` 重试                         |
+| 完全撤回(已 publish)     | 全推送 + 已发布                       | `npm unpublish whale-tutor@X.Y.Z`(72h 内)+ `git push origin :refs/tags/vX.Y.Z` 删远端 tag + `git revert <commit>` |
 
 #### 预览(不真的发)
 
@@ -259,6 +277,7 @@ git reset --hard HEAD~1
 ```
 
 `type`:
+
 - `feat` — 新功能
 - `fix` — bug 修复
 - `refactor` — 重构(不影响行为)
@@ -268,6 +287,7 @@ git reset --hard HEAD~1
 - `chore` — 杂项(配置 / 构建)
 
 例:
+
 ```
 feat(pattern): 加 fill-in-blank pattern
 fix(session): switchChapter 后 sidebar 未刷新
@@ -279,12 +299,15 @@ course(sql-basics): 加 group-by 章节
 
 ```markdown
 ## 这个 PR 干了什么
+
 <一两句>
 
 ## 为什么
+
 <动机 / 关联 issue>
 
 ## 怎么测的
+
 - [ ] `pnpm typecheck`
 - [ ] `pnpm lint`
 - [ ] 本地手测的步骤(展开)
@@ -297,12 +320,14 @@ course(sql-basics): 加 group-by 章节
 ## 7. 架构 / 边界(改任何核心模块前必读)
 
 [CLAUDE.md](CLAUDE.md) 是项目的工程边界文档,包含:
+
 - **5 条核心原则**(任何改动都要遵守)
 - 模块边界 / 命名约定 / 数据库 schema 语义
 - "不要做的事"清单(避免新人踩坑)
 - 完整 v0 → v0.3 演进路径
 
 如果你的改动跨多个模块,**先读 CLAUDE.md "5 条核心原则"和"模块边界"**,然后再:
+
 - 改 PathOrchestrator / 状态机 → 看 [notes/orchestrator.md](notes/orchestrator.md)(若 ungitignored)
 - 改 Stuck 处理(hint / adaptive / review_lo) → 看 [notes/stuck-handling.md](notes/stuck-handling.md)
 
@@ -329,6 +354,7 @@ course(sql-basics): 加 group-by 章节
 本项目使用 **[GNU AGPL-3.0-or-later](LICENSE)** 协议。提交 PR 即视为同意你的贡献以同协议授权。
 
 **AGPL-3.0 关键含义(给非法律背景的贡献者)**:
+
 - 任何人可以自由使用 / 修改 / 分发,但**修改版必须开源**
 - 关键差异于 GPL:**网络部署也算分发** — 如果你把 fork 部署成 SaaS 给用户用,你必须公开 fork 的源码
 - 适合本项目的原因:防止公司拿去做闭源 SaaS,保证社区收益最大化

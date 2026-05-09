@@ -1,20 +1,9 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { sql, type Selectable } from 'kysely';
-import type {
-  QaMessage,
-  QaThread,
-} from '@whale-tutor/tutor-types';
+import type { QaMessage, QaThread } from '@whale-tutor/tutor-types';
 import { AiGatewayService } from '../ai/ai-gateway.service';
 import { KYSELY, type Database } from '../database/database.module';
-import type {
-  QaMessagesTable,
-  QaThreadsTable,
-} from '../database/database.types';
+import type { QaMessagesTable, QaThreadsTable } from '../database/database.types';
 import { EventService } from '../event/event.service';
 import { KnowledgeService } from '../knowledge/knowledge.service';
 
@@ -145,9 +134,7 @@ export class QaService {
     }
     const thread = await this.getThread(threadId);
     if (thread.status !== 'active') {
-      throw new BadRequestException(
-        `Thread ${threadId} 已结束,无法追问;请新开 thread。`,
-      );
+      throw new BadRequestException(`Thread ${threadId} 已结束,无法追问;请新开 thread。`);
     }
 
     const previousMessages = await this.getMessagesByThread(threadId);
@@ -321,33 +308,23 @@ export class QaService {
     question: string;
     previousMessages: QaMessage[];
   }): Promise<AiAnswer> {
-    const loContext = input.loId
-      ? this.formatLoContext(input.loId)
-      : '(学习者未在具体 LO 内)';
+    const loContext = input.loId ? this.formatLoContext(input.loId) : '(学习者未在具体 LO 内)';
 
     let interactionContext = '';
     if (input.parentInteractionId !== null) {
-      interactionContext = await this.formatInteractionContext(
-        input.parentInteractionId,
-      );
+      interactionContext = await this.formatInteractionContext(input.parentInteractionId);
     }
 
     const previousDialog =
       input.previousMessages.length === 0
         ? '(无,这是 thread 内第一个问题)'
         : input.previousMessages
-            .map(
-              (m) =>
-                `**${m.role === 'learner' ? '学习者' : '助手'}**:${m.contentMd}`,
-            )
+            .map((m) => `**${m.role === 'learner' ? '学习者' : '助手'}**:${m.contentMd}`)
             .join('\n\n---\n\n');
 
     // qa.answer 是 session 级别的对话,subject 来自该 session 的 course。
     // QA 可以发生在 LO 闲置时(input.loId=null),那时退一步从 session.course_id 取。
-    const subject = await this.resolveSubjectForSession(
-      input.sessionId,
-      input.loId,
-    );
+    const subject = await this.resolveSubjectForSession(input.sessionId, input.loId);
 
     return await this.ai.complete<AiAnswer>({
       templateId: 'qa.answer',
@@ -366,10 +343,7 @@ export class QaService {
   /**
    * subject 解析:优先 LO → 课程;LO 缺失时回退到 session.course_id → 课程。
    */
-  private async resolveSubjectForSession(
-    sessionId: number,
-    loId: string | null,
-  ): Promise<string> {
+  private async resolveSubjectForSession(sessionId: number, loId: string | null): Promise<string> {
     if (loId) {
       try {
         return this.knowledge.getSubjectByLoId(loId);
@@ -395,19 +369,13 @@ export class QaService {
   private formatLoContext(loId: string): string {
     try {
       const lo = this.knowledge.getLoDefinition(loId);
-      return [
-        `**${lo.name}** — ${lo.description}`,
-        '',
-        lo.coreExplanation,
-      ].join('\n');
+      return [`**${lo.name}** — ${lo.description}`, '', lo.coreExplanation].join('\n');
     } catch {
       return `(LO ${loId} 未找到)`;
     }
   }
 
-  private async formatInteractionContext(
-    interactionId: number,
-  ): Promise<string> {
+  private async formatInteractionContext(interactionId: number): Promise<string> {
     const row = await this.db
       .selectFrom('interactions')
       .selectAll()

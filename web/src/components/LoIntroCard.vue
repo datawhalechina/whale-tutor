@@ -23,9 +23,7 @@ defineEmits<{
 const isRecap = computed(() => props.mode === 'recap');
 const isReviewLo = computed(() => props.mode === 'review-lo');
 
-const explanationHtml = computed(() =>
-  renderMarkdown(props.loMeta.coreExplanationMd),
-);
+const explanationHtml = computed(() => renderMarkdown(props.loMeta.coreExplanationMd));
 
 const difficultyLabel: Record<string, string> = {
   beginner: '入门',
@@ -62,20 +60,11 @@ const difficultyLabel: Record<string, string> = {
     </div>
 
     <div class="actions">
-      <el-button
-        v-if="isReviewLo"
-        type="primary"
-        size="large"
-        @click="$emit('close')"
-      >
+      <el-button v-if="isReviewLo" type="primary" size="large" @click="$emit('close')">
         我看完了,继续练习
       </el-button>
-      <el-button v-else-if="isRecap" size="large" @click="$emit('close')">
-        返回
-      </el-button>
-      <el-button v-else type="primary" size="large" @click="$emit('start')">
-        开始练习
-      </el-button>
+      <el-button v-else-if="isRecap" size="large" @click="$emit('close')"> 返回 </el-button>
+      <el-button v-else type="primary" size="large" @click="$emit('start')"> 开始练习 </el-button>
     </div>
   </el-card>
 </template>

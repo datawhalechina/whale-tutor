@@ -1,9 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  Logger,
-  type OnModuleInit,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Ajv, { type AnySchema, type ValidateFunction } from 'ajv';
 import { promises as fs } from 'node:fs';
@@ -67,10 +62,7 @@ export class AiGatewayService implements OnModuleInit {
     private readonly config: ConfigService,
   ) {
     this.apiKey = this.config.get<string>('DEEPSEEK_API_KEY');
-    this.apiBaseUrl = this.config.get<string>(
-      'DEEPSEEK_API_BASE_URL',
-      'https://api.deepseek.com',
-    );
+    this.apiBaseUrl = this.config.get<string>('DEEPSEEK_API_BASE_URL', 'https://api.deepseek.com');
   }
 
   async onModuleInit(): Promise<void> {
@@ -92,7 +84,9 @@ export class AiGatewayService implements OnModuleInit {
         throw new Error(`Invalid YAML in ${fullPath}: ${(err as Error).message}`);
       }
       if (!parsed.templateId || !parsed.system || !parsed.user) {
-        throw new Error(`Prompt template ${fullPath} missing required fields (templateId/system/user)`);
+        throw new Error(
+          `Prompt template ${fullPath} missing required fields (templateId/system/user)`,
+        );
       }
       this.templates.set(parsed.templateId, parsed);
       if (parsed.outputSchema) {
@@ -196,7 +190,7 @@ export class AiGatewayService implements OnModuleInit {
       tokensIn: outcome?.tokensIn ?? null,
       tokensOut: outcome?.tokensOut ?? null,
       latencyMs: Date.now() - startedAt,
-      status: tpl.fallback !== undefined ? 'fallback' : (validator ? 'schema_failed' : 'error'),
+      status: tpl.fallback !== undefined ? 'fallback' : validator ? 'schema_failed' : 'error',
       costUsd: outcome?.costUsd ?? null,
       sessionId: input.sessionId ?? null,
       callerTag: input.callerTag ?? null,
@@ -310,18 +304,14 @@ function interpolate(template: string, vars: Record<string, unknown>): string {
 // 找不到 model 时 fallback 到 v4-flash 价位。
 const DEEPSEEK_PRICES: Record<string, { input: number; output: number }> = {
   // 新模型(2026/07/24 起为唯一选项)
-  'deepseek-v4-flash': { input: 0.27, output: 1.1 },     // 非思考模式;思考模式价位通常 ≈ reasoner,此处先取下限
-  'deepseek-v4-pro': { input: 0.55, output: 2.19 },      // TODO:官网价位确认后更新
+  'deepseek-v4-flash': { input: 0.27, output: 1.1 }, // 非思考模式;思考模式价位通常 ≈ reasoner,此处先取下限
+  'deepseek-v4-pro': { input: 0.55, output: 2.19 }, // TODO:官网价位确认后更新
   // 旧模型(到 2026/07/24 弃用前仍可用)
   'deepseek-chat': { input: 0.27, output: 1.1 },
   'deepseek-reasoner': { input: 0.55, output: 2.19 },
 };
 
-function computeDeepSeekCost(
-  model: string,
-  tokensIn: number,
-  tokensOut: number,
-): number {
+function computeDeepSeekCost(model: string, tokensIn: number, tokensOut: number): number {
   const p = DEEPSEEK_PRICES[model] ?? DEEPSEEK_PRICES['deepseek-v4-flash'];
   return (tokensIn * p.input + tokensOut * p.output) / 1_000_000;
 }

@@ -68,4 +68,4 @@ outputSchema:
 fallback:
   explanationQuality: partial
   confidence: 0.3
-  feedbackMd: "AI 评估暂不可用。系统已根据你选的行判断了 bug 位置,请参考下方解析理解 bug 性质。"
+  feedbackMd: 'AI 评估暂不可用。系统已根据你选的行判断了 bug 位置,请参考下方解析理解 bug 性质。'

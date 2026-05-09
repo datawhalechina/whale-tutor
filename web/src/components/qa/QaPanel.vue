@@ -50,13 +50,9 @@ watch(
 );
 
 const placeholder = computed(() =>
-  currentThread.value
-    ? '继续追问…(Ctrl+Enter 发送)'
-    : '提一个关于当前内容的问题…(Ctrl+Enter 发送)',
+  currentThread.value ? '继续追问…(Ctrl+Enter 发送)' : '提一个关于当前内容的问题…(Ctrl+Enter 发送)',
 );
-const canSend = computed(
-  () => input.value.trim().length > 0 && !sending.value,
-);
+const canSend = computed(() => input.value.trim().length > 0 && !sending.value);
 const headerSubtitle = computed(() => {
   if (!currentThread.value) return '';
   const lo = currentThread.value.loId;
@@ -150,11 +146,7 @@ function summarize(text: string, n = 40): string {
     </template>
 
     <div class="qa-panel">
-      <el-tabs
-        :model-value="activeTab"
-        class="qa-tabs"
-        @update:model-value="onTabChange"
-      >
+      <el-tabs :model-value="activeTab" class="qa-tabs" @update:model-value="onTabChange">
         <el-tab-pane label="当前对话" name="current" />
         <el-tab-pane label="历史会话" name="history" />
       </el-tabs>
@@ -164,10 +156,7 @@ function summarize(text: string, n = 40): string {
            ======================== -->
       <div v-if="activeTab === 'current'" class="tab-content">
         <div ref="messageList" class="message-list">
-          <div
-            v-if="!currentThread && currentMessages.length === 0"
-            class="empty-hint"
-          >
+          <div v-if="!currentThread && currentMessages.length === 0" class="empty-hint">
             <p class="hint-title">有疑问随时来问</p>
             <p class="hint-desc">
               QA 是侧支,不会影响你的答题进度。结束此次提问后回到原来的题。
@@ -175,11 +164,7 @@ function summarize(text: string, n = 40): string {
             </p>
           </div>
 
-          <QaMessage
-            v-for="msg in currentMessages"
-            :key="msg.id"
-            :message="msg"
-          />
+          <QaMessage v-for="msg in currentMessages" :key="msg.id" :message="msg" />
 
           <div v-if="sending" class="sending-indicator">
             <span class="dot-anim">…</span> AI 思考中
@@ -206,21 +191,11 @@ function summarize(text: string, n = 40): string {
             @keydown.meta.enter.prevent="handleSend"
           />
           <div class="actions">
-            <el-button
-              v-if="currentThread"
-              plain
-              size="small"
-              @click="handleEnd"
-            >
+            <el-button v-if="currentThread" plain size="small" @click="handleEnd">
               结束此次提问
             </el-button>
             <div style="flex: 1"></div>
-            <el-button
-              type="primary"
-              :loading="sending"
-              :disabled="!canSend"
-              @click="handleSend"
-            >
+            <el-button type="primary" :loading="sending" :disabled="!canSend" @click="handleSend">
               发送
             </el-button>
           </div>
@@ -234,10 +209,7 @@ function summarize(text: string, n = 40): string {
         <div v-if="historyLoading" v-loading="true" class="loading-area"></div>
 
         <!-- 列表视图 -->
-        <div
-          v-else-if="!selectedHistoryThread"
-          class="history-list"
-        >
+        <div v-else-if="!selectedHistoryThread" class="history-list">
           <div v-if="historyThreads.length === 0" class="empty-hint">
             <p class="hint-title">暂无历史会话</p>
             <p class="hint-desc">结束当前对话后,会话会出现在这里供你回看。</p>
@@ -262,7 +234,10 @@ function summarize(text: string, n = 40): string {
             <div class="item-summary">
               {{
                 qaStore.historyMessagesByThread[t.id]?.find((m) => m.role === 'learner')
-                  ? summarize(qaStore.historyMessagesByThread[t.id].find((m) => m.role === 'learner')!.contentMd)
+                  ? summarize(
+                      qaStore.historyMessagesByThread[t.id].find((m) => m.role === 'learner')!
+                        .contentMd,
+                    )
                   : `(thread #${t.id})`
               }}
             </div>
@@ -278,9 +253,7 @@ function summarize(text: string, n = 40): string {
         <!-- 详情视图(只读) -->
         <div v-else class="history-detail">
           <div class="detail-header">
-            <el-button text size="small" @click="backToHistoryList">
-              ← 返回列表
-            </el-button>
+            <el-button text size="small" @click="backToHistoryList"> ← 返回列表 </el-button>
             <button
               class="export-btn"
               title="导出 markdown"
@@ -290,11 +263,7 @@ function summarize(text: string, n = 40): string {
             </button>
           </div>
           <div ref="historyMessageList" class="history-messages">
-            <QaMessage
-              v-for="msg in selectedHistoryMessages"
-              :key="msg.id"
-              :message="msg"
-            />
+            <QaMessage v-for="msg in selectedHistoryMessages" :key="msg.id" :message="msg" />
           </div>
           <div class="readonly-hint">
             🔒 此次提问已结束,无法继续追问。如需再问,可在主页面的"💬 问问题"开新会话。
@@ -368,8 +337,13 @@ function summarize(text: string, n = 40): string {
   animation: blink 1.4s infinite;
 }
 @keyframes blink {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 .error-alert {
   margin-bottom: 8px;

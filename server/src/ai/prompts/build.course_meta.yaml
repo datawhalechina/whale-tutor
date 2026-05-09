@@ -48,17 +48,17 @@ outputSchema:
   properties:
     id:
       type: string
-      pattern: "^[a-z0-9][a-z0-9-]{1,29}$"
+      pattern: '^[a-z0-9][a-z0-9-]{1,29}$'
     name: { type: string, minLength: 1, maxLength: 100 }
     subject:
       type: string
-      pattern: "^[A-Z][A-Za-z0-9+#.]{0,30}$"
+      pattern: '^[A-Z][A-Za-z0-9+#.]{0,30}$'
     description: { type: string, minLength: 10, maxLength: 600 }
 
 # 没 API key 或 AI 失败时,用 suggestedId 作为最低限度的 fallback
 # build.service.ts 检测到 fallback 字段后会以来源目录名兜底,并打 warning
 fallback:
-  id: "_FALLBACK_"
-  name: "_FALLBACK_"
-  subject: "_FALLBACK_"
-  description: "_FALLBACK_"
+  id: '_FALLBACK_'
+  name: '_FALLBACK_'
+  subject: '_FALLBACK_'
+  description: '_FALLBACK_'

@@ -85,9 +85,7 @@ export class FreeRecallPattern {
             ? lo.commonMisconceptions.map((m) => `- ${m}`).join('\n')
             : '(无)',
         originalPromptMd: originalPrompt.promptMd,
-        originalRubricList: originalPrompt.rubricKeyPoints
-          .map((p) => `- ${p}`)
-          .join('\n'),
+        originalRubricList: originalPrompt.rubricKeyPoints.map((p) => `- ${p}`).join('\n'),
         attemptIndex: ctx.attemptIndex,
       },
       sessionId: ctx.sessionId ?? null,

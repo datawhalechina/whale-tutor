@@ -107,5 +107,5 @@ outputSchema:
 
 fallback:
   commonMisconceptions: []
-  masteryCriteria: "_FALLBACK_"
+  masteryCriteria: '_FALLBACK_'
   requiredInteractions: []

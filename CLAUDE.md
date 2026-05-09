@@ -76,10 +76,12 @@ whale-tutor/
 每个 **Chapter** 末有 **assessment** — 同样是一组 `requiredInteractions`(静态预置,使用现有 4 种 Pattern),所有 LO 都 mastered 后才解锁。Chapter 自身的状态机:`learning → assessment → completed`。
 
 **数据来源**:
+
 - 必做题(LO + Chapter Assessment)的 prompt **完全静态**,YAML 写死题干/选项/答案,AI 不参与生成
 - 仅在自适应阶段、AI 评估(free_recall/spot_the_bug 解释)、章末档案生成等场景调 AI Gateway
 
 **类型边界(server-only vs 公开)**:
+
 - [packages/tutor-types/src/domain.ts](packages/tutor-types/src/domain.ts) 中 `*Definition` 系列(`CourseDefinition` / `ChapterDefinition` / `LearningObjectiveDefinition` / `ChapterAssessmentDefinition` / `RequiredInteraction`)是 **server-only**,KnowledgeService 解析 YAML 后的内存结构,含答案/expected/rubric
 - 同名无后缀的 `Course` / `Chapter` / `LearningObjective` / `ChapterAssessmentSummary` 是 **公开版**,前端通过 HTTP 拿到的就是这个,只暴露元信息和"必做题数量"
 - 服务层做转换:`Definition → Public`,永远禁止把 `*Definition` 直接 `JSON.stringify` 下发
@@ -125,8 +127,8 @@ server/src/knowledge/data/python-basics/
 # lo.yaml 片段
 id: lo.list.basics
 name: 列表的创建与表示
-description: 用 [] / list() 创建,理解 len 与异质元素   # 短字段直接 inline
-coreExplanation: { $ref: ./core-explanation.md }       # 长 markdown 外置
+description: 用 [] / list() 创建,理解 len 与异质元素 # 短字段直接 inline
+coreExplanation: { $ref: ./core-explanation.md } # 长 markdown 外置
 prerequisites: []
 requiredInteractions:
   - id: ri.list.basics.1
@@ -135,7 +137,7 @@ requiredInteractions:
       explanationMd: { $ref: ./ri-1.explanation.md }
       question:
         stem: 下列哪个表达式创建一个空列表?
-        options: ["[]", "{}", "list{}", "list[]"]
+        options: ['[]', '{}', 'list{}', 'list[]']
         answerIndex: 0
         rationale: { $ref: ./ri-1.rationale.md }
 adaptivePatterns: [concept_check, free_recall]
@@ -155,11 +157,13 @@ adaptivePatterns: [concept_check, free_recall]
 学习者在主学习流的**任意位置**(interaction / 嵌套 QA / LO 闲置)可以**压栈**一个 QA 线程提问 — 不影响 mastery / 必做进度 / chapter phase。
 
 **栈式父引用**(`qa_threads` 表):
+
 - `parent_interaction_id` 非空 → 在某道题上提问
 - `parent_qa_thread_id` 非空 → 在另一个 QA 中嵌套(自引用)
 - 都为空 → LO/Chapter 闲置时提问(`lo_id` 必有)
 
 **会话式 + 嵌套**:
+
 - 同 thread 内可追问多轮 → 在 `qa_messages` 追加 message
 - 想开不同主题 → 新建 thread,`parent_qa_thread_id` 指向当前 thread
 - 结束 thread = 出栈,前端回到 parent 上下文继续主学习流
@@ -173,27 +177,32 @@ adaptivePatterns: [concept_check, free_recall]
 ## 模块边界(写代码前必读)
 
 ### 数据库
+
 - **事实表**(不可变,只追加): `events` / `interactions` / `responses` / `ai_calls`。**禁止 UPDATE / DELETE**。
 - **派生表**(可由事件流重建,出于性能预聚合): `learners` / `sessions` / `learner_state` / `archives`。
 - **v0 demo learner**: `id=1`,在 `01-schema.sql` 中通过 INSERT ON DUPLICATE 幂等预置。
 - **schema 变更**: v0 不引入 migration 工具,直接改 [db/init/01-schema.sql](db/init/01-schema.sql) + `pnpm db:reset`。M3 末再评估 Atlas/Prisma migrate。
 
 ### 共享类型 [packages/tutor-types](packages/tutor-types)
+
 - `domain.ts` — 核心领域(MasteryLevel/PatternId/LearningObjective/PathAction/...)
 - `patterns.ts` — 4 种 Pattern 的 `*Prompt` / `*PromptForLearner` / `*Response`
 - `api-contracts.ts` — HTTP 端点契约
 - 修改后必须 `pnpm build:types`(或开 watch)。前后端 import 的是 dist/。
 
 ### Pattern 安全边界
+
 - `*Prompt` 含答案 / expected / rubric — server-only,存 `interactions.prompt_payload`
 - `*PromptForLearner` 是下发到前端的安全子集 — service 层必须 sanitize
 - 评估在服务端做,前端不能拿到正确答案
 
 ### Event Bus
+
 - 唯一写入 `events` 表的入口是 [server/src/event/event.service.ts](server/src/event/event.service.ts) 的 `emit()`。
 - 其他 service 禁止直接 `db.insertInto('events')`。
 
 ### AI Gateway 调用形态
+
 ```ts
 aiGateway.complete<TOut>({
   templateId: 'pattern.concept_check.generate',  // 对应 prompts/<id>.yaml
@@ -202,6 +211,7 @@ aiGateway.complete<TOut>({
   sessionId?, callerTag?
 }) → Promise<TOut>
 ```
+
 - 失败 → 重试 1 次 → 仍失败用 prompt YAML 中的 `fallback` 文案
 - 每次调用写 `ai_calls` 表(token / latency / cost / status)
 - v0 同步返 JSON 全文,不做 stream
@@ -243,6 +253,7 @@ pnpm format / pnpm format:check
 ## 常见任务模板
 
 ### 新增一个 LO
+
 1. 在 `server/src/knowledge/data/python-basics.yaml` 加节点,字段对应 `LearningObjectiveDefinition`:
    - 元信息:`id` / `name` / `description` / `prerequisites` / `weakPrerequisites` / `estimatedDurationMin` / `difficultyBand` / `masteryCriteria`
    - 兜底/灵感:`coreExplanation`(AI 失败时的兜底文案) / `commonMisconceptions`(出题灵感 + 评估识别)
@@ -252,11 +263,13 @@ pnpm format / pnpm format:check
 3. 重启 server 让 KnowledgeService 重新加载
 
 ### 新增/修改章末测试
+
 1. 在 chapter 节点下加 `assessment.requiredInteractions[]`,字段同 LO 的 requiredInteractions
 2. 章末测试只有静态必做,没有自适应阶段
 3. 重启 server
 
 ### 新增一种 Pattern
+
 1. `packages/tutor-types/src/patterns.ts` 加 `*Prompt` / `*PromptForLearner` / `*Response` + 更新 `PATTERN_IDS`
 2. `server/src/pattern/patterns/<new>.pattern.ts` 实现统一接口(`generate` / `evaluate` / `applicability`)
 3. 在 `PatternRegistry` 中注册
@@ -264,11 +277,13 @@ pnpm format / pnpm format:check
 5. 在 LO YAML 的 `compatible_patterns` 中按需添加
 
 ### 新增一种事件类型
+
 1. `packages/tutor-types/src/domain.ts` 的 `EventType` 联合中加一行
 2. `EventService.emit()` 在适当业务点调用
 3. **DB 不需要改动**(events.type 是 VARCHAR(64))
 
 ### 新增 AI Gateway 模板
+
 1. `server/src/ai/prompts/<template-id>.yaml` 写 system / user / output_schema_ref / model_pref / fallback
 2. 在 `packages/tutor-types`(或 server 端 schema)定义 ajv schema
 3. 调用方用 `aiGateway.complete({ templateId, variables, schema })`
@@ -338,27 +353,27 @@ _bundle/
 
 server 启动逻辑用环境变量分叉,**同一份代码两种部署**:
 
-| 行为 | env 没设(monorepo dev) | env 已设(CLI 用户) |
-|---|---|---|
-| 课程目录 | `__dirname/data` | `WHALE_TUTOR_COURSES_DIR` 指向用户 cwd 下 `courses/` |
-| 静态文件 | 不 serve(vite dev server 顶在前面) | `WHALE_TUTOR_WEB_DIR` 触发 `ServeStaticModule` serve `web/dist` |
+| 行为             | env 没设(monorepo dev)                    | env 已设(CLI 用户)                                              |
+| ---------------- | ----------------------------------------- | --------------------------------------------------------------- |
+| 课程目录         | `__dirname/data`                          | `WHALE_TUTOR_COURSES_DIR` 指向用户 cwd 下 `courses/`            |
+| 静态文件         | 不 serve(vite dev server 顶在前面)        | `WHALE_TUTOR_WEB_DIR` 触发 `ServeStaticModule` serve `web/dist` |
 | Schema bootstrap | docker-entrypoint-initdb.d 容器首启自动跑 | CLI 在启 node 之前 idempotent 探测 + 应用(env trigger 是双保险) |
-| API 前缀 | `/api`(`globalPrefix('api')`) | `/api`(同前) |
+| API 前缀         | `/api`(`globalPrefix('api')`)             | `/api`(同前)                                                    |
 
 Dev 期 `pnpm dev` 走 Vite proxy `/api → :3000` + 不 strip prefix,因为 server 现在带 globalPrefix 跟生产同。
 
 ### CLI 模块边界
 
-| 文件 | 职责 |
-|---|---|
-| `bin/cli.mjs` | commander 入口,5 个子命令 |
-| `lib/config.mjs` | 读 `whale-tutor.config.yaml` + env override → 转 dict 给 node 子进程 |
-| `lib/db.mjs` | mysql2 multipleStatements,探测 events 表缺失则跑 schema |
-| `lib/runner.mjs` | child_process.spawn server + SIG 转发 + net 轮询端口 ready + open 浏览器 |
-| `lib/scaffold.mjs` | `init` 命令:cpSync template 到目标目录 |
-| `lib/lint.mjs` | spawn server with `WHALE_TUTOR_VALIDATE_ONLY=1` |
-| `lib/build.mjs` | spawn server with `WHALE_TUTOR_BUILD_MODE=1` + 输入输出 env |
-| `lib/doctor.mjs` | 健康检查(node / bundle / mysql / API key 4 项,kleur 输出) |
+| 文件               | 职责                                                                     |
+| ------------------ | ------------------------------------------------------------------------ |
+| `bin/cli.mjs`      | commander 入口,5 个子命令                                                |
+| `lib/config.mjs`   | 读 `whale-tutor.config.yaml` + env override → 转 dict 给 node 子进程     |
+| `lib/db.mjs`       | mysql2 multipleStatements,探测 events 表缺失则跑 schema                  |
+| `lib/runner.mjs`   | child_process.spawn server + SIG 转发 + net 轮询端口 ready + open 浏览器 |
+| `lib/scaffold.mjs` | `init` 命令:cpSync template 到目标目录                                   |
+| `lib/lint.mjs`     | spawn server with `WHALE_TUTOR_VALIDATE_ONLY=1`                          |
+| `lib/build.mjs`    | spawn server with `WHALE_TUTOR_BUILD_MODE=1` + 输入输出 env              |
+| `lib/doctor.mjs`   | 健康检查(node / bundle / mysql / API key 4 项,kleur 输出)                |
 
 **不要在 CLI 里写业务逻辑**(评估、出题、AI 调用、mastery 状态…)。CLI 只负责"读配置 + 探测/应用 schema + spawn 子进程 + 信号转发 + 开浏览器"。所有教学语义都在 NestJS server,只一份。
 
@@ -367,6 +382,7 @@ Dev 期 `pnpm dev` 走 Vite proxy `/api → :3000` + 不 strip prefix,因为 ser
 **前置**: `pnpm build:cli-bundle`(填充 `packages/cli-node/_bundle/`)
 
 **cli-node → npm**:
+
 1. `cd packages/cli-node && npm install`(本地解析 `file:` 依赖,确认能工作)
 2. `npm publish --dry-run` 看 tarball 内容
 3. `npm publish`(登录 npm 账号 + name 没被占用)
@@ -376,6 +392,7 @@ bundle 自身不入 git(`packages/cli-node/.gitignore` 排除 `_bundle/`)。`pac
 ## v0 已实现清单(2026-05 更新)
 
 ### 后端
+
 - ✅ **AI Gateway** — DeepSeek OpenAI 兼容协议 + ajv schema 校验 + 重试 + fallback + cost log;3 个 prompt 模板(`free_recall.evaluate` / `spot_the_bug.evaluate_explanation` / `qa.answer`)
 - ✅ **Knowledge Module** — YAML + `$ref` 递归 + ajv 校验 + 内存缓存;1 个课程 / 4 个 LO / 13 道必做交互 / 1 章末测试
 - ✅ **4 种 Pattern**:
@@ -389,6 +406,7 @@ bundle 自身不入 git(`packages/cli-node/.gitignore` 排除 `_bundle/`)。`pac
 - ✅ **QA 侧支** — 5 个 endpoint,栈式 thread 模型(嵌套能力 store 已支持但 UI 未暴露)
 
 ### 前端
+
 - ✅ **基础架构** — Vue 3 + Pinia + Element Plus + vue-router + axios + marked/dompurify
 - ✅ **LO Intro 教学环节** — 进入新 LO 先显示核心讲解,点"开始练习"才进题
 - ✅ **4 种 Pattern Card** — ConceptCheckCard / CodeSandboxCard / SpotTheBugCard / FreeRecallCard
@@ -399,11 +417,13 @@ bundle 自身不入 git(`packages/cli-node/.gitignore` 排除 `_bundle/`)。`pac
 - ✅ **Review-LO overlay(v0.2)** — server 返 review_lo decision 时全屏 LoIntroCard 兜底,"我看完了" → ack endpoint
 
 ### 内容
+
 - ✅ Python 基础 / 列表与迭代 — 4 个 LO 全部完整内容(YAML + 含教学讲解的 .md):`list.basics` / `list.indexing` / `list.mutation` / `iter.for_over_list`
 
 > v0.2/v0.3 期内容扩展见对应章节("多课程/多章节"清单)。
 
 ### 分发 (单 CLI:npm)
+
 - ✅ **packages/cli-node/** — Node CLI,`whale-tutor init / start / doctor` 三命令(commander + kleur);包体积 ~1 MB
 - ✅ **scripts/build-cli-bundle.mjs** — 填充 `cli-node/_bundle/`(经 `build/server-bundle/` 中间产物)
 - ✅ **server 双模式适配** — `WHALE_TUTOR_COURSES_DIR` / `WHALE_TUTOR_WEB_DIR` env trigger 课程目录外置 + 静态文件 serve;monorepo dev 模式行为不变
@@ -418,6 +438,7 @@ bundle 自身不入 git(`packages/cli-node/.gitignore` 排除 `_bundle/`)。`pac
 详细业务逻辑(状态机 / decideNext / DB 写入 / event 映射)见 [notes/orchestrator.md](notes/orchestrator.md)。
 
 ### StuckProtocol(梯度提示)
+
 - ✅ **新 endpoint** `POST /api/sessions/:id/hints { interactionId, targetLevel }`
 - ✅ **静态优先 + AI 兜底**:作者在 RI yaml 写 `hints: [...]`(1-5 元素)直接返;没写则 AI Gateway `pattern.hint` 一次生成 3 级,按 RI id `Map<riId, Promise<string[]>>` in-memory cache 防并发重复
 - ✅ **`responses.hint_level`** 由 submit 自动接入(前端 store `currentHintLevel` 注入 body)
@@ -425,6 +446,7 @@ bundle 自身不入 git(`packages/cli-node/.gitignore` 排除 `_bundle/`)。`pac
 - ✅ **events 发射** `hint.requested` / `hint.served`
 
 ### PathOrchestrator 智能化
+
 - ✅ **Schema 变更**(改 [01-schema.sql](db/init/01-schema.sql) + db:reset):`learner_state.pending_retry_ri_id` + `interactions.parent_required_interaction_id`
 - ✅ **Mastery 状态机重写** — hint 折扣(用 hint 答对不增 cc) + adaptive 答对归属原 RI(parent → mandatoryCompletedIds) + retry 状态推进 + chapter assessment 不参与 retry(`enableRetry: false`)
 - ✅ **decideNext Rule 0** — `pending != null && cw < 3` → adaptive;`cw >= 3` → review_lo
@@ -435,14 +457,17 @@ bundle 自身不入 git(`packages/cli-node/.gitignore` 排除 `_bundle/`)。`pac
 - ✅ **events 发射** `lo.regressed`(以前未发,现在两种 reason:`no_generator` / `review_lo_acknowledged`)
 
 ### 学科参数化
+
 - ✅ **`CourseDefinition.subject`** 字段(server-only,Public Course Omit 掉),`course.yaml` 顶层必填
 - ✅ **所有 8 个 prompt yaml** 用 `{{subject}}` 变量(原本 hardcoded "Python");caller 全部从 `KnowledgeService.getSubjectByLoId/RiId` 取
 - ✅ **代码 fence 去 language**(`spot_the_bug.evaluate_explanation` 等),让 prompt 学科无关
 
 ### 类型系统
+
 - ✅ **Public 类型派生**(`Course = Omit<CourseDefinition, 'chapters' | 'subject'> & {chapters: Chapter[]}` 等),Definition 加字段会强迫 reviewer 思考要不要进 Public
 
 ### 多课程 / 多章节 + 课程作者工具
+
 - ✅ **`whale-tutor lint`** — 双 CLI 都有,spawn server with `WHALE_TUTOR_VALIDATE_ONLY=1` 跑 ajv 校验,5 秒返结果
 - ✅ **多 chapter session 编排** — `pickStartingLo` 找首个未完成章节;sidebar 列全部章节并允许点切换(`POST /api/sessions/:id/switch-chapter`,session.current_lo_id 改写)
 - ✅ **多 course HomeView picker** — `GET /api/courses` 返 `CourseSummary[]`,首页卡片选课;支持 `python-basics` 与 `sql-basics` 并存
@@ -452,12 +477,14 @@ bundle 自身不入 git(`packages/cli-node/.gitignore` 排除 `_bundle/`)。`pac
 ## v0.3 已实现清单(2026-05-09 更新)
 
 ### 分发架构精简 — 删 cli-py
+
 - ✅ **删除 `packages/cli-py/`**(整个 Python CLI 包)+ 相关 build 路径 + workspace/eslint 配置;只保留 `packages/cli-node/`(npm 包)
 - ✅ **理由**:Node 反正必装(server 是 NestJS),pip 包多绕一层 subprocess + 包大 30+ MB(因为 pip 不能触发 npm,build 时得把 node_modules 一起 ship)+ 双 CLI 每加一个命令(init/start/doctor/lint/build)都要写两份,维护税不划算
 - ✅ **`scripts/build-cli-bundle.mjs`** 简化:不再产 cli-py 路径 + 不再跑 `npm install --omit=dev` 嵌入 node_modules
 - ✅ **CLI 命令补齐**:cli-node 上 5 个命令全(init / start / doctor / lint / build)
 
 ### `whale-tutor build` — AI 辅助生成课程骨架
+
 - ✅ **新命令**:`whale-tutor build <source> [--force] [--output <dir>]`,输入 `course.md + chapters/*.md` → AI 生成完整 yaml/md 课程
 - ✅ **4 阶段 pipeline**(每阶段独立 prompt yaml + ajv schema 校验 + 重试):
   - `build.course_meta` — 提取 id/name/subject/description(1 次)

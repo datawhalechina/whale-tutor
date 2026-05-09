@@ -1,7 +1,4 @@
-import type {
-  ArchiveNodeKind,
-  GetArchiveResponse,
-} from '@whale-tutor/tutor-types';
+import type { ArchiveNodeKind, GetArchiveResponse } from '@whale-tutor/tutor-types';
 import { http } from './http';
 
 /**

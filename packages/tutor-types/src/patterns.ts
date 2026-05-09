@@ -16,8 +16,8 @@
 export interface ConceptCheckQuestion {
   stem: string;
   options: string[];
-  answerIndex: number;              // server-only
-  rationale: string;                // server-only,用于 feedback 生成
+  answerIndex: number; // server-only
+  rationale: string; // server-only,用于 feedback 生成
 }
 
 export interface ConceptCheckPrompt {
@@ -80,14 +80,14 @@ export interface CodeSandboxResponse {
 
 export interface BugLocation {
   line: number;
-  kind: string;                     // e.g. "reference_aliasing", "off_by_one"
+  kind: string; // e.g. "reference_aliasing", "off_by_one"
 }
 
 export interface SpotTheBugPrompt {
   buggyCode: string;
-  bugLocations: BugLocation[];      // server-only
-  correctExplanation: string;       // server-only
-  hintMd?: string;                  // 可选的引导提示
+  bugLocations: BugLocation[]; // server-only
+  correctExplanation: string; // server-only
+  hintMd?: string; // 可选的引导提示
 }
 
 export interface SpotTheBugPromptForLearner {

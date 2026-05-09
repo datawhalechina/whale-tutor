@@ -28,13 +28,13 @@ const evaluatorKindLabel: Record<string, string> = {
     >
       <template #default>
         <div class="feedback-meta">
-          <span>{{ evaluatorKindLabel[evaluation.evaluatorKind] || evaluation.evaluatorKind }}</span>
+          <span>{{
+            evaluatorKindLabel[evaluation.evaluatorKind] || evaluation.evaluatorKind
+          }}</span>
           <span class="dot">·</span>
           <span>置信度 {{ evaluation.confidence.toFixed(2) }}</span>
         </div>
-        <div v-if="isRetrySameRi" class="retry-hint">
-          先看下方解析,理解后再做一次。
-        </div>
+        <div v-if="isRetrySameRi" class="retry-hint">先看下方解析,理解后再做一次。</div>
       </template>
     </el-alert>
     <div class="markdown-body feedback-md" v-html="feedbackHtml"></div>

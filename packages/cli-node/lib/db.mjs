@@ -55,9 +55,7 @@ export async function ensureSchema(cfg, schemaFile) {
     console.log(kleur.dim('✓ schema 已就绪,跳过初始化'));
     return;
   }
-  console.log(
-    kleur.yellow(`→ 检测到 mysql 中缺少 schema,正在应用 ${schemaFile}…`),
-  );
+  console.log(kleur.yellow(`→ 检测到 mysql 中缺少 schema,正在应用 ${schemaFile}…`));
   await applySchema(cfg, schemaFile);
   console.log(kleur.green('✓ schema 已应用'));
 }

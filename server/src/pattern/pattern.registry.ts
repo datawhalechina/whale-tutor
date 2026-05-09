@@ -117,29 +117,13 @@ export class PatternRegistry {
   ): Promise<unknown | null> {
     switch (originalRi.patternId) {
       case 'concept_check':
-        return this.conceptCheck.generate(
-          originalRi.prompt as ConceptCheckPrompt,
-          lo,
-          context,
-        );
+        return this.conceptCheck.generate(originalRi.prompt as ConceptCheckPrompt, lo, context);
       case 'free_recall':
-        return this.freeRecall.generate(
-          originalRi.prompt as FreeRecallPrompt,
-          lo,
-          context,
-        );
+        return this.freeRecall.generate(originalRi.prompt as FreeRecallPrompt, lo, context);
       case 'spot_the_bug':
-        return this.spotTheBug.generate(
-          originalRi.prompt as SpotTheBugPrompt,
-          lo,
-          context,
-        );
+        return this.spotTheBug.generate(originalRi.prompt as SpotTheBugPrompt, lo, context);
       case 'code_sandbox':
-        return this.codeSandbox.generate(
-          originalRi.prompt as CodeSandboxPrompt,
-          lo,
-          context,
-        );
+        return this.codeSandbox.generate(originalRi.prompt as CodeSandboxPrompt, lo, context);
     }
     // 4 PatternId 已穷尽,这里 unreachable;若 PatternId 加新成员,TS 会逼迫上面 switch 加分支
     return null;

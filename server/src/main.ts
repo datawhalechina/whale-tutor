@@ -113,9 +113,7 @@ async function runBuild(): Promise<void> {
 async function applySchemaIfMissing(): Promise<void> {
   const schemaFile = process.env.WHALE_TUTOR_SCHEMA_FILE;
   if (!schemaFile) {
-    throw new Error(
-      'WHALE_TUTOR_BOOTSTRAP_SCHEMA=1 but WHALE_TUTOR_SCHEMA_FILE not set',
-    );
+    throw new Error('WHALE_TUTOR_BOOTSTRAP_SCHEMA=1 but WHALE_TUTOR_SCHEMA_FILE not set');
   }
   const host = process.env.DATABASE_HOST || 'localhost';
   const port = Number(process.env.DATABASE_PORT || 3306);
@@ -123,10 +121,7 @@ async function applySchemaIfMissing(): Promise<void> {
   const password = process.env.DATABASE_PASSWORD || 'tutor';
   const database = process.env.DATABASE_NAME || 'whale_tutor';
 
-   
-  console.log(
-    `[bootstrap] checking schema in ${user}@${host}:${port}/${database}…`,
-  );
+  console.log(`[bootstrap] checking schema in ${user}@${host}:${port}/${database}…`);
 
   const conn = await createConnection({
     host,
@@ -140,15 +135,14 @@ async function applySchemaIfMissing(): Promise<void> {
     const [rows] = await conn.query("SHOW TABLES LIKE 'events'");
     const hasEvents = Array.isArray(rows) && (rows as unknown[]).length > 0;
     if (hasEvents) {
-       
       console.log('[bootstrap] schema already present, skipping.');
       return;
     }
-     
+
     console.log(`[bootstrap] applying schema from ${schemaFile}…`);
     const sql = await fs.readFile(schemaFile, 'utf8');
     await conn.query(sql);
-     
+
     console.log('[bootstrap] schema applied successfully.');
   } finally {
     await conn.end();

@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { useSessionStore } from '@/stores/session';
-import type {
-  ArchiveNodeKind,
-  ChapterPhase,
-  MasteryLevel,
-} from '@whale-tutor/tutor-types';
+import type { ArchiveNodeKind, ChapterPhase, MasteryLevel } from '@whale-tutor/tutor-types';
 
 const emit = defineEmits<{
   'view-recap': [loId: string];
@@ -110,15 +106,13 @@ const phaseTagType: Record<ChapterPhase, 'info' | 'warning' | 'success'> = {
           <div class="lo-meta">
             <span class="meta-item">{{ masteryLabel[lo.masteryLevel] }}</span>
             <span class="meta-dot">·</span>
-            <span class="meta-item">必做 {{ lo.mandatoryCompletedCount }}/{{ lo.requiredInteractionCount }}</span>
+            <span class="meta-item"
+              >必做 {{ lo.mandatoryCompletedCount }}/{{ lo.requiredInteractionCount }}</span
+            >
           </div>
-          <div v-if="!lo.prerequisitesSatisfied" class="locked-hint">
-            🔒 需先完成前置 LO
-          </div>
+          <div v-if="!lo.prerequisitesSatisfied" class="locked-hint">🔒 需先完成前置 LO</div>
           <div v-else class="lo-actions">
-            <button class="link-btn" @click="emit('view-recap', lo.id)">
-              📖 重看讲解
-            </button>
+            <button class="link-btn" @click="emit('view-recap', lo.id)">📖 重看讲解</button>
             <button
               v-if="lo.mandatoryCompletedCount > 0"
               class="link-btn"
@@ -148,7 +142,10 @@ const phaseTagType: Record<ChapterPhase, 'info' | 'warning' | 'success'> = {
         </div>
         <div class="lo-meta">
           <span class="meta-item">
-            {{ progress.chapter.assessmentCompletedCount }}/{{ progress.chapter.assessmentRequiredCount }} 已通过
+            {{ progress.chapter.assessmentCompletedCount }}/{{
+              progress.chapter.assessmentRequiredCount
+            }}
+            已通过
           </span>
         </div>
       </div>
@@ -238,7 +235,9 @@ const phaseTagType: Record<ChapterPhase, 'info' | 'warning' | 'success'> = {
   cursor: pointer;
   width: 100%;
   text-align: left;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 .chapter-row:hover:not(:disabled) {
   background: #fafafa;

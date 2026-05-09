@@ -17,10 +17,7 @@ import type {
   QaThread,
   QaMessage,
 } from './domain.js';
-import type {
-  PatternPromptForLearnerMap,
-  PatternResponseMap,
-} from './patterns.js';
+import type { PatternPromptForLearnerMap, PatternResponseMap } from './patterns.js';
 
 // ============================================================
 // /api/courses
@@ -101,7 +98,7 @@ export interface SubmitResponseResult {
 // ============================================================
 
 export interface EndSessionResponse {
-  archive?: Archive;                // chapter 结束时返回章节档案
+  archive?: Archive; // chapter 结束时返回章节档案
 }
 
 // ============================================================
@@ -146,7 +143,7 @@ export interface RequestHintRequest {
 }
 
 export interface RequestHintResponse {
-  hintLevel: HintLevel;     // 实际返回的 level(等于 targetLevel,除非 server clamp)
+  hintLevel: HintLevel; // 实际返回的 level(等于 targetLevel,除非 server clamp)
   hintMd: string;
   // 该 RI 一共有多少级 hint。前端用它决定"再来一级"按钮何时 disable。
   // 0 表示无 hint(adaptive 题或 AI 生成失败且无 fallback),前端应隐藏 hint UI 并引导 QA
@@ -179,7 +176,7 @@ export interface DiagnosticItem {
   id: string;
   kind: 'behavior_anchor' | 'mini_problem';
   prompt: string;
-  options?: string[];               // 行为锚点为多选,迷你题为单选
+  options?: string[]; // 行为锚点为多选,迷你题为单选
   multiSelect?: boolean;
 }
 
@@ -192,7 +189,7 @@ export interface SubmitDiagnosticRequest {
   goalScenario: GoalScenario;
   responses: Array<{
     itemId: string;
-    selectedIndices: number[];      // 选中的选项索引
+    selectedIndices: number[]; // 选中的选项索引
   }>;
 }
 
@@ -238,7 +235,7 @@ export interface AppendQaMessageResponse {
 // POST /api/qa-threads/:threadId/end
 // 结束 thread,前端栈出栈,继续主学习流
 export interface EndQaThreadResponse {
-  thread: QaThread;                 // status=ended
+  thread: QaThread; // status=ended
 }
 
 // GET /api/sessions/:sessionId/qa-threads/active
@@ -272,8 +269,8 @@ export interface SessionProgressLoEntry {
   mandatoryCompletedCount: number;
   requiredInteractionCount: number;
   mandatoryAllCompleted: boolean;
-  prerequisitesSatisfied: boolean;     // 强 prereq 是否全部必做完成(决定 LO 是否可点击进入)
-  isCurrent: boolean;                  // 当前 session 正在做的 LO
+  prerequisitesSatisfied: boolean; // 强 prereq 是否全部必做完成(决定 LO 是否可点击进入)
+  isCurrent: boolean; // 当前 session 正在做的 LO
 }
 
 export interface SessionProgressChapter {
@@ -327,6 +324,6 @@ export type ArchiveNodeKind = (typeof ARCHIVE_NODE_KINDS)[number];
 
 export interface GetArchiveResponse {
   kind: ArchiveNodeKind;
-  title: string;        // 给前端 modal 标题用
-  contentMd: string;    // markdown 正文,前端 marked + DOMPurify 渲染
+  title: string; // 给前端 modal 标题用
+  contentMd: string; // markdown 正文,前端 marked + DOMPurify 渲染
 }

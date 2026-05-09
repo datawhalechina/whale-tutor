@@ -46,9 +46,7 @@ export const useQaStore = defineStore('qa', () => {
     () => threadStack.value[threadStack.value.length - 1] ?? null,
   );
   const currentMessages = computed<QaMessage[]>(() =>
-    currentThread.value
-      ? (messagesByThread.value[currentThread.value.id] ?? [])
-      : [],
+    currentThread.value ? (messagesByThread.value[currentThread.value.id] ?? []) : [],
   );
   const selectedHistoryThread = computed<QaThread | null>(() => {
     const id = selectedHistoryThreadId.value;
@@ -85,10 +83,7 @@ export const useQaStore = defineStore('qa', () => {
         question: input.question,
       });
       threadStack.value.push(data.thread);
-      messagesByThread.value[data.thread.id] = [
-        data.learnerMessage,
-        data.assistantMessage,
-      ];
+      messagesByThread.value[data.thread.id] = [data.learnerMessage, data.assistantMessage];
       activeTab.value = 'current';
     } catch (e) {
       error.value = (e as Error).message;
@@ -106,11 +101,7 @@ export const useQaStore = defineStore('qa', () => {
     try {
       const data = await qaApi.appendQaMessage(tid, { question });
       const existing = messagesByThread.value[tid] ?? [];
-      messagesByThread.value[tid] = [
-        ...existing,
-        data.learnerMessage,
-        data.assistantMessage,
-      ];
+      messagesByThread.value[tid] = [...existing, data.learnerMessage, data.assistantMessage];
     } catch (e) {
       error.value = (e as Error).message;
       throw e;

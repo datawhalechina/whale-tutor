@@ -42,7 +42,11 @@ program
 program
   .command('init')
   .description('在当前目录 scaffold 完整示例课程 + 配置文件模板。')
-  .option('-t, --template <name>', 'scaffold 模板名(对应 _bundle/templates/<name>/)', 'python-basics')
+  .option(
+    '-t, --template <name>',
+    'scaffold 模板名(对应 _bundle/templates/<name>/)',
+    'python-basics',
+  )
   .option('--target <dir>', '目标目录,默认当前目录')
   .action((opts) => {
     const targetDir = resolve(opts.target ?? process.cwd());
@@ -113,8 +117,10 @@ program
 program
   .command('build')
   .argument('<source>', '源目录(必须含 course.md + chapters/*.md)')
-  .description('从原始 markdown 通过 AI 生成完整 yaml/md 课程结构。\n' +
-    '4 阶段:course meta → 每章拆 LO → 每个 LO 出 misconceptions+RIs → 每章出 assessment。')
+  .description(
+    '从原始 markdown 通过 AI 生成完整 yaml/md 课程结构。\n' +
+      '4 阶段:course meta → 每章拆 LO → 每个 LO 出 misconceptions+RIs → 每章出 assessment。',
+  )
   .option('--output <dir>', '输出目录,默认 <coursesDir>/<source 目录名>')
   .option('--force', '输出目录已存在时整个覆盖(否则报错退出)', false)
   .action(async (source, opts) => {

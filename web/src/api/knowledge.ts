@@ -11,9 +11,7 @@ export async function listCourses(): Promise<CourseSummary[]> {
   return res.data.courses;
 }
 
-export async function getCourse(
-  courseId: string,
-): Promise<GetCourseResponse['course']> {
+export async function getCourse(courseId: string): Promise<GetCourseResponse['course']> {
   const res = await http.get<GetCourseResponse>(`/courses/${courseId}`);
   return res.data.course;
 }

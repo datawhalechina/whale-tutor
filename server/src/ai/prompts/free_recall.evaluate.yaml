@@ -56,5 +56,5 @@ outputSchema:
 fallback:
   correct: false
   confidence: 0.3
-  feedbackMd: "AI 评估暂不可用,你的回答已记录,稍后可以重新提交以获得反馈。"
+  feedbackMd: 'AI 评估暂不可用,你的回答已记录,稍后可以重新提交以获得反馈。'
   rubricCoverage: []

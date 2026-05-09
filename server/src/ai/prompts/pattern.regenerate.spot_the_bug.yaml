@@ -75,4 +75,4 @@ outputSchema:
 fallback:
   buggyCode: null
   bugLocations: []
-  correctExplanation: ""
+  correctExplanation: ''

@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
 import type {
   AppendQaMessageRequest,
   AppendQaMessageResponse,
@@ -46,9 +39,7 @@ export class QaController {
   }
 
   @Post('qa-threads/:threadId/end')
-  async endThread(
-    @Param('threadId', ParseIntPipe) threadId: number,
-  ): Promise<EndQaThreadResponse> {
+  async endThread(@Param('threadId', ParseIntPipe) threadId: number): Promise<EndQaThreadResponse> {
     const thread = await this.qa.endThread(threadId);
     return { thread };
   }
@@ -70,9 +61,7 @@ export class QaController {
   }
 
   @Get('qa-threads/:threadId')
-  getThread(
-    @Param('threadId', ParseIntPipe) threadId: number,
-  ): Promise<GetQaThreadResponse> {
+  getThread(@Param('threadId', ParseIntPipe) threadId: number): Promise<GetQaThreadResponse> {
     return this.qa.getThreadWithMessages(threadId);
   }
 }

@@ -66,21 +66,12 @@ async function startCourse(courseId: string): Promise<void> {
         />
 
         <div v-else class="course-grid">
-          <el-card
-            v-for="course in courses"
-            :key="course.id"
-            class="course-card"
-            shadow="hover"
-          >
+          <el-card v-for="course in courses" :key="course.id" class="course-card" shadow="hover">
             <div class="course-header">
               <h3 class="course-name">{{ course.name }}</h3>
               <div class="course-meta">
-                <el-tag size="small" type="info">
-                  {{ course.chapterCount }} 章
-                </el-tag>
-                <el-tag size="small">
-                  {{ course.loCount }} 个学习目标
-                </el-tag>
+                <el-tag size="small" type="info"> {{ course.chapterCount }} 章 </el-tag>
+                <el-tag size="small"> {{ course.loCount }} 个学习目标 </el-tag>
               </div>
             </div>
             <p class="course-desc">{{ course.description }}</p>

@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  Controller,
-  Get,
-  Param,
-  Query,
-} from '@nestjs/common';
+import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
 import type { GetArchiveResponse } from '@whale-tutor/tutor-types';
 import { ArchiveService } from './archive.service';
 
@@ -26,10 +20,7 @@ export class ArchiveController {
   ): Promise<GetArchiveResponse> {
     if (kind === 'lo') {
       const learnerId = parseLearnerId(learnerIdQuery, kind);
-      const { title, contentMd } = await this.archive.loToMarkdown(
-        learnerId,
-        id,
-      );
+      const { title, contentMd } = await this.archive.loToMarkdown(learnerId, id);
       return { kind: 'lo', title, contentMd };
     }
 
@@ -38,16 +29,11 @@ export class ArchiveController {
       if (Number.isNaN(threadId)) {
         throw new BadRequestException(`id must be numeric for kind=qa-thread`);
       }
-      const { title, contentMd } =
-        await this.archive.qaThreadToMarkdown(threadId);
+      const { title, contentMd } = await this.archive.qaThreadToMarkdown(threadId);
       return { kind: 'qa-thread', title, contentMd };
     }
 
-    if (
-      kind === 'chapter' ||
-      kind === 'course' ||
-      kind === 'adaptive-interaction'
-    ) {
+    if (kind === 'chapter' || kind === 'course' || kind === 'adaptive-interaction') {
       throw new BadRequestException(
         `Archive kind '${kind}' not implemented yet (planned for v0.2)`,
       );
@@ -59,9 +45,7 @@ export class ArchiveController {
 
 function parseLearnerId(value: string | undefined, kind: string): number {
   if (!value) {
-    throw new BadRequestException(
-      `learnerId query parameter required for kind=${kind}`,
-    );
+    throw new BadRequestException(`learnerId query parameter required for kind=${kind}`);
   }
   const n = Number(value);
   if (Number.isNaN(n) || n <= 0) {

@@ -49,7 +49,9 @@ export async function runBuild(bundleRoot, cfg, sourceArg, opts = {}) {
   }
 
   const output = opts.output
-    ? (isAbsolute(opts.output) ? opts.output : resolve(opts.output))
+    ? isAbsolute(opts.output)
+      ? opts.output
+      : resolve(opts.output)
     : join(cfg.coursesDir, basename(source));
 
   const serverMain = join(bundleRoot, 'server', 'dist', 'main.js');
@@ -99,13 +101,10 @@ export async function runBuild(bundleRoot, cfg, sourceArg, opts = {}) {
   console.log();
   if (code === 0) {
     console.log(kleur.green().bold('✓ 课程生成成功') + kleur.dim(` → ${output}`));
-    console.log(
-      kleur.dim('  下一步:`whale-tutor lint` 校验,然后 `whale-tutor start` 试学。'),
-    );
+    console.log(kleur.dim('  下一步:`whale-tutor lint` 校验,然后 `whale-tutor start` 试学。'));
   } else {
     console.log(
-      kleur.red().bold(`✗ build 失败(server exit ${code})`) +
-        kleur.dim(' — 上方日志含具体原因'),
+      kleur.red().bold(`✗ build 失败(server exit ${code})`) + kleur.dim(' — 上方日志含具体原因'),
     );
   }
   return code;

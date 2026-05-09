@@ -35,19 +35,19 @@ const hintKind = computed<'lo' | 'assessment'>(() =>
 
     <ConceptCheckCard
       v-if="interaction.patternId === 'concept_check'"
-      :interaction="(interaction as InteractionInstance<ConceptCheckPromptForLearner>)"
+      :interaction="interaction as InteractionInstance<ConceptCheckPromptForLearner>"
     />
     <FreeRecallCard
       v-else-if="interaction.patternId === 'free_recall'"
-      :interaction="(interaction as InteractionInstance<FreeRecallPromptForLearner>)"
+      :interaction="interaction as InteractionInstance<FreeRecallPromptForLearner>"
     />
     <SpotTheBugCard
       v-else-if="interaction.patternId === 'spot_the_bug'"
-      :interaction="(interaction as InteractionInstance<SpotTheBugPromptForLearner>)"
+      :interaction="interaction as InteractionInstance<SpotTheBugPromptForLearner>"
     />
     <CodeSandboxCard
       v-else-if="interaction.patternId === 'code_sandbox'"
-      :interaction="(interaction as InteractionInstance<CodeSandboxPromptForLearner>)"
+      :interaction="interaction as InteractionInstance<CodeSandboxPromptForLearner>"
     />
     <!-- 不写 v-else 兜底 — PatternId 是 4 元素 union,4 个分支已穷尽,TS 会把 v-else 收窄成 never。
          若新增 Pattern 而前端尚未实现卡片,TS 会在 union 加成员时立即报错,逼迫加分支 -->

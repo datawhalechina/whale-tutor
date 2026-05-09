@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import type {
-  ConceptCheckPromptForLearner,
-  InteractionInstance,
-} from '@whale-tutor/tutor-types';
+import type { ConceptCheckPromptForLearner, InteractionInstance } from '@whale-tutor/tutor-types';
 import { useSessionStore } from '@/stores/session';
 import { renderMarkdown } from '@/utils/markdown';
 import FeedbackArea from '@/components/FeedbackArea.vue';
@@ -14,13 +11,8 @@ const props = defineProps<{
 }>();
 
 const sessionStore = useSessionStore();
-const {
-  lastEvaluation,
-  showFeedback,
-  pendingNextInteraction,
-  currentDecision,
-  loading,
-} = storeToRefs(sessionStore);
+const { lastEvaluation, showFeedback, pendingNextInteraction, currentDecision, loading } =
+  storeToRefs(sessionStore);
 
 // el-radio-group 的 v-model 类型不接 null,所以用 undefined 表示"未选"
 const selected = ref<number | undefined>(undefined);
@@ -33,32 +25,21 @@ watch(
   },
 );
 
-const explanationHtml = computed(() =>
-  renderMarkdown(props.interaction.prompt.explanationMd),
-);
-const stemHtml = computed(() =>
-  renderMarkdown(props.interaction.prompt.question.stem),
-);
+const explanationHtml = computed(() => renderMarkdown(props.interaction.prompt.explanationMd));
+const stemHtml = computed(() => renderMarkdown(props.interaction.prompt.question.stem));
 
-const isLastInChapter = computed(
-  () => showFeedback.value && pendingNextInteraction.value === null,
-);
+const isLastInChapter = computed(() => showFeedback.value && pendingNextInteraction.value === null);
 
 // 答错(任何类型) — 反馈区显示 warning 色,按钮也变 warning。
 //   v0:复发同 RI;v0.2:server 改成发 adaptive 换说法题 / review_lo 兜底
 // 保留同名,语义改成"上一道题答错"。
-const isRetrySameRi = computed(
-  () => showFeedback.value && lastEvaluation.value?.correct === false,
-);
+const isRetrySameRi = computed(() => showFeedback.value && lastEvaluation.value?.correct === false);
 // v0.2 细分按钮文案:
 const isAdaptiveRetry = computed(
-  () =>
-    isRetrySameRi.value &&
-    pendingNextInteraction.value?.source === 'adaptive',
+  () => isRetrySameRi.value && pendingNextInteraction.value?.source === 'adaptive',
 );
 const isReviewLoNext = computed(
-  () =>
-    showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
+  () => showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
 );
 
 const continueButtonLabel = computed(() => {
@@ -93,11 +74,7 @@ function continueToNext(): void {
     <div class="markdown-body stem" v-html="stemHtml"></div>
 
     <!-- 选项 -->
-    <el-radio-group
-      v-model="selected"
-      :disabled="showFeedback"
-      class="options"
-    >
+    <el-radio-group v-model="selected" :disabled="showFeedback" class="options">
       <el-radio
         v-for="(opt, idx) in interaction.prompt.question.options"
         :key="idx"
@@ -131,10 +108,7 @@ function continueToNext(): void {
         </el-button>
       </template>
       <template v-else>
-        <el-button
-          :type="isRetrySameRi ? 'warning' : 'primary'"
-          @click="continueToNext"
-        >
+        <el-button :type="isRetrySameRi ? 'warning' : 'primary'" @click="continueToNext">
           {{ continueButtonLabel }}
         </el-button>
       </template>

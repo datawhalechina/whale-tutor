@@ -1,7 +1,7 @@
 name: ✨ Feature 请求
 description: 提议一个新特性或对现有特性的扩展
-title: "[Feature] "
-labels: ["enhancement", "needs-triage"]
+title: '[Feature] '
+labels: ['enhancement', 'needs-triage']
 body:
   - type: markdown
     attributes:
@@ -51,8 +51,8 @@ body:
     attributes:
       label: 你愿意自己实现吗?
       options:
-        - "是,等讨论确认方向后我来发 PR"
-        - "可以,但需要 maintainer 提示从哪入手"
-        - "只想提议,实现请别人来"
+        - '是,等讨论确认方向后我来发 PR'
+        - '可以,但需要 maintainer 提示从哪入手'
+        - '只想提议,实现请别人来'
     validations:
       required: true

@@ -10,11 +10,7 @@ type DatetimeNullable = ColumnType<
 // JSON 列：mysql2 默认会把 JSON 列 parse 为 object/array 返回（select 端为 unknown,
 // 由 service 层做 type narrowing）;写入端必须传 stringified JSON。
 type Json<TSelect = unknown> = ColumnType<TSelect, string, string>;
-type JsonNullable<TSelect = unknown> = ColumnType<
-  TSelect | null,
-  string | null,
-  string | null
->;
+type JsonNullable<TSelect = unknown> = ColumnType<TSelect | null, string | null, string | null>;
 
 // ============================================================
 // v0.2 认证骨架
@@ -100,7 +96,7 @@ export interface AiCallsTable {
   tokens_out: number | null;
   latency_ms: number | null;
   status: 'ok' | 'schema_failed' | 'retry_ok' | 'fallback' | 'error';
-  cost_usd: number | string | null;     // DECIMAL(10,6) — mysql2 可能返字符串
+  cost_usd: number | string | null; // DECIMAL(10,6) — mysql2 可能返字符串
   session_id: number | null;
   caller_tag: string | null;
   error_message: string | null;

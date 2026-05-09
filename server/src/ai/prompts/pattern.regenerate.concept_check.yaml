@@ -71,5 +71,5 @@ outputSchema:
 
 # AI 不可用 / 失败时,question=null,SessionService 检测到后落 review_lo(让学习者重看 LO 讲解)
 fallback:
-  explanationMd: ""
+  explanationMd: ''
   question: null

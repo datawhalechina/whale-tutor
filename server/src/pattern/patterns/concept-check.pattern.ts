@@ -44,10 +44,7 @@ export class ConceptCheckPattern {
    * 确定性评估:选项 index 匹配。
    * confidence 固定为 1（无 AI 不确定性）;feedback 直接用预置 rationale。
    */
-  evaluate(
-    prompt: ConceptCheckPrompt,
-    response: ConceptCheckResponse,
-  ): EvaluationResult {
+  evaluate(prompt: ConceptCheckPrompt, response: ConceptCheckResponse): EvaluationResult {
     const correct = response.selectedIndex === prompt.question.answerIndex;
     return {
       correct,

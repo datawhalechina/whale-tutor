@@ -21,8 +21,7 @@ import { validateCourseDefinition } from './knowledge.schema';
 //   2. fallback 到 __dirname/data(monorepo dev 模式 — 内置 python-basics)
 // __dirname 在开发期(ts-node)指向 src/knowledge/, 生产期(node dist)指向 dist/knowledge/。
 // nest-cli.json 的 assets 配置确保 build 时 data/ 也被复制到 dist/knowledge/data/。
-const COURSES_DIR =
-  process.env.WHALE_TUTOR_COURSES_DIR || path.join(__dirname, 'data');
+const COURSES_DIR = process.env.WHALE_TUTOR_COURSES_DIR || path.join(__dirname, 'data');
 
 interface LoIndexEntry {
   lo: LearningObjectiveDefinition;
@@ -190,10 +189,7 @@ export class KnowledgeService implements OnModuleInit {
       name: c.name,
       description: c.description,
       chapterCount: c.chapters.length,
-      loCount: c.chapters.reduce(
-        (sum, ch) => sum + ch.learningObjectives.length,
-        0,
-      ),
+      loCount: c.chapters.reduce((sum, ch) => sum + ch.learningObjectives.length, 0),
     }));
   }
 }

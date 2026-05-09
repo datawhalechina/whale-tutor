@@ -77,30 +77,20 @@ function prepareServerBundleSrc() {
   // b. 复制 tutor-types 到 _local/tutor-types(含 dist + package.json)
   const localTypesDir = join(SERVER_BUNDLE_SRC, '_local/tutor-types');
   mkdirSync(localTypesDir, { recursive: true });
-  cpSync(
-    join(ROOT, 'packages/tutor-types/dist'),
-    join(localTypesDir, 'dist'),
-    { recursive: true },
-  );
+  cpSync(join(ROOT, 'packages/tutor-types/dist'), join(localTypesDir, 'dist'), { recursive: true });
   copyFileSync(
     join(ROOT, 'packages/tutor-types/package.json'),
     join(localTypesDir, 'package.json'),
   );
 
   // c. 准备 package.json:把 workspace:* 改为 file:./_local/tutor-types
-  const serverPkg = JSON.parse(
-    readFileSync(join(ROOT, 'server/package.json'), 'utf8'),
-  );
+  const serverPkg = JSON.parse(readFileSync(join(ROOT, 'server/package.json'), 'utf8'));
   if (serverPkg.dependencies?.['@whale-tutor/tutor-types']) {
-    serverPkg.dependencies['@whale-tutor/tutor-types'] =
-      'file:./_local/tutor-types';
+    serverPkg.dependencies['@whale-tutor/tutor-types'] = 'file:./_local/tutor-types';
   }
   delete serverPkg.devDependencies;
   serverPkg.scripts = { start: 'node dist/main.js' };
-  writeFileSync(
-    join(SERVER_BUNDLE_SRC, 'package.json'),
-    JSON.stringify(serverPkg, null, 2) + '\n',
-  );
+  writeFileSync(join(SERVER_BUNDLE_SRC, 'package.json'), JSON.stringify(serverPkg, null, 2) + '\n');
 }
 
 // cli-node 路线:仅复制源,不装 node_modules — 用户 npm install 时 cli-node 的 package.json
@@ -130,10 +120,7 @@ function writeManifest(bundleRoot, gitCommit) {
     nodeVersion: process.version,
     platform: process.platform,
   };
-  writeFileSync(
-    join(bundleRoot, 'MANIFEST.json'),
-    JSON.stringify(manifest, null, 2) + '\n',
-  );
+  writeFileSync(join(bundleRoot, 'MANIFEST.json'), JSON.stringify(manifest, null, 2) + '\n');
 }
 
 function getGitCommit() {
@@ -155,9 +142,7 @@ copyAssets(BUNDLE_NODE);
 
 const commit = getGitCommit();
 writeManifest(BUNDLE_NODE, commit);
-console.log(
-  `▸ MANIFEST.json — commit ${commit ? commit.slice(0, 7) : '(no git)'}`,
-);
+console.log(`▸ MANIFEST.json — commit ${commit ? commit.slice(0, 7) : '(no git)'}`);
 
 console.log('\n✓ Bundle built:', BUNDLE_NODE);
 console.log('\nNext: cd packages/cli-node && npm install && npm link');

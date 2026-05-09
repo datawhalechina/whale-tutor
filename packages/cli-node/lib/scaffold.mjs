@@ -49,9 +49,7 @@ export function scaffoldInit(templateName, targetDir, bundleRoot) {
   const courseTarget = join(coursesDir, templateName);
 
   if (existsSync(courseTarget)) {
-    console.log(
-      kleur.yellow(`⚠ 目标目录已存在 ${courseTarget},跳过课程内容复制`),
-    );
+    console.log(kleur.yellow(`⚠ 目标目录已存在 ${courseTarget},跳过课程内容复制`));
   } else {
     mkdirSync(coursesDir, { recursive: true });
     cpSync(templateSrc, courseTarget, { recursive: true });
@@ -60,9 +58,7 @@ export function scaffoldInit(templateName, targetDir, bundleRoot) {
 
   const configTarget = join(targetDir, CONFIG_FILENAME);
   if (existsSync(configTarget)) {
-    console.log(
-      kleur.yellow(`⚠ ${CONFIG_FILENAME} 已存在,跳过(若想重置请手动删除)`),
-    );
+    console.log(kleur.yellow(`⚠ ${CONFIG_FILENAME} 已存在,跳过(若想重置请手动删除)`));
   } else {
     writeFileSync(configTarget, CONFIG_TEMPLATE, 'utf8');
     console.log(kleur.green(`✓ 已生成配置文件 → ${configTarget}`));
@@ -70,11 +66,7 @@ export function scaffoldInit(templateName, targetDir, bundleRoot) {
 
   console.log();
   console.log(kleur.bold('下一步:'));
-  console.log(
-    `  1. 编辑 ${kleur.cyan(CONFIG_FILENAME)} 填入你的 mysql 连接 + DEEPSEEK_API_KEY`,
-  );
-  console.log(
-    `  2. 编辑 ${kleur.cyan(`courses/${templateName}/`)} 下的 yaml/md 修改课程内容`,
-  );
+  console.log(`  1. 编辑 ${kleur.cyan(CONFIG_FILENAME)} 填入你的 mysql 连接 + DEEPSEEK_API_KEY`);
+  console.log(`  2. 编辑 ${kleur.cyan(`courses/${templateName}/`)} 下的 yaml/md 修改课程内容`);
   console.log(`  3. 运行 ${kleur.bold('whale-tutor start')} 启动学习环境`);
 }

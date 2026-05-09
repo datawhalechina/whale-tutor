@@ -39,7 +39,9 @@ const COURSE_IDS = ['python-basics'];
 
     console.log(`✓ ${course.id} — ${course.name}`);
     for (const ch of course.chapters) {
-      console.log(`  ▸ ${ch.id} — ${ch.name} (${ch.learningObjectives.length} LO${ch.learningObjectives.length !== 1 ? 's' : ''})`);
+      console.log(
+        `  ▸ ${ch.id} — ${ch.name} (${ch.learningObjectives.length} LO${ch.learningObjectives.length !== 1 ? 's' : ''})`,
+      );
       for (const lo of ch.learningObjectives) {
         totalLos += 1;
         totalRis += lo.requiredInteractions.length;
@@ -47,18 +49,24 @@ const COURSE_IDS = ['python-basics'];
         const sampleStat = sample
           ? `${sample.patternId}; first ri prompt sample: ${sampleStatString(sample)}`
           : '(no required interactions)';
-        console.log(`    • ${lo.id} — ${lo.requiredInteractions.length} required ri; ${sampleStat}`);
+        console.log(
+          `    • ${lo.id} — ${lo.requiredInteractions.length} required ri; ${sampleStat}`,
+        );
       }
       if (ch.assessment) {
         totalAssessments += 1;
         totalRis += ch.assessment.requiredInteractions.length;
         const sample = ch.assessment.requiredInteractions[0];
-        console.log(`    ★ assessment ${ch.assessment.id} — ${ch.assessment.requiredInteractions.length} required ri${sample ? ` (${sample.patternId})` : ''}`);
+        console.log(
+          `    ★ assessment ${ch.assessment.id} — ${ch.assessment.requiredInteractions.length} required ri${sample ? ` (${sample.patternId})` : ''}`,
+        );
       }
     }
   }
 
-  console.log(`\nSummary: ${COURSE_IDS.length} course(s), ${totalLos} LO(s), ${totalAssessments} assessment(s), ${totalRis} required interaction(s)`);
+  console.log(
+    `\nSummary: ${COURSE_IDS.length} course(s), ${totalLos} LO(s), ${totalAssessments} assessment(s), ${totalRis} required interaction(s)`,
+  );
 })().catch((err) => {
   console.error('Unexpected error:', err);
   process.exit(1);

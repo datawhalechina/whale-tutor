@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { sql } from 'kysely';
 import type {
   AcknowledgeReviewLoResponse,
@@ -128,10 +122,7 @@ export class SessionService {
     return { sessionId, decision, interaction };
   }
 
-  async submit(
-    sessionId: number,
-    body: SubmitResponseBody,
-  ): Promise<SubmitResponseResult> {
+  async submit(sessionId: number, body: SubmitResponseBody): Promise<SubmitResponseResult> {
     const interactionRow = await this.db
       .selectFrom('interactions')
       .selectAll()
@@ -200,9 +191,7 @@ export class SessionService {
     const isAssessmentRi =
       interactionRow.source === 'static' &&
       !!interactionRow.required_interaction_id &&
-      !lo.requiredInteractions.some(
-        (ri) => ri.id === interactionRow.required_interaction_id,
-      );
+      !lo.requiredInteractions.some((ri) => ri.id === interactionRow.required_interaction_id);
     const delta = applyMasteryStateMachine({
       state: oldState,
       evaluation,
@@ -369,12 +358,7 @@ export class SessionService {
     });
 
     let decision = await this.decideNext(sessionId, learnerId, loId);
-    let interaction = await this.maybeServeFromDecision(
-      sessionId,
-      learnerId,
-      loId,
-      decision,
-    );
+    let interaction = await this.maybeServeFromDecision(sessionId, learnerId, loId, decision);
     if (
       decision.primary.type === 'serve_interaction' &&
       decision.primary.source === 'adaptive' &&
@@ -465,10 +449,7 @@ export class SessionService {
   // 作者写了 RI.hints → 直接返;没写 → AI 兜底生成 3 级 + cache
   // ========================================================
 
-  async requestHint(
-    sessionId: number,
-    body: RequestHintRequest,
-  ): Promise<RequestHintResponse> {
+  async requestHint(sessionId: number, body: RequestHintRequest): Promise<RequestHintResponse> {
     const interactionRow = await this.db
       .selectFrom('interactions')
       .selectAll()
@@ -557,12 +538,8 @@ export class SessionService {
     const chapter = session.current_lo_id
       ? this.knowledge.getChapterByLoId(session.current_lo_id)
       : course.chapters[0];
-    const chapterProgress = await this.getChapterProgressOrDefault(
-      session.learner_id,
-      chapter.id,
-    );
-    const assessmentRequiredCount =
-      chapter.assessment?.requiredInteractions.length ?? 0;
+    const chapterProgress = await this.getChapterProgressOrDefault(session.learner_id, chapter.id);
+    const assessmentRequiredCount = chapter.assessment?.requiredInteractions.length ?? 0;
 
     const los: SessionProgressLoEntry[] = [];
     for (const lo of chapter.learningObjectives) {
@@ -571,10 +548,7 @@ export class SessionService {
         lo.id,
         lo.requiredInteractions.length,
       );
-      const prereqsSatisfied = await this.allPrereqsSatisfiedReadonly(
-        session.learner_id,
-        lo,
-      );
+      const prereqsSatisfied = await this.allPrereqsSatisfiedReadonly(session.learner_id, lo);
       los.push({
         id: lo.id,
         name: lo.name,
@@ -590,10 +564,7 @@ export class SessionService {
     // 课程全部章节概览 — 给 sidebar 显示"还有哪些章" + 区分未开始 / 学习中
     const allChapters = [];
     for (const ch of course.chapters) {
-      const chProgress = await this.getChapterProgressOrDefault(
-        session.learner_id,
-        ch.id,
-      );
+      const chProgress = await this.getChapterProgressOrDefault(session.learner_id, ch.id);
       // started 判定 — 必须真答过题:
       //   - phase 已 assessment / completed 显然 started
       //   - 否则查该章任一 LO 是否有 attempts > 0 的 row
@@ -664,10 +635,7 @@ export class SessionService {
     course: { chapters: Array<{ id: string; learningObjectives: Array<{ id: string }> }> },
   ): Promise<{ id: string }> {
     for (const chapter of course.chapters) {
-      const progress = await this.getChapterProgressOrDefault(
-        learnerId,
-        chapter.id,
-      );
+      const progress = await this.getChapterProgressOrDefault(learnerId, chapter.id);
       if (progress.phase !== 'completed') {
         return chapter.learningObjectives[0];
       }
@@ -1012,10 +980,7 @@ export class SessionService {
       },
     });
 
-    const learnerPrompt = this.patterns.toLearnerPrompt(
-      originalRi.patternId,
-      generatedPrompt,
-    );
+    const learnerPrompt = this.patterns.toLearnerPrompt(originalRi.patternId, generatedPrompt);
 
     return {
       id: interactionId,

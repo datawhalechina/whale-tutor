@@ -46,14 +46,14 @@ export type DifficultyBand = 'beginner' | 'intermediate' | 'advanced';
 
 export type RequiredInteraction = {
   [P in PatternId]: {
-    id: string;                     // 在 chapter 范围内唯一,如 "ri.list.basics.1"
+    id: string; // 在 chapter 范围内唯一,如 "ri.list.basics.1"
     patternId: P;
-    prompt: PatternPromptMap[P];    // server-only,含 answer/expected/rubric
+    prompt: PatternPromptMap[P]; // server-only,含 answer/expected/rubric
     // 静态梯度提示(server-only)。作者可定制 1-5 级,缺省走 AI 兜底生成 3 级。
     // hints 数组下标 0 = level 1(最轻),依次递进。
     // 取的时候永远 hints[level - 1]。详见 server/src/session/hint-cache.service.ts
     hints?: string[];
-    note?: string;                  // 可选,内容作者的备注
+    note?: string; // 可选,内容作者的备注
   };
 }[PatternId];
 
@@ -76,28 +76,28 @@ export interface RequiredInteractionMeta {
 // ============================================================
 
 export interface LearningObjectiveDefinition {
-  id: string;                       // e.g. "lo.list.basics"
+  id: string; // e.g. "lo.list.basics"
   name: string;
   description: string;
-  prerequisites: string[];          // 强依赖,必须 ≥ practicing 才能解锁
-  weakPrerequisites?: string[];     // 弱依赖,可越过
-  estimatedDurationMin: number;     // 15-30
+  prerequisites: string[]; // 强依赖,必须 ≥ practicing 才能解锁
+  weakPrerequisites?: string[]; // 弱依赖,可越过
+  estimatedDurationMin: number; // 15-30
   difficultyBand: DifficultyBand;
-  coreExplanation: string;          // 教学讲解原文(YAML 里通过 $ref 引入 .md)
-  commonMisconceptions: string[];   // server-only,出题灵感 + 评估识别(v0.2 PathOrchestrator 智能化时用)
-  masteryCriteria: string;          // 人类可读的判定标准描述
-  requiredInteractions: RequiredInteraction[];   // server-only,按序必做(含答案)
-  adaptivePatterns: PatternId[];    // 必做完成后,AI 动态生成时可用的 pattern 集
+  coreExplanation: string; // 教学讲解原文(YAML 里通过 $ref 引入 .md)
+  commonMisconceptions: string[]; // server-only,出题灵感 + 评估识别(v0.2 PathOrchestrator 智能化时用)
+  masteryCriteria: string; // 人类可读的判定标准描述
+  requiredInteractions: RequiredInteraction[]; // server-only,按序必做(含答案)
+  adaptivePatterns: PatternId[]; // 必做完成后,AI 动态生成时可用的 pattern 集
 }
 
 export interface ChapterAssessmentDefinition {
-  id: string;                       // e.g. "ca.ch.list_and_iter"
+  id: string; // e.g. "ca.ch.list_and_iter"
   name: string;
-  requiredInteractions: RequiredInteraction[];   // server-only
+  requiredInteractions: RequiredInteraction[]; // server-only
 }
 
 export interface ChapterDefinition {
-  id: string;                       // e.g. "ch.list_and_iter"
+  id: string; // e.g. "ch.list_and_iter"
   name: string;
   description: string;
   learningObjectives: LearningObjectiveDefinition[];
@@ -105,7 +105,7 @@ export interface ChapterDefinition {
 }
 
 export interface CourseDefinition {
-  id: string;                       // e.g. "python-basics"
+  id: string; // e.g. "python-basics"
   name: string;
   // 学科 / 领域名,作为 AI prompt 模板的 {{subject}} 变量。
   // 例:"Python" / "SQL" / "Java"。让 prompt 不依赖 hardcoded 学科,加新课程时无需改 prompt yaml。
@@ -147,17 +147,11 @@ export type LearningObjective = Omit<
   coreExplanationMd: string;
 };
 
-export type ChapterAssessmentSummary = Omit<
-  ChapterAssessmentDefinition,
-  'requiredInteractions'
-> & {
+export type ChapterAssessmentSummary = Omit<ChapterAssessmentDefinition, 'requiredInteractions'> & {
   requiredInteractionCount: number;
 };
 
-export type Chapter = Omit<
-  ChapterDefinition,
-  'learningObjectives' | 'assessment'
-> & {
+export type Chapter = Omit<ChapterDefinition, 'learningObjectives' | 'assessment'> & {
   learningObjectives: LearningObjective[];
   assessment: ChapterAssessmentSummary | null;
 };
@@ -170,21 +164,15 @@ export type Course = Omit<CourseDefinition, 'chapters' | 'subject'> & {
 // 学习者（Learner Model）
 // ============================================================
 
-export const GOAL_SCENARIOS = [
-  'data_analysis',
-  'ai',
-  'automation',
-  'interest',
-  'other',
-] as const;
+export const GOAL_SCENARIOS = ['data_analysis', 'ai', 'automation', 'interest', 'other'] as const;
 export type GoalScenario = (typeof GOAL_SCENARIOS)[number];
 
 export interface LearnerProfile {
   id: number;
   name: string;
   goalScenario: GoalScenario;
-  userId: number | null;            // v0.2 加认证后关联
-  createdAt: string;                // ISO 8601
+  userId: number | null; // v0.2 加认证后关联
+  createdAt: string; // ISO 8601
   updatedAt: string;
 }
 
@@ -272,7 +260,7 @@ export interface InteractionInstance<TPrompt = unknown> {
 
 export interface EvaluationResult {
   correct: boolean;
-  confidence: number;               // 0-1; AI 评估时必返,确定性评估固定 1
+  confidence: number; // 0-1; AI 评估时必返,确定性评估固定 1
   feedbackMd: string;
   // 状态机增量,由 PathOrchestrator 应用到 learner_state
   masteryDelta: {
@@ -290,11 +278,11 @@ export interface EvaluationResult {
 // ============================================================
 
 export type PathActionType =
-  | 'serve_interaction'             // 出一道交互题（必做或自适应）
-  | 'review_lo'                     // 同 LO 换种说法/模式（不算"回答"）
-  | 'chapter_assessment'            // 进入章末测试
-  | 'chapter_complete'              // 章末通过
-  | 'request_break';                // 建议学习者休息
+  | 'serve_interaction' // 出一道交互题（必做或自适应）
+  | 'review_lo' // 同 LO 换种说法/模式（不算"回答"）
+  | 'chapter_assessment' // 进入章末测试
+  | 'chapter_complete' // 章末通过
+  | 'request_break'; // 建议学习者休息
 
 export interface ServeInteractionAction {
   type: 'serve_interaction';
@@ -304,7 +292,7 @@ export interface ServeInteractionAction {
   // adaptive 时由 SessionService 调对应 Pattern.generate()
   source: 'static' | 'adaptive';
   requiredInteractionId: string | null;
-  rationale: string;                // 为什么选这个,会回显给学习者增加掌控感
+  rationale: string; // 为什么选这个,会回显给学习者增加掌控感
 }
 
 export interface ReviewLoAction {
@@ -316,7 +304,7 @@ export interface ReviewLoAction {
 export interface ChapterAssessmentAction {
   type: 'chapter_assessment';
   chapterId: string;
-  requiredInteractionId: string;    // 章末测试中下一道必做题
+  requiredInteractionId: string; // 章末测试中下一道必做题
 }
 
 export interface ChapterCompleteAction {
@@ -338,7 +326,7 @@ export type PathAction =
 
 export interface PathDecision {
   primary: PathAction;
-  alternatives: PathAction[];       // 0-2 个备选,交还前端让学习者选择
+  alternatives: PathAction[]; // 0-2 个备选,交还前端让学习者选择
 }
 
 // ============================================================
@@ -373,7 +361,7 @@ export type EventType =
 
 export interface DomainEvent<TPayload = Record<string, unknown>> {
   id: number;
-  sessionId: number | null;         // 部分事件发生在 session 之外（如 onboarding 早期）
+  sessionId: number | null; // 部分事件发生在 session 之外（如 onboarding 早期）
   learnerId: number;
   type: EventType;
   loId: string | null;
@@ -401,7 +389,7 @@ export interface QaThread {
   id: number;
   learnerId: number;
   sessionId: number;
-  loId: string | null;              // 发起时所在 LO,部分场景可能为 null
+  loId: string | null; // 发起时所在 LO,部分场景可能为 null
   // 栈式父引用：恰有一个非 null,或都 null（LO/Chapter 闲置场景）
   parentInteractionId: number | null;
   parentQaThreadId: number | null;
@@ -432,7 +420,7 @@ export interface Archive {
   learnerId: number;
   courseId: string;
   scope: ArchiveScope;
-  scopeRef: string | null;          // chapter id（scope=chapter 时）
+  scopeRef: string | null; // chapter id（scope=chapter 时）
   contentMd: string;
   generatedAt: string;
 }
@@ -441,13 +429,7 @@ export interface Archive {
 // AI Gateway 调用记录（用于成本追踪与故障排查）
 // ============================================================
 
-export const AI_CALL_STATUSES = [
-  'ok',
-  'schema_failed',
-  'retry_ok',
-  'fallback',
-  'error',
-] as const;
+export const AI_CALL_STATUSES = ['ok', 'schema_failed', 'retry_ok', 'fallback', 'error'] as const;
 export type AiCallStatus = (typeof AI_CALL_STATUSES)[number];
 
 export interface AiCallRecord {

@@ -1,10 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { sql, type Selectable } from 'kysely';
-import type {
-  LearnerLoState,
-  LearnerProfile,
-  MasteryLevel,
-} from '@whale-tutor/tutor-types';
+import type { LearnerLoState, LearnerProfile, MasteryLevel } from '@whale-tutor/tutor-types';
 import { KYSELY, type Database } from '../database/database.module';
 import type { LearnerStateTable } from '../database/database.types';
 
@@ -110,9 +106,7 @@ export class LearnerService {
       .set({
         mastery_level: input.nextMasteryLevel,
         attempts: sql`attempts + 1`,
-        correct_count: input.correct
-          ? sql`correct_count + 1`
-          : sql`correct_count`,
+        correct_count: input.correct ? sql`correct_count + 1` : sql`correct_count`,
         consecutive_correct: input.consecutiveCorrect,
         consecutive_wrong: input.consecutiveWrong,
         mandatory_completed_ids: JSON.stringify(input.mandatoryCompletedIds),
@@ -149,8 +143,7 @@ function rowToLoState(
     consecutiveWrong: row.consecutive_wrong,
     mandatoryCompletedIds: mandatoryIds,
     mandatoryAllCompleted:
-      requiredInteractionTotal > 0 &&
-      mandatoryIds.length >= requiredInteractionTotal,
+      requiredInteractionTotal > 0 && mandatoryIds.length >= requiredInteractionTotal,
     pendingRetryRiId: row.pending_retry_ri_id,
     lastSeenAt: row.last_seen_at ? row.last_seen_at.toISOString() : null,
     updatedAt: row.updated_at.toISOString(),

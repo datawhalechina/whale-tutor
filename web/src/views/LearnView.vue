@@ -2,10 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
-import type {
-  ArchiveNodeKind,
-  LearningObjective,
-} from '@whale-tutor/tutor-types';
+import type { ArchiveNodeKind, LearningObjective } from '@whale-tutor/tutor-types';
 import { useSessionStore } from '@/stores/session';
 import { useQaStore } from '@/stores/qa';
 import ArchiveViewer from '@/components/ArchiveViewer.vue';
@@ -108,10 +105,7 @@ async function onViewRecap(loId: string): Promise<void> {
   recapVisible.value = true;
 }
 
-function onViewArchive(
-  kind: ArchiveNodeKind,
-  id: string | number,
-): void {
+function onViewArchive(kind: ArchiveNodeKind, id: string | number): void {
   archiveKind.value = kind;
   archiveId.value = id;
   archiveVisible.value = true;
@@ -147,20 +141,14 @@ async function onOpenHistory(): Promise<void> {
             >
               {{ masteryLabel[lastLoState.masteryLevel] || lastLoState.masteryLevel }}
             </el-tag>
-            <el-tag
-              v-if="!lastLoState.mandatoryAllCompleted"
-              type="warning"
-              size="small"
-            >
+            <el-tag v-if="!lastLoState.mandatoryAllCompleted" type="warning" size="small">
               必做 {{ lastLoState.mandatoryCompletedIds.length }} 题已完成
             </el-tag>
             <el-tag v-else type="success" size="small">必做全部完成</el-tag>
           </div>
         </div>
         <div class="header-right">
-          <el-button v-if="currentInteraction" plain @click="openQa">
-            💬 问问题
-          </el-button>
+          <el-button v-if="currentInteraction" plain @click="openQa"> 💬 问问题 </el-button>
           <el-button @click="backHome">返回首页</el-button>
         </div>
       </el-header>
@@ -174,12 +162,7 @@ async function onOpenHistory(): Promise<void> {
 
         <!-- v0.2:review_lo 兜底,优先级最高(其他视图都隐藏) -->
         <div v-if="reviewLoActive" class="review-lo-wrapper">
-          <el-alert
-            type="warning"
-            :closable="false"
-            show-icon
-            class="review-lo-banner"
-          >
+          <el-alert type="warning" :closable="false" show-icon class="review-lo-banner">
             <template #title>
               <strong>先回到讲解再来</strong>
             </template>
@@ -200,10 +183,7 @@ async function onOpenHistory(): Promise<void> {
           mode="first-time"
           @start="sessionStore.acknowledgeCurrentLo()"
         />
-        <InteractionStage
-          v-else-if="currentInteraction"
-          :interaction="currentInteraction"
-        />
+        <InteractionStage v-else-if="currentInteraction" :interaction="currentInteraction" />
 
         <div v-else-if="finalActionLabel" class="final-state">
           <el-result :title="finalActionLabel" icon="success">

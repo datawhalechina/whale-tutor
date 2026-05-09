@@ -36,11 +36,7 @@ export async function loadFromFile(filePath: string): Promise<unknown> {
  * 递归处理 $ref。baseDir 是当前文件所在目录,$ref 路径相对此解析。
  * sourcePath 仅用于错误提示。
  */
-async function resolveRefs(
-  node: unknown,
-  baseDir: string,
-  sourcePath: string,
-): Promise<unknown> {
+async function resolveRefs(node: unknown, baseDir: string, sourcePath: string): Promise<unknown> {
   if (node === null || typeof node !== 'object') {
     return node;
   }

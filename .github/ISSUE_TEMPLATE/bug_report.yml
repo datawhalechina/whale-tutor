@@ -1,7 +1,7 @@
 name: 🐛 Bug 报告
 description: 你发现某个现有功能没按预期工作
-title: "[Bug] "
-labels: ["bug", "needs-triage"]
+title: '[Bug] '
+labels: ['bug', 'needs-triage']
 body:
   - type: markdown
     attributes:
@@ -48,7 +48,7 @@ body:
       description: |
         - 用 git 跑的:`git log -1 --format='%h %s'` 复制粘贴
         - 用 `whale-tutor` CLI 跑的:`whale-tutor --version`
-      placeholder: "8abc35b complete v0.1  /  whale-tutor 0.1.0"
+      placeholder: '8abc35b complete v0.1  /  whale-tutor 0.1.0'
     validations:
       required: true
 
@@ -57,7 +57,7 @@ body:
     attributes:
       label: 环境
       description: 操作系统 / Node 版本 / MySQL 版本
-      placeholder: "macOS 14.5 / Node 22.4 / MySQL 8.4"
+      placeholder: 'macOS 14.5 / Node 22.4 / MySQL 8.4'
     validations:
       required: true
 
