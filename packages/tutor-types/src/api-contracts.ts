@@ -142,6 +142,35 @@ export interface SwitchChapterResponse {
 }
 
 // ============================================================
+// /api/sessions/:id/reset-chapter
+// 重置某章学习记录:清该章所有 LO 的 learner_state + 章节 progress + session 跳到该章首 LO。
+// 历史 events / responses / interactions 表不动(留 audit + 以后可以做 archive)。
+// 用户场景:重新学一遍这章。
+// ============================================================
+
+export interface ResetChapterRequest {
+  chapterId: string;
+}
+
+export interface ResetChapterResponse {
+  decision: PathDecision;
+  interaction: ServedInteraction | null;
+  resetLoCount: number; // 清掉了几个 LO 的状态(给前端 UI 反馈)
+}
+
+// ============================================================
+// /api/sessions/:id/reset-course
+// 重置整个课程学习记录:同上,扩到全部章节 + 跳第一章首 LO。
+// ============================================================
+
+export interface ResetCourseResponse {
+  decision: PathDecision;
+  interaction: ServedInteraction | null;
+  resetLoCount: number;
+  resetChapterCount: number;
+}
+
+// ============================================================
 // /api/sessions/:id/hints
 // v0.2 实施:静态梯度提示协议(server/src/session/hint-cache.service.ts)
 //   - 作者在 RI.hints 写好 1-5 级文案 → 直接返

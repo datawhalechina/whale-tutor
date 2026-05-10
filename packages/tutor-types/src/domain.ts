@@ -357,7 +357,10 @@ export type EventType =
   | 'assessment.diagnostic.responded'
   | 'qa.thread_started'
   | 'qa.message_added'
-  | 'qa.thread_ended';
+  | 'qa.thread_ended'
+  // 学习者主动重置进度(清 learner_state + chapter_progress;events / responses 等历史保留)
+  | 'learner.chapter_reset'
+  | 'learner.course_reset';
 
 export interface DomainEvent<TPayload = Record<string, unknown>> {
   id: number;
