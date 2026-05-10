@@ -3,7 +3,7 @@
 [![CI](https://github.com/datawhalechina/whale-tutor/actions/workflows/ci.yml/badge.svg)](https://github.com/datawhalechina/whale-tutor/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Node](https://img.shields.io/badge/Node-≥22-green)](https://nodejs.org/)
-[![GitHub Stars](https://img.shields.io/github/stars/datawhalechina/whale-tutor?style=social)](https://github.com/datawhalechina/whale-tutor/stargazers)
+[![GitHub Stars](https://img.shields.io/github/stars/datawhalechina/whale-tutor)](https://github.com/datawhalechina/whale-tutor/stargazers)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Discussions](https://img.shields.io/github/discussions/datawhalechina/whale-tutor)](https://github.com/datawhalechina/whale-tutor/discussions)
 
@@ -232,7 +232,7 @@ pnpm dev                    # 并行起 web (5173) + server (3000)
 
 感谢每一位贡献者(代码 / 课程 / 文档 / bug 报告 / 设计讨论):
 
-[![Contributors](https://contrib.rocks/image?repo=datawhalechina/whale-tutor)](https://github.com/datawhalechina/whale-tutor/graphs/contributors)
+[![Contributors](https://stg.contrib.rocks/image?repo=datawhalechina/whale-tutor)](https://github.com/datawhalechina/whale-tutor/graphs/contributors)
 
 ### Star History
 
