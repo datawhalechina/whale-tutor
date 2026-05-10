@@ -174,7 +174,7 @@ pnpm dev                    # 并行起 web (5173) + server (3000)
 
 - **YAML + Markdown** 内容存储,`$ref` 长文外置;**修改内容不需要懂代码**
 - **学科参数化** — `course.yaml` 的 `subject` 字段灌进所有 prompt,加新课程(SQL / Java / Pandas)无需改 prompt 模板
-- **CLI(npm 包)** — `init / start / doctor / lint / build` 5 个命令
+- **CLI(npm 包)** — `init / start / doctor / lint / build / generate` 6 个命令
 - **`whale-tutor build`** — 写 markdown 讲稿(每章一份 md)→ AI 4 阶段生成完整 yaml/md 课程骨架
 - **`whale-tutor lint`** — 5 秒校验所有 yaml/$ref/pattern 结构
 

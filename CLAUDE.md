@@ -44,8 +44,8 @@ whale-tutor/
 │   ├── tutor-types/      # 前后端共享 TS 类型(workspace 内部)
 │   └── cli-node/         # ★ 课程作者 npm 包(发到 npm)
 │       ├── package.json  # bin: whale-tutor → bin/cli.mjs
-│       ├── bin/cli.mjs   # commander 入口:init / start / doctor / lint / build
-│       ├── lib/          # config.mjs / db.mjs / runner.mjs / scaffold.mjs / doctor.mjs / lint.mjs / build.mjs
+│       ├── bin/cli.mjs   # commander 入口:init / start / doctor / lint / build / generate
+│       ├── lib/          # config.mjs / db.mjs / runner.mjs / scaffold.mjs / doctor.mjs / lint.mjs / build.mjs / generate.mjs
 │       ├── _bundle/      # ⚠ 构建产物,不入 git(由 build:cli-bundle 填充)
 │       └── README.md
 ├── scripts/

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// commander 入口。子命令:init / start / doctor。
+// commander 入口。子命令:init / start / doctor / lint / build / generate。
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
