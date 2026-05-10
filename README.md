@@ -15,6 +15,30 @@
 | ✍️ **课程作者**(老师/教研/内容编辑) | 写 markdown 讲稿 → AI 一键生成完整可交互课程           | [AUTHORING.md](AUTHORING.md)                                |
 | 🛠️ **开发者**                       | 加新 pattern / 新 endpoint / 新 UI / 改架构            | [CONTRIBUTING.md](CONTRIBUTING.md) + [CLAUDE.md](CLAUDE.md) |
 
+## 📸 看看长什么样
+
+CLI 生成的课程 (`whale-tutor` 启动 + 运行中):
+
+<table>
+  <tr>
+    <td width="50%"><img src="./static/cli-shot-1.png" alt="whale-tutor CLI" /></td>
+    <td width="50%"><img src="./static/cli-result.png" alt="whale-tutor 运行结果" /></td>
+  </tr>
+</table>
+
+课程的若干交互模式：
+
+<table>
+  <tr>
+    <td width="50%"><img src="./static/course-example-1.png" alt="generate 交互向导" /></td>
+    <td width="50%"><img src="./static/course-example-2.png" alt="生成完成的课程" /></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="./static/course-example-3.png" alt="学习模式示例 1" /></td>
+    <td width="50%"><img src="./static/course-example-4.png" alt="学习模式示例 2" /></td>
+  </tr>
+</table>
+
 ## 它和 ChatGPT 直接对话有什么区别?
 
 **ChatGPT 是开放对话**,没有路径设计、没有 mastery 跟踪、没有系统性推进。学完不知道学了什么,卡住没有兜底机制。
