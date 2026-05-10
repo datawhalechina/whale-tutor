@@ -11,8 +11,16 @@ const props = defineProps<{
 }>();
 
 const sessionStore = useSessionStore();
-const { lastEvaluation, showFeedback, pendingNextInteraction, currentDecision, loading } =
-  storeToRefs(sessionStore);
+const {
+  lastEvaluation,
+  lastLoState,
+  showFeedback,
+  pendingNextInteraction,
+  currentDecision,
+  loading,
+  loadingNext,
+  hasFetchedNext,
+} = storeToRefs(sessionStore);
 
 // 行号从 1 开始(与 server bugLocations.line 一致)
 const selectedLines = ref<Set<number>>(new Set());
@@ -31,17 +39,19 @@ const hintHtml = computed(() =>
   props.interaction.prompt.hintMd ? renderMarkdown(props.interaction.prompt.hintMd) : '',
 );
 
-const isLastInChapter = computed(() => showFeedback.value && pendingNextInteraction.value === null);
+// 只在 fetch 真完成 + pending 确认为 null 时才算章末 — hasFetchedNext 守门
+const isLastInChapter = computed(
+  () => showFeedback.value && hasFetchedNext.value && pendingNextInteraction.value === null,
+);
 const isRetrySameRi = computed(() => showFeedback.value && lastEvaluation.value?.correct === false);
-const isAdaptiveRetry = computed(
-  () => isRetrySameRi.value && pendingNextInteraction.value?.source === 'adaptive',
+const shouldSuggestReview = computed(
+  () => showFeedback.value && (lastLoState.value?.consecutiveWrong ?? 0) >= 3,
 );
 const isReviewLoNext = computed(
   () => showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
 );
 const continueButtonLabel = computed(() => {
   if (isReviewLoNext.value) return '去看讲解';
-  if (isAdaptiveRetry.value) return '换种说法再试一道';
   if (isLastInChapter.value) return '查看结果';
   return '下一题';
 });
@@ -75,6 +85,13 @@ async function submit(): Promise<void> {
 
 function continueToNext(): void {
   void sessionStore.continueToNext();
+}
+
+function retryAnswer(): void {
+  // 同 ConceptCheckCard.retryAnswer:UI 重置;explanation 留着供用户改后再交,
+  // selectedLines 清掉(让用户重新点)
+  selectedLines.value = new Set();
+  sessionStore.clearFeedback();
 }
 </script>
 
@@ -124,6 +141,19 @@ function continueToNext(): void {
       />
     </transition>
 
+    <el-alert
+      v-if="shouldSuggestReview"
+      type="warning"
+      show-icon
+      :closable="false"
+      class="stuck-banner"
+    >
+      <template #title>
+        <strong>已连续答错 {{ lastLoState?.consecutiveWrong }} 次</strong>
+      </template>
+      继续重试可能不是最佳选择 — 回到 LO 讲解再来一次会更有帮助。
+    </el-alert>
+
     <div class="actions">
       <template v-if="!showFeedback">
         <el-button type="primary" :disabled="!canSubmit" :loading="loading" @click="submit">
@@ -131,7 +161,21 @@ function continueToNext(): void {
         </el-button>
       </template>
       <template v-else>
-        <el-button :type="isRetrySameRi ? 'warning' : 'primary'" @click="continueToNext">
+        <el-button v-if="isRetrySameRi" plain @click="retryAnswer"> 🔁 再试一次 </el-button>
+        <el-button
+          v-if="shouldSuggestReview && !isReviewLoNext"
+          type="warning"
+          :loading="loadingNext"
+          @click="continueToNext"
+        >
+          📖 去看讲解
+        </el-button>
+        <el-button
+          v-if="!isRetrySameRi || isReviewLoNext"
+          type="primary"
+          :loading="loadingNext"
+          @click="continueToNext"
+        >
           {{ continueButtonLabel }}
         </el-button>
       </template>
@@ -219,6 +263,10 @@ function continueToNext(): void {
   margin-top: 24px;
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+}
+.stuck-banner {
+  margin-top: 16px;
 }
 .fade-enter-active,
 .fade-leave-active {

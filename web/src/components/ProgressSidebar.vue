@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { storeToRefs } from 'pinia';
+import { ElMessageBox, ElMessage } from 'element-plus';
 import { useSessionStore } from '@/stores/session';
 import type { ArchiveNodeKind, ChapterPhase, MasteryLevel } from '@whale-tutor/tutor-types';
 
@@ -12,8 +14,71 @@ const emit = defineEmits<{
 const sessionStore = useSessionStore();
 const { progress } = storeToRefs(sessionStore);
 
+// 切换章节是 ~3-5s 的远程操作(server 内部 decideNext + 可能 AI 出题)。
+// 不显示 loading 用户会以为卡死。这里维护正在切换的章节 id,锁住所有按钮 + 在
+// 被点的那个章节上显示 spinner 文字,避免连点 / 误以为没响应。
+const switchingChapterId = ref<string | null>(null);
+
 async function onSwitchChapter(chapterId: string): Promise<void> {
-  await sessionStore.switchChapter(chapterId);
+  if (switchingChapterId.value) return; // 防连点
+  switchingChapterId.value = chapterId;
+  try {
+    await sessionStore.switchChapter(chapterId);
+  } finally {
+    switchingChapterId.value = null;
+  }
+}
+
+// 重置章节学习记录:确认对话 → 调 store → toast 反馈
+async function onResetChapter(chapter: { id: string; name: string }): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `这会清除「${chapter.name}」所有 LO 的 mastery 状态、必做完成数、章末测试进度,` +
+        `并把你跳转到本章第一个学习目标重新开始。\n\n历史答题记录 / QA 不会删,可以安心重置。`,
+      '重置本章学习记录?',
+      {
+        confirmButtonText: '确认重置',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger',
+      },
+    );
+  } catch {
+    return; // 用户取消
+  }
+  try {
+    const count = await sessionStore.resetChapter(chapter.id);
+    ElMessage.success(`已清除 ${count} 个 LO 的进度,从本章开头重新开始`);
+  } catch (e) {
+    ElMessage.error(`重置失败:${(e as Error).message}`);
+  }
+}
+
+// 重置整个课程进度
+async function onResetCourse(): Promise<void> {
+  if (!progress.value) return;
+  const courseName = progress.value.course.name;
+  try {
+    await ElMessageBox.confirm(
+      `这会清除「${courseName}」全部章节、全部 LO 的学习进度,跳到课程第一章第一个 LO 重新开始。\n\n` +
+        `历史答题记录 / QA 不会删,但 mastery 状态、必做完成、章末进度全部归零。**不可撤销**。`,
+      '重置整个课程进度?',
+      {
+        confirmButtonText: '确认全部重置',
+        cancelButtonText: '取消',
+        type: 'error',
+        confirmButtonClass: 'el-button--danger',
+      },
+    );
+  } catch {
+    return;
+  }
+  try {
+    const { loCount, chapterCount } = await sessionStore.resetCourse();
+    ElMessage.success(`已清除 ${chapterCount} 章 / ${loCount} 个 LO 的进度,从课程开头重新开始`);
+  } catch (e) {
+    ElMessage.error(`重置失败:${(e as Error).message}`);
+  }
 }
 
 const masteryEmoji: Record<MasteryLevel, string> = {
@@ -56,31 +121,52 @@ const phaseTagType: Record<ChapterPhase, 'info' | 'warning' | 'success'> = {
     <div v-if="progress.allChapters.length > 1" class="section">
       <div class="section-title">课程全部章节</div>
       <div class="chapter-outline">
-        <button
-          v-for="(ch, idx) in progress.allChapters"
-          :key="ch.id"
-          :class="[
-            'chapter-row',
-            {
-              current: ch.isCurrent,
-              completed: ch.phase === 'completed',
-              'not-started': !ch.started && !ch.isCurrent,
-            },
-          ]"
-          :disabled="ch.isCurrent"
-          :title="ch.isCurrent ? '当前章节' : `点击切换到「${ch.name}」`"
-          @click="onSwitchChapter(ch.id)"
-        >
-          <span class="chapter-idx">{{ idx + 1 }}.</span>
-          <span class="chapter-row-name">{{ ch.name }}</span>
-          <el-tag
-            :type="ch.started || ch.isCurrent ? phaseTagType[ch.phase] : 'info'"
-            size="small"
-            class="chapter-row-phase"
+        <div v-for="(ch, idx) in progress.allChapters" :key="ch.id" class="chapter-item">
+          <button
+            :class="[
+              'chapter-row',
+              {
+                current: ch.isCurrent,
+                completed: ch.phase === 'completed',
+                'not-started': !ch.started && !ch.isCurrent,
+                switching: switchingChapterId === ch.id,
+              },
+            ]"
+            :disabled="ch.isCurrent || switchingChapterId !== null"
+            :title="
+              switchingChapterId
+                ? '切换中…'
+                : ch.isCurrent
+                  ? '当前章节'
+                  : `点击切换到「${ch.name}」`
+            "
+            @click="onSwitchChapter(ch.id)"
           >
-            {{ ch.started || ch.isCurrent ? phaseLabel[ch.phase] : '未开始' }}
-          </el-tag>
-        </button>
+            <span class="chapter-idx">{{ idx + 1 }}.</span>
+            <span class="chapter-row-name">{{ ch.name }}</span>
+            <span v-if="switchingChapterId === ch.id" class="chapter-switching-mark">
+              切换中…
+            </span>
+            <el-tag
+              v-else
+              :type="ch.started || ch.isCurrent ? phaseTagType[ch.phase] : 'info'"
+              size="small"
+              class="chapter-row-phase"
+            >
+              {{ ch.started || ch.isCurrent ? phaseLabel[ch.phase] : '未开始' }}
+            </el-tag>
+          </button>
+          <!-- 重置本章学习记录(仅对已开始的章节显示) -->
+          <button
+            v-if="ch.started || ch.isCurrent"
+            class="chapter-reset-btn"
+            :disabled="switchingChapterId !== null"
+            :title="`重置「${ch.name}」学习记录`"
+            @click="onResetChapter(ch)"
+          >
+            ↻
+          </button>
+        </div>
       </div>
     </div>
 
@@ -159,6 +245,18 @@ const phaseTagType: Record<ChapterPhase, 'info' | 'warning' | 'success'> = {
       </button>
       <!-- v0.2 留位置:adaptive 题历史 -->
     </div>
+
+    <div class="section danger-section">
+      <div class="section-title">学习数据</div>
+      <button
+        class="reset-course-btn"
+        :disabled="switchingChapterId !== null"
+        @click="onResetCourse"
+      >
+        <span>🗑</span>
+        <span>重置整个课程进度</span>
+      </button>
+    </div>
   </aside>
 
   <aside v-else class="progress-sidebar empty">
@@ -222,6 +320,42 @@ const phaseTagType: Record<ChapterPhase, 'info' | 'warning' | 'success'> = {
   flex-direction: column;
   gap: 4px;
 }
+/* 章节项 = 主切换按钮 + 右侧 ↻ 重置小按钮(后者 hover 显出来,平时低调) */
+.chapter-item {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+.chapter-item .chapter-row {
+  flex: 1;
+  min-width: 0;
+}
+.chapter-reset-btn {
+  flex-shrink: 0;
+  width: 28px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #c0c4cc;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+.chapter-item:hover .chapter-reset-btn {
+  opacity: 1;
+}
+.chapter-reset-btn:hover:not(:disabled) {
+  color: #f56c6c;
+  background: #fef0f0;
+}
+.chapter-reset-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0;
+}
 .chapter-row {
   display: flex;
   align-items: center;
@@ -258,6 +392,34 @@ const phaseTagType: Record<ChapterPhase, 'info' | 'warning' | 'success'> = {
 }
 .chapter-row:disabled {
   cursor: default;
+}
+/* 正在切换的章节 — 显眼的 loading 视觉 */
+.chapter-row.switching {
+  background: #fdf6ec;
+  border-color: #faecd8;
+  cursor: wait;
+}
+/* 切换中时,其他章节也禁用,变灰但不变背景 — 让用户知道整个 sidebar 被锁了 */
+.chapter-row:disabled:not(.current):not(.switching) {
+  opacity: 0.5;
+  cursor: wait;
+}
+.chapter-switching-mark {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #e6a23c;
+  font-weight: 600;
+  /* 简单的脉冲动画提示在动 */
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 .chapter-idx {
   flex-shrink: 0;
@@ -389,5 +551,35 @@ const phaseTagType: Record<ChapterPhase, 'info' | 'warning' | 'success'> = {
   border-color: #409eff;
   color: #409eff;
   background: #ecf5ff;
+}
+/* 危险操作区 — 故意低调 + 上方分隔,避免误点 */
+.danger-section {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px dashed #ebeef5;
+}
+.reset-course-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #909399;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+.reset-course-btn:hover:not(:disabled) {
+  border-color: #f56c6c;
+  color: #f56c6c;
+  background: #fef0f0;
+}
+.reset-course-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 </style>

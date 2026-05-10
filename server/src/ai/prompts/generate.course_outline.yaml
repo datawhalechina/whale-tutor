@@ -20,7 +20,7 @@
 
 templateId: generate.course_outline
 model: deepseek-v4-flash
-maxRetries: 1
+maxRetries: 2
 maxTokens: 3500
 temperature: 0.4
 

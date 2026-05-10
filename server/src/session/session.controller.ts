@@ -2,9 +2,13 @@ import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common
 import type {
   AcknowledgeReviewLoResponse,
   EndSessionResponse,
+  GetNextInteractionResponse,
   GetSessionProgressResponse,
   RequestHintRequest,
   RequestHintResponse,
+  ResetChapterRequest,
+  ResetChapterResponse,
+  ResetCourseResponse,
   StartSessionRequest,
   StartSessionResponse,
   SubmitResponseBody,
@@ -35,6 +39,15 @@ export class SessionController {
     return this.sessions.submit(sessionId, body);
   }
 
+  // 配合 submit 拆分:前端 submit 后立即拿评估,然后单独 GET 这个拿下一题。
+  // 此接口可能 block 几秒(adaptive retry 走 AI),前端在背景调,用户读完反馈基本已就绪。
+  @Get(':id/next-interaction')
+  getNextInteraction(
+    @Param('id', ParseIntPipe) sessionId: number,
+  ): Promise<GetNextInteractionResponse> {
+    return this.sessions.getNextInteraction(sessionId);
+  }
+
   @Post(':id/end')
   end(@Param('id', ParseIntPipe) sessionId: number): Promise<EndSessionResponse> {
     return this.sessions.end(sessionId);
@@ -61,6 +74,21 @@ export class SessionController {
     @Body() body: SwitchChapterRequest,
   ): Promise<SwitchChapterResponse> {
     return this.sessions.switchChapter(sessionId, body);
+  }
+
+  // 重置某章节学习进度(清 learner_state + chapter_progress + 跳到该章首 LO)
+  @Post(':id/reset-chapter')
+  resetChapter(
+    @Param('id', ParseIntPipe) sessionId: number,
+    @Body() body: ResetChapterRequest,
+  ): Promise<ResetChapterResponse> {
+    return this.sessions.resetChapter(sessionId, body);
+  }
+
+  // 重置整个课程学习进度(清全部 LO + 全部章节进度 + 跳到第一章首 LO)
+  @Post(':id/reset-course')
+  resetCourse(@Param('id', ParseIntPipe) sessionId: number): Promise<ResetCourseResponse> {
+    return this.sessions.resetCourse(sessionId);
   }
 
   @Get(':id/progress')

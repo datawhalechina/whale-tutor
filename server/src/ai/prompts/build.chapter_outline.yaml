@@ -18,7 +18,7 @@
 
 templateId: build.chapter_outline
 model: deepseek-v4-flash
-maxRetries: 1
+maxRetries: 2
 maxTokens: 8000
 temperature: 0.3
 
@@ -37,7 +37,8 @@ system: |
   6. difficultyBand 通常递进:章内第一个 LO beginner,之后可上升到 intermediate
 
   约束:
-  - LO slug 蛇形小写 ASCII(只含字母数字和下划线,2-20 字符,不要连续下划线)
+  - LO slug 蛇形小写 ASCII(只含字母数字和下划线,**2-30 字符,优先短**,不要连续下划线)
+    例:✓ list_basics / function_define / mutable_default_args ✗ overly_long_descriptive_slug_name(超长)
   - LO name 是学习者看到的(可中文),简洁,不带"学习"二字
   - description 1-2 句话:学完能做到什么
   - estimatedDurationMin 整数,15 / 20 / 25 / 30 之一
@@ -93,7 +94,9 @@ outputSchema:
             type: string
             pattern: '^[a-z0-9](?:_?[a-z0-9])*$'
             minLength: 2
-            maxLength: 20
+            # 30 是经验值:实际课程的 LO slug 大多 10-19 字符,留 30 给 AI 喘息
+            # (原来 20 太紧,AI 想用稍长的描述就撞限,重试也救不回来)
+            maxLength: 30
           name: { type: string, minLength: 1, maxLength: 60 }
           description: { type: string, minLength: 5, maxLength: 200 }
           estimatedDurationMin: { type: integer, enum: [10, 15, 20, 25, 30, 40] }

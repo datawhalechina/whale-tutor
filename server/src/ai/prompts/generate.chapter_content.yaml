@@ -24,7 +24,7 @@
 
 templateId: generate.chapter_content
 model: deepseek-v4-flash
-maxRetries: 1
+maxRetries: 2
 maxTokens: 8000
 temperature: 0.5
 

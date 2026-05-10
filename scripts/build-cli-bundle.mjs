@@ -43,17 +43,17 @@ const SUBDIRS = ['server', 'web', 'db', 'templates'];
 function cleanBundle(bundleRoot) {
   for (const sub of SUBDIRS) {
     const p = join(bundleRoot, sub);
-    if (existsSync(p)) rmSync(p, { recursive: true, force: true });
+    if (existsSync(p)) rmSync(p, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
   const manifest = join(bundleRoot, 'MANIFEST.json');
-  if (existsSync(manifest)) rmSync(manifest);
+  if (existsSync(manifest)) rmSync(manifest, { maxRetries: 5, retryDelay: 200 });
   mkdirSync(bundleRoot, { recursive: true });
 }
 
 function clean() {
   cleanBundle(BUNDLE_NODE);
   if (existsSync(SERVER_BUNDLE_SRC)) {
-    rmSync(SERVER_BUNDLE_SRC, { recursive: true, force: true });
+    rmSync(SERVER_BUNDLE_SRC, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
   mkdirSync(SERVER_BUNDLE_SRC, { recursive: true });
 }

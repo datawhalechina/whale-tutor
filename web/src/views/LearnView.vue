@@ -153,7 +153,7 @@ async function onOpenHistory(): Promise<void> {
         </div>
       </el-header>
 
-      <el-main class="learn-main">
+      <el-main v-loading="loading" class="learn-main" element-loading-text="加载中…">
         <div
           v-if="loading && !currentInteraction && !reviewLoActive"
           v-loading="true"

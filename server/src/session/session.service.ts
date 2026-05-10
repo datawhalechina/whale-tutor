@@ -24,6 +24,9 @@ import type {
   SubmitResponseResult,
   SwitchChapterRequest,
   SwitchChapterResponse,
+  ResetChapterRequest,
+  ResetChapterResponse,
+  ResetCourseResponse,
 } from '@whale-tutor/tutor-types';
 import { KYSELY, type Database } from '../database/database.module';
 import { EventService } from '../event/event.service';
@@ -200,6 +203,7 @@ export class SessionService {
       parentRiId: interactionRow.parent_required_interaction_id,
       hintLevelUsed: body.hintLevelUsed ?? 0,
       enableRetry: !isAssessmentRi,
+      requiredInteractionTotal: lo.requiredInteractions.length,
     });
     const updatedLoState = await this.learners.applyEvaluation({
       learnerId,
@@ -250,9 +254,38 @@ export class SessionService {
       );
     }
 
-    // 决定下一动作
+    // 注意:决定 + 服务下一题(可能慢的 AI 出 adaptive retry)已经从 submit 拆出去到
+    // getNextInteraction()。前端 submit 后立即拿评估 + state,然后单独 GET 下一题,
+    // 体验上"对错瞬秒展示"。
+    return { evaluation, updatedLoState };
+  }
+
+  /**
+   * 计算 + 服务下一题。从 submit 拆出来,让 submit 总是瞬秒返回。
+   * 此方法可能 block 几秒(adaptive retry 走 AI 生成),前端在背景调用,
+   * 用户读完反馈时通常已就绪。
+   */
+  async getNextInteraction(sessionId: number): Promise<{
+    nextDecision: PathDecision;
+    nextInteraction: ServedInteraction | null;
+  }> {
+    const session = await this.db
+      .selectFrom('sessions')
+      .selectAll()
+      .where('id', '=', sessionId)
+      .executeTakeFirst();
+    if (!session) {
+      throw new NotFoundException(`Session ${sessionId} not found`);
+    }
+    const learnerId = session.learner_id;
+    const loId = session.current_lo_id;
+    if (!loId) {
+      // session 没有 current LO(已 end / 课程结束),无下一题可计算
+      throw new NotFoundException(`Session ${sessionId} has no current LO; nothing to serve next.`);
+    }
+
     let nextDecision = await this.decideNext(sessionId, learnerId, loId);
-    let nextInteraction = await this.maybeServeFromDecision(
+    const nextInteraction = await this.maybeServeFromDecision(
       sessionId,
       learnerId,
       loId,
@@ -274,13 +307,7 @@ export class SessionService {
         alternatives: [],
       };
     }
-
-    return {
-      evaluation,
-      nextDecision,
-      nextInteraction,
-      updatedLoState,
-    };
+    return { nextDecision, nextInteraction };
   }
 
   async end(sessionId: number): Promise<EndSessionResponse> {
@@ -442,6 +469,145 @@ export class SessionService {
       };
     }
     return { decision, interaction };
+  }
+
+  // ========================================================
+  // 学习记录重置(章节级 + 课程级)
+  //   - 清 learner_state(mastery 等)+ learner_chapter_progress(章末进度)
+  //   - 不动 events / responses / interactions(留 audit + 以后可做"重置前 archive")
+  //   - 重置完 session.current_lo_id 跳到目标范围首 LO + 服务下一题
+  // ========================================================
+
+  async resetChapter(sessionId: number, body: ResetChapterRequest): Promise<ResetChapterResponse> {
+    const session = await this.db
+      .selectFrom('sessions')
+      .selectAll()
+      .where('id', '=', sessionId)
+      .executeTakeFirst();
+    if (!session) throw new NotFoundException(`Session not found: ${sessionId}`);
+
+    const course = this.knowledge.getCourseDefinition(session.course_id);
+    const chapter = course.chapters.find((c) => c.id === body.chapterId);
+    if (!chapter) {
+      throw new NotFoundException(
+        `Chapter ${body.chapterId} not found in course ${session.course_id}`,
+      );
+    }
+
+    const loIds = chapter.learningObjectives.map((lo) => lo.id);
+    if (loIds.length > 0) {
+      await this.db
+        .deleteFrom('learner_state')
+        .where('learner_id', '=', session.learner_id)
+        .where('lo_id', 'in', loIds)
+        .execute();
+    }
+    await this.db
+      .deleteFrom('learner_chapter_progress')
+      .where('learner_id', '=', session.learner_id)
+      .where('chapter_id', '=', chapter.id)
+      .execute();
+
+    await this.events.emit({
+      sessionId,
+      learnerId: session.learner_id,
+      type: 'learner.chapter_reset',
+      payload: { chapterId: chapter.id, loCount: loIds.length },
+    });
+
+    // 跳到该章首 LO 重新开始
+    const targetLoId = chapter.learningObjectives[0].id;
+    await this.db
+      .updateTable('sessions')
+      .set({ current_lo_id: targetLoId })
+      .where('id', '=', sessionId)
+      .execute();
+    await this.events.emit({
+      sessionId,
+      learnerId: session.learner_id,
+      loId: targetLoId,
+      type: 'lo.entered',
+      payload: { from: session.current_lo_id, reason: 'chapter_reset' },
+    });
+
+    const decision = await this.decideNext(sessionId, session.learner_id, targetLoId);
+    const interaction = await this.maybeServeFromDecision(
+      sessionId,
+      session.learner_id,
+      targetLoId,
+      decision,
+    );
+
+    return { decision, interaction, resetLoCount: loIds.length };
+  }
+
+  async resetCourse(sessionId: number): Promise<ResetCourseResponse> {
+    const session = await this.db
+      .selectFrom('sessions')
+      .selectAll()
+      .where('id', '=', sessionId)
+      .executeTakeFirst();
+    if (!session) throw new NotFoundException(`Session not found: ${sessionId}`);
+
+    const course = this.knowledge.getCourseDefinition(session.course_id);
+    const allLoIds = course.chapters.flatMap((c) => c.learningObjectives.map((lo) => lo.id));
+    const allChapterIds = course.chapters.map((c) => c.id);
+
+    if (allLoIds.length > 0) {
+      await this.db
+        .deleteFrom('learner_state')
+        .where('learner_id', '=', session.learner_id)
+        .where('lo_id', 'in', allLoIds)
+        .execute();
+    }
+    if (allChapterIds.length > 0) {
+      await this.db
+        .deleteFrom('learner_chapter_progress')
+        .where('learner_id', '=', session.learner_id)
+        .where('chapter_id', 'in', allChapterIds)
+        .execute();
+    }
+
+    await this.events.emit({
+      sessionId,
+      learnerId: session.learner_id,
+      type: 'learner.course_reset',
+      payload: {
+        courseId: course.id,
+        loCount: allLoIds.length,
+        chapterCount: allChapterIds.length,
+      },
+    });
+
+    // 跳到第一章首 LO
+    const targetLoId = course.chapters[0].learningObjectives[0].id;
+    await this.db
+      .updateTable('sessions')
+      .set({ current_lo_id: targetLoId })
+      .where('id', '=', sessionId)
+      .execute();
+    await this.events.emit({
+      sessionId,
+      learnerId: session.learner_id,
+      loId: targetLoId,
+      type: 'lo.entered',
+      payload: { from: session.current_lo_id, reason: 'course_reset' },
+    });
+
+    const decision = await this.decideNext(sessionId, session.learner_id, targetLoId);
+    const interaction = await this.maybeServeFromDecision(
+      sessionId,
+      session.learner_id,
+      targetLoId,
+      decision,
+    );
+
+    return {
+      decision,
+      interaction,
+      resetLoCount: allLoIds.length,
+      resetChapterCount: allChapterIds.length,
+    };
   }
 
   // ========================================================
@@ -1103,6 +1269,8 @@ interface StateMachineInput {
   hintLevelUsed: number;
   /** false → 不更新 pendingRetryRiId(章末测试 RI 不参与 retry/review_lo 流程) */
   enableRetry: boolean;
+  /** 该 LO 必做题总数 — 用于"完成全部必做就升 mastered"规则 */
+  requiredInteractionTotal: number;
 }
 
 /**
@@ -1118,7 +1286,16 @@ interface StateMachineInput {
  *     (mastered 门槛拿不到,鼓励学习者后续不靠 hint 答对)
  */
 function applyMasteryStateMachine(input: StateMachineInput): StateMachineDelta {
-  const { state, evaluation, source, riId, parentRiId, hintLevelUsed, enableRetry } = input;
+  const {
+    state,
+    evaluation,
+    source,
+    riId,
+    parentRiId,
+    hintLevelUsed,
+    enableRetry,
+    requiredInteractionTotal,
+  } = input;
   const correct = evaluation.correct;
 
   // hint 折扣:用过 hint 答对 → consecutiveCorrect 不增,但 wrong 计数照常重置
@@ -1153,16 +1330,30 @@ function applyMasteryStateMachine(input: StateMachineInput): StateMachineDelta {
   }
 
   // mastery 状态机
+  // 升 mastered 有两条路径:
+  //   1. consecutiveCorrect >= 2(经典 streak,鼓励连续作答稳定的学习者)
+  //   2. 完成全部必做(mandatoryCompletedIds 满 = requiredInteractionTotal)
+  //      — 否则 5/5 完成后没题再做,永远卡 practicing(用户视角:做完了为啥不绿)
+  // 两条都要求当前提交 correct + no hint + AI confidence > 0.7。
+  const justCompletedAll =
+    requiredInteractionTotal > 0 && mandatoryCompletedIds.length >= requiredInteractionTotal;
+
   let next: MasteryLevel = state.masteryLevel;
   if (state.masteryLevel === 'untouched') {
     next = 'exposed';
   } else if (state.masteryLevel === 'exposed') {
     if (correct && !usedHint) next = 'practicing';
     // 用 hint 答对 → 暂不前进(保持 exposed,等无 hint 答对)
-  } else if (state.masteryLevel === 'practicing') {
-    if (correct && consecutiveCorrect >= 2 && evaluation.confidence > 0.7) {
-      next = 'mastered';
-    }
+  }
+  // exposed 也走升 mastered 检查 — exposed + 一题就 5/5 完成的极端 LO 也能直升 mastered
+  if (
+    correct &&
+    !usedHint &&
+    (next === 'practicing' || state.masteryLevel === 'practicing') &&
+    evaluation.confidence > 0.7 &&
+    (consecutiveCorrect >= 2 || justCompletedAll)
+  ) {
+    next = 'mastered';
   } else if (state.masteryLevel === 'mastered') {
     if (!correct && consecutiveWrong >= 2) {
       next = 'practicing';

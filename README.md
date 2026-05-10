@@ -28,7 +28,7 @@
 - 💬 **侧支 QA 提问**:答题时随时 drawer 提问 / 嵌套追问,不影响主路径
 - 📊 **完整事件流**:每次学习者行为入 `events` 表,支持后续个体化档案 / 班级分析 / 群体智能
 
-适合**"我有教学体系,要帮学生系统学习"**场景,不是"零散问问题"。
+适合**我有教学体系,要帮学生系统学习**场景,不是"零散问问题"。
 
 ## 🎬 试一试
 
@@ -199,19 +199,10 @@ pnpm dev                    # 并行起 web (5173) + server (3000)
 
 [AGPL-3.0-or-later](LICENSE) — 强 copyleft。
 
-**关键含义**(给非法律背景的读者):
-
 - 任何人可以自由使用 / 修改 / 分发,但**修改版必须开源**
 - 关键不同于 GPL:**网络部署也算分发** — 把 fork 部署成 SaaS 也必须公开源码
-- 选择理由:防止公司拿去做闭源 SaaS,保证社区收益最大化
 
 需要闭源商用许可的场景,联系 maintainer 讨论。
-
-## 🙏 致谢
-
-- 由 [Datawhale](https://datawhale.club) 社区维护
-- AI 推理由 [DeepSeek](https://www.deepseek.com) 提供(可切换其他 OpenAI 兼容服务)
-- 浏览器 Python 沙盒来自 [Pyodide](https://pyodide.org)
 
 ### Contributors
 
@@ -222,5 +213,3 @@ pnpm dev                    # 并行起 web (5173) + server (3000)
 ### Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=datawhalechina/whale-tutor&type=Date)](https://star-history.com/#datawhalechina/whale-tutor&Date)
-
-<sub>学习应该是一段对话,而不是一段广播。</sub>

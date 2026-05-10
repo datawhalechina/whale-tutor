@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { Injectable, Logger } from '@nestjs/common';
 import { AiGatewayService } from '../ai/ai-gateway.service';
 import { BuildService } from './build.service';
+import { DEFAULT_AI_CONCURRENCY, mapWithLimit } from './concurrency';
 
 // ============================================================
 // `whale-tutor generate` 主流程(比 `build` 高一阶):
@@ -94,6 +95,7 @@ export class GenerateService {
         chapterCountHint: input.chapterCountHint || 'auto',
       },
       callerTag: 'generate:outline',
+      throwOnFallback: true,
     });
 
     if (
@@ -120,12 +122,14 @@ export class GenerateService {
     const courseMd = `# ${input.courseName}\n\n${outline.description}\n`;
     await fs.writeFile(path.join(sourceDir, 'course.md'), courseMd, 'utf8');
 
-    // 逐章扩写 — 每章一次独立 AI 调用,失败可单独重试
+    // 逐章扩写 — 并行(每章独立调用,前/后章 summary 全部预先算好,任何顺序都不影响 prompt 内容)
     const chapters = outline.chapters;
-    for (let i = 0; i < chapters.length; i++) {
-      const ch = chapters[i];
+    this.logger.log(
+      `[2/3] writing ${chapters.length} chapter(s) in parallel (concurrency=${DEFAULT_AI_CONCURRENCY})…`,
+    );
+    await mapWithLimit(DEFAULT_AI_CONCURRENCY, chapters, async (ch, i) => {
       this.logger.log(
-        `[2/3] AI writing chapter ${i + 1}/${chapters.length} (${ch.slug}: ${ch.name})…`,
+        `  [2/3] chapter ${i + 1}/${chapters.length} (${ch.slug}: ${ch.name})…`,
       );
       const content = await this.ai.complete<ChapterContentResult>({
         templateId: 'generate.chapter_content',
@@ -137,22 +141,23 @@ export class GenerateService {
           totalChapters: String(chapters.length),
           chapterName: ch.name,
           chapterSummary: ch.summary,
-          previousChaptersSummary: chapters
-            .slice(0, i)
-            .map((c, idx) => `第 ${idx + 1} 章「${c.name}」:${c.summary}`)
-            .join('\n') || '(无,这是第一章)',
-          nextChaptersSummary: chapters
-            .slice(i + 1)
-            .map((c, idx) => `第 ${i + 1 + idx + 1} 章「${c.name}」:${c.summary}`)
-            .join('\n') || '(无,这是最后一章)',
+          previousChaptersSummary:
+            chapters
+              .slice(0, i)
+              .map((c, idx) => `第 ${idx + 1} 章「${c.name}」:${c.summary}`)
+              .join('\n') || '(无,这是第一章)',
+          nextChaptersSummary:
+            chapters
+              .slice(i + 1)
+              .map((c, idx) => `第 ${i + 1 + idx + 1} 章「${c.name}」:${c.summary}`)
+              .join('\n') || '(无,这是最后一章)',
         },
         callerTag: `generate:content:${ch.slug}`,
+        throwOnFallback: true,
       });
 
       if (!content.markdown || content.markdown === '_FALLBACK_') {
-        throw new Error(
-          `AI failed writing chapter ${i + 1} (${ch.slug}). 重跑或单独修该章。`,
-        );
+        throw new Error(`chapter ${i + 1} (${ch.slug}): AI 写讲稿失败。`);
       }
 
       // 文件名:01-introduction.md / 02-xxx.md(零填充 2 位,build 阶段会按文件名排序)
@@ -162,12 +167,10 @@ export class GenerateService {
         content.markdown.trim() + '\n',
         'utf8',
       );
-      this.logger.log(`  → wrote ${filename} (${content.markdown.length} chars)`);
-    }
+      this.logger.log(`  [2/3] ✓ ${filename} (${content.markdown.length} chars)`);
+    });
 
-    this.logger.log(
-      `[2/3] all ${chapters.length} chapters written to ${sourceDir}`,
-    );
+    this.logger.log(`[2/3] all ${chapters.length} chapters written to ${sourceDir}`);
 
     // === 3. 调 BuildService 把 markdown 转成完整 yaml/md 课程 ===
     this.logger.log(`[3/3] running build pipeline on ${sourceDir} → ${outputDir}…`);

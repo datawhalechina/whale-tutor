@@ -28,6 +28,10 @@ export interface AiCompleteInput {
   variables: Record<string, unknown>;
   sessionId?: number | null;
   callerTag?: string;
+  // throwOnFallback: 失败用尽重试后,不返回 fallback 而是抛带具体原因的错。
+  // 给 build/generate 这种"fallback 没意义,出错就该让 caller 知道"的场景用;
+  // runtime 路径(QA / hint / pattern eval)不要开 — 它们要 fallback 兜底。
+  throwOnFallback?: boolean;
 }
 
 interface CallOutcome {
@@ -178,8 +182,12 @@ export class AiGatewayService implements OnModuleInit {
         return parsedJson as TOut;
       } catch (err) {
         lastError = (err as Error).message;
-        // network / API error 不再重试,直接走 fallback
-        break;
+        // 之前这里 break(网络/API 错不重试)。但实测 "Empty content in DeepSeek response"
+        // 这种 transient 质量问题(模型偶尔输出空 / 上游短暂抽风)用重试就能解决,
+        // 直接 fallback 太可惜。改成所有错都进重试循环,走完 maxRetries 才 fallback。
+        // 4xx 认证错虽然重试无意义,但 maxRetries 通常 ≤ 2 不会爆,最后还是走 fallback,
+        // 行为一致只是多花 1-2 次失败调用,可接受。
+        continue;
       }
     }
 
@@ -197,10 +205,12 @@ export class AiGatewayService implements OnModuleInit {
       errorMessage: lastError ?? 'unknown',
     });
 
-    if (tpl.fallback !== undefined) {
+    if (tpl.fallback !== undefined && !input.throwOnFallback) {
       this.logger.warn(`AI call ${input.templateId} → fallback. Reason: ${lastError}`);
       return tpl.fallback as TOut;
     }
+    // throwOnFallback=true 时(build/generate 用),把具体 ajv / 网络 错抛出去,
+    // caller 拿到完整 lastError 直接报给用户,不用让用户去翻 server WARN 日志
     throw new Error(`AI Gateway call failed: ${input.templateId}: ${lastError}`);
   }
 
@@ -211,23 +221,40 @@ export class AiGatewayService implements OnModuleInit {
     maxTokens?: number;
     temperature?: number;
   }): Promise<CallOutcome> {
-    const res = await fetch(`${this.apiBaseUrl}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: input.model,
-        messages: [
-          { role: 'system', content: input.system },
-          { role: 'user', content: input.user },
-        ],
-        max_tokens: input.maxTokens,
-        temperature: input.temperature,
-        response_format: { type: 'json_object' },
-      }),
-    });
+    // 上游偶发不返 / 网络半 hang → fetch 默认无 timeout 会让整个 server 调用永远卡住
+    // (前端 axios 10s 超时但 server 没释放连接,下个请求继续踩同一个 hang)。
+    // 30s 给上游够时间正常吐 token,超过就 abort → 走 fallback / 让 caller 感知失败。
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 30_000);
+    let res: Response;
+    try {
+      res = await fetch(`${this.apiBaseUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: input.model,
+          messages: [
+            { role: 'system', content: input.system },
+            { role: 'user', content: input.user },
+          ],
+          max_tokens: input.maxTokens,
+          temperature: input.temperature,
+          response_format: { type: 'json_object' },
+        }),
+        signal: ac.signal,
+      });
+    } catch (err) {
+      // AbortError → 把 message 改成更可读的形式给上层日志
+      if ((err as { name?: string }).name === 'AbortError') {
+        throw new Error('DeepSeek API timeout (>30s)');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`DeepSeek API ${res.status}: ${text.slice(0, 300)}`);

@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { Injectable, Logger } from '@nestjs/common';
 import * as yaml from 'js-yaml';
 import { AiGatewayService } from '../ai/ai-gateway.service';
+import { DEFAULT_AI_CONCURRENCY, mapWithLimit } from './concurrency';
 
 // ============================================================
 // `whale-tutor build` 主流程:
@@ -142,6 +143,7 @@ export class BuildService {
       templateId: 'build.course_meta',
       variables: { suggestedId, courseMd },
       callerTag: 'build:course_meta',
+      throwOnFallback: true,
     });
     if (meta.id === '_FALLBACK_') {
       throw new Error(
@@ -152,105 +154,117 @@ export class BuildService {
       `[1/4] course meta: id=${meta.id} name="${meta.name}" subject=${meta.subject}`,
     );
 
-    // === 2-4. per chapter ===
-    const builtChapters: BuiltChapter[] = [];
-    for (let i = 0; i < chapterFiles.length; i++) {
-      const file = chapterFiles[i];
-      const chapterSlug = chapterSlugFromFilename(file);
-      const chapterId = `ch.${chapterSlug}`;
-      const chapterMd = await fs.readFile(path.join(chaptersDir, file), 'utf8');
+    // === 2-4. per chapter (并行,默认 5 个章节同时跑;LO 内部也并行) ===
+    // 改并行前是串行 for 循环,5 章 × 4 LO ≈ 25 次 × 30s = 12 分钟。
+    // 并行后 (concurrency=5):chapter 阶段 5 个同时,每个 chapter 内 LO 也并行,
+    // 总耗时 ≈ 单条最慢链路 ≈ 2-3 分钟。
+    // 失败语义:任一章 fail → 收集所有错聚合抛,而非单点立即中断浪费已完成的章。
+    this.logger.log(
+      `\n[2-4] processing ${chapterFiles.length} chapter(s) in parallel (concurrency=${DEFAULT_AI_CONCURRENCY})…`,
+    );
 
-      this.logger.log(
-        `\n[chapter ${i + 1}/${chapterFiles.length}] file=${file} slug=${chapterSlug}`,
-      );
+    const builtChapters: BuiltChapter[] = await mapWithLimit(
+      DEFAULT_AI_CONCURRENCY,
+      chapterFiles,
+      async (file, i) => {
+        const chapterSlug = chapterSlugFromFilename(file);
+        const chapterId = `ch.${chapterSlug}`;
+        const chapterMd = await fs.readFile(path.join(chaptersDir, file), 'utf8');
+        const tag = `[ch ${i + 1}/${chapterFiles.length}: ${chapterSlug}]`;
 
-      // 2. outline
-      this.logger.log(`  [2/4] AI outlining LOs…`);
-      const outline = await this.ai.complete<ChapterOutlineResult>({
-        templateId: 'build.chapter_outline',
-        variables: { subject: meta.subject, chapterSlug, chapterMd },
-        callerTag: `build:outline:${chapterSlug}`,
-      });
-      if (!outline.los || outline.los.length === 0) {
-        throw new Error(
-          `AI failed outlining chapter ${file} (returned 0 LOs). Try splitting the markdown or rerun.`,
+        // 2. outline
+        this.logger.log(`${tag} [2/4] outlining LOs…`);
+        const outline = await this.ai.complete<ChapterOutlineResult>({
+          templateId: 'build.chapter_outline',
+          variables: { subject: meta.subject, chapterSlug, chapterMd },
+          callerTag: `build:outline:${chapterSlug}`,
+          throwOnFallback: true,
+        });
+        if (!outline.los || outline.los.length === 0) {
+          throw new Error(
+            `chapter ${file}: 拆 LO 失败(AI 返 0 LOs)。讲稿可能太长被 AI 截断,或 schema 校验连续失败。试试拆短 chapter md 后重跑。`,
+          );
+        }
+        assertUniqueLoSlugs(outline.los, file);
+        this.logger.log(
+          `${tag} [2/4] outlined ${outline.los.length} LO(s): ${outline.los.map((l) => l.slug).join(', ')}`,
         );
-      }
-      assertUniqueLoSlugs(outline.los, file);
-      this.logger.log(
-        `  [2/4] outlined ${outline.los.length} LO(s): ${outline.los.map((l) => l.slug).join(', ')}`,
-      );
 
-      // 3. per-LO full
-      const builtLos: BuiltLo[] = [];
-      const siblingNames = outline.los.map((l) => `${l.slug}: ${l.name}`).join('; ');
-      for (let j = 0; j < outline.los.length; j++) {
-        const lo = outline.los[j];
-        this.logger.log(`  [3/4] AI generating LO ${j + 1}/${outline.los.length} (${lo.slug})…`);
-        const full = await this.ai.complete<LoFullResult>({
-          templateId: 'build.lo_full',
+        // 3. per-LO full(同章内 N 个 LO 并行 — 也用 concurrency limit 防同时占太多 RPM)
+        const siblingNames = outline.los.map((l) => `${l.slug}: ${l.name}`).join('; ');
+        const builtLos: BuiltLo[] = await mapWithLimit(
+          DEFAULT_AI_CONCURRENCY,
+          outline.los,
+          async (lo, j) => {
+            this.logger.log(
+              `${tag} [3/4] LO ${j + 1}/${outline.los.length} (${lo.slug})…`,
+            );
+            const full = await this.ai.complete<LoFullResult>({
+              templateId: 'build.lo_full',
+              variables: {
+                subject: meta.subject,
+                chapterName: outline.name,
+                loName: lo.name,
+                loDescription: lo.description,
+                coreExplanationMd: lo.coreExplanationMd,
+                siblingLoNames: siblingNames,
+              },
+              callerTag: `build:lo_full:${chapterSlug}.${lo.slug}`,
+              throwOnFallback: true,
+            });
+            if (!full.requiredInteractions || full.requiredInteractions.length === 0) {
+              throw new Error(
+                `LO ${chapterSlug}.${lo.slug}: 出 RI 失败(AI 返 0 RIs)。`,
+              );
+            }
+            return {
+              slug: lo.slug,
+              loId: `lo.${chapterSlug}.${lo.slug}`,
+              outline: lo,
+              full,
+            };
+          },
+        );
+
+        // 4. assessment(必须等同章 LO 全部完成后才能拼 losJson)
+        this.logger.log(`${tag} [4/4] assessment…`);
+        const losJson = JSON.stringify(
+          builtLos.map((l) => ({
+            slug: l.slug,
+            name: l.outline.name,
+            description: l.outline.description,
+            commonMisconceptions: l.full.commonMisconceptions,
+          })),
+          null,
+          2,
+        );
+        const assessment = await this.ai.complete<AssessmentResult>({
+          templateId: 'build.assessment',
           variables: {
             subject: meta.subject,
             chapterName: outline.name,
-            loName: lo.name,
-            loDescription: lo.description,
-            coreExplanationMd: lo.coreExplanationMd,
-            siblingLoNames: siblingNames,
+            chapterDescription: outline.description,
+            losJson,
           },
-          callerTag: `build:lo_full:${chapterSlug}.${lo.slug}`,
+          callerTag: `build:assessment:${chapterSlug}`,
+          throwOnFallback: true,
         });
-        if (!full.requiredInteractions || full.requiredInteractions.length === 0) {
-          throw new Error(
-            `AI failed generating RIs for LO ${chapterSlug}.${lo.slug}. Rerun build (single chapter retry not yet supported).`,
-          );
+        if (!assessment.requiredInteractions || assessment.requiredInteractions.length === 0) {
+          throw new Error(`chapter ${chapterSlug}: assessment 出题失败(AI 返 0 题)。`);
         }
-        builtLos.push({
-          slug: lo.slug,
-          loId: `lo.${chapterSlug}.${lo.slug}`,
-          outline: lo,
-          full,
-        });
-      }
-
-      // 4. assessment
-      this.logger.log(`  [4/4] AI generating chapter assessment…`);
-      const losJson = JSON.stringify(
-        builtLos.map((l) => ({
-          slug: l.slug,
-          name: l.outline.name,
-          description: l.outline.description,
-          commonMisconceptions: l.full.commonMisconceptions,
-        })),
-        null,
-        2,
-      );
-      const assessment = await this.ai.complete<AssessmentResult>({
-        templateId: 'build.assessment',
-        variables: {
-          subject: meta.subject,
-          chapterName: outline.name,
-          chapterDescription: outline.description,
-          losJson,
-        },
-        callerTag: `build:assessment:${chapterSlug}`,
-      });
-      if (!assessment.requiredInteractions || assessment.requiredInteractions.length === 0) {
-        throw new Error(
-          `AI failed generating assessment for chapter ${chapterSlug}. Rerun build.`,
+        this.logger.log(
+          `${tag} ✓ done — ${builtLos.length} LO(s), ${builtLos.reduce((s, l) => s + l.full.requiredInteractions.length, 0)} RI(s), ${assessment.requiredInteractions.length} assessment RI(s)`,
         );
-      }
-      this.logger.log(
-        `  [4/4] assessment: ${assessment.requiredInteractions.length} RI(s)`,
-      );
 
-      builtChapters.push({
-        slug: chapterSlug,
-        chapterId,
-        outline,
-        los: builtLos,
-        assessment,
-      });
-    }
+        return {
+          slug: chapterSlug,
+          chapterId,
+          outline,
+          los: builtLos,
+          assessment,
+        };
+      },
+    );
 
     // === 5. write to disk ===
     const outputDir = path.resolve(input.outputDir);

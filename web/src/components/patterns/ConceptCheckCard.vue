@@ -11,8 +11,16 @@ const props = defineProps<{
 }>();
 
 const sessionStore = useSessionStore();
-const { lastEvaluation, showFeedback, pendingNextInteraction, currentDecision, loading } =
-  storeToRefs(sessionStore);
+const {
+  lastEvaluation,
+  lastLoState,
+  showFeedback,
+  pendingNextInteraction,
+  currentDecision,
+  loading,
+  loadingNext,
+  hasFetchedNext,
+} = storeToRefs(sessionStore);
 
 // el-radio-group 的 v-model 类型不接 null,所以用 undefined 表示"未选"
 const selected = ref<number | undefined>(undefined);
@@ -28,15 +36,18 @@ watch(
 const explanationHtml = computed(() => renderMarkdown(props.interaction.prompt.explanationMd));
 const stemHtml = computed(() => renderMarkdown(props.interaction.prompt.question.stem));
 
-const isLastInChapter = computed(() => showFeedback.value && pendingNextInteraction.value === null);
+// 只在 fetch 真完成 + pending 确认为 null 时才算章末 — hasFetchedNext 守门
+const isLastInChapter = computed(
+  () => showFeedback.value && hasFetchedNext.value && pendingNextInteraction.value === null,
+);
 
-// 答错(任何类型) — 反馈区显示 warning 色,按钮也变 warning。
-//   v0:复发同 RI;v0.2:server 改成发 adaptive 换说法题 / review_lo 兜底
-// 保留同名,语义改成"上一道题答错"。
+// 答错 — 反馈区显示 warning 色,按钮也变 warning
 const isRetrySameRi = computed(() => showFeedback.value && lastEvaluation.value?.correct === false);
-// v0.2 细分按钮文案:
-const isAdaptiveRetry = computed(
-  () => isRetrySameRi.value && pendingNextInteraction.value?.source === 'adaptive',
+// 连错 ≥ 3 次:server 在下次 fetch 时会返 review_lo decision。
+// 这里用 server 写回的 lastLoState.consecutiveWrong 来判定,前端立即显示提示 banner
+// + "去看讲解"按钮(点了 → continueToNext → fetch → review_lo overlay)
+const shouldSuggestReview = computed(
+  () => showFeedback.value && (lastLoState.value?.consecutiveWrong ?? 0) >= 3,
 );
 const isReviewLoNext = computed(
   () => showFeedback.value && currentDecision.value?.primary.type === 'review_lo',
@@ -44,7 +55,6 @@ const isReviewLoNext = computed(
 
 const continueButtonLabel = computed(() => {
   if (isReviewLoNext.value) return '去看讲解';
-  if (isAdaptiveRetry.value) return '换种说法再试一道';
   if (isLastInChapter.value) return '查看结果';
   return '下一题';
 });
@@ -60,6 +70,13 @@ async function submit(): Promise<void> {
 
 function continueToNext(): void {
   void sessionStore.continueToNext();
+}
+
+// 答错后选择"再试一次"(同题重答 — 不切到 AI 换说法题)。
+// 详见 store.clearFeedback 注释:UI 重置,server 历史里那次错的 response 仍保留。
+function retryAnswer(): void {
+  selected.value = undefined;
+  sessionStore.clearFeedback();
 }
 </script>
 
@@ -95,6 +112,20 @@ function continueToNext(): void {
       />
     </transition>
 
+    <!-- 连错 ≥ 3 次的"建议看讲解"提示 -->
+    <el-alert
+      v-if="shouldSuggestReview"
+      type="warning"
+      show-icon
+      :closable="false"
+      class="stuck-banner"
+    >
+      <template #title>
+        <strong>已连续答错 {{ lastLoState?.consecutiveWrong }} 次</strong>
+      </template>
+      继续重试可能不是最佳选择 — 回到 LO 讲解再来一次会更有帮助。
+    </el-alert>
+
     <!-- 操作按钮 -->
     <div class="actions">
       <template v-if="!showFeedback">
@@ -108,7 +139,23 @@ function continueToNext(): void {
         </el-button>
       </template>
       <template v-else>
-        <el-button :type="isRetrySameRi ? 'warning' : 'primary'" @click="continueToNext">
+        <!-- 答错路径:再试一次 + (cw≥3 时)去看讲解 -->
+        <el-button v-if="isRetrySameRi" plain @click="retryAnswer"> 🔁 再试一次 </el-button>
+        <el-button
+          v-if="shouldSuggestReview && !isReviewLoNext"
+          type="warning"
+          :loading="loadingNext"
+          @click="continueToNext"
+        >
+          📖 去看讲解
+        </el-button>
+        <!-- 答对路径 / review_lo 路径:正常的 advance 按钮 -->
+        <el-button
+          v-if="!isRetrySameRi || isReviewLoNext"
+          type="primary"
+          :loading="loadingNext"
+          @click="continueToNext"
+        >
           {{ continueButtonLabel }}
         </el-button>
       </template>
@@ -170,6 +217,10 @@ function continueToNext(): void {
   margin-top: 24px;
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+}
+.stuck-banner {
+  margin-top: 16px;
 }
 .fade-enter-active,
 .fade-leave-active {
