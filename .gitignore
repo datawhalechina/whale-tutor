@@ -47,3 +47,6 @@ notes
 
 # Claude Code agent 会话历史(本地排查用,不入仓库)
 .cc-history
+
+# GitHub 相关的 issues
+issues

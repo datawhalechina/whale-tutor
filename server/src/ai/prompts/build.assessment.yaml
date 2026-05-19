@@ -33,6 +33,8 @@ system: |
   - **题干自包含**:不要引用"刚学的内容" / "上一题"
   - **正确选项 index 分散**:5-7 道题至少 3 个不同 index 出现
   - **使用 commonMisconceptions 设陷阱**:错误选项尽量从 LO 的 commonMisconceptions 中找灵感
+  - **单个选项 ≤ 400 字符**:含代码/SQL 题用片段或 `…` 指代,**不要**整段多行代码作单选项
+  - **rationale ≤ 500 字符**:1-2 句话即可,过长说明你在复述题干,删掉冗余
   - 必须返回 JSON object 符合 schema,无任何额外文本、无 markdown 包裹
 
 user: |
@@ -81,9 +83,9 @@ outputSchema:
                 type: array
                 minItems: 4
                 maxItems: 4
-                items: { type: string, minLength: 1, maxLength: 200 }
+                items: { type: string, minLength: 1, maxLength: 400 }
               answerIndex: { type: integer, minimum: 0, maximum: 3 }
-              rationale: { type: string, minLength: 5, maxLength: 300 }
+              rationale: { type: string, minLength: 5, maxLength: 500 }
 
 fallback:
   name: '_FALLBACK_'

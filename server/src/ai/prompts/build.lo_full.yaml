@@ -38,7 +38,8 @@ system: |
   - **commonMisconceptions 必须具体**:可识别的错误模式,可以直接做成陷阱选项;3-5 条
     例:✓ "以为 list 创建后长度不可变" / ✗ "对 list 不熟"
   - **题目难度递进**:第 1 题最基础(直接概念辨析),后面的题逐步综合 / 引入易错点
-  - **选项设计**:4 个选项,1 正 3 错,3 个错选项中至少 2 个使用 commonMisconceptions 中的错误模式
+  - **选项设计**:4 个选项,1 正 3 错,3 个错选项中至少 2 个使用 commonMisconceptions 中的错误模式;
+    **单个选项 ≤ 400 字符**(含代码/SQL 题时务必用片段或 `…` 指代,**不要**整段多行代码作单选项)
   - **正确选项 index 必须分散**:不要每道题都把正确放在 index 0;3-5 道题应该至少出现 3 个不同 index
   - **rationale**:1-2 句话直接说为什么正确,不要复述题干
   - **explanationMd**:题前引子,**默认空字符串**;只在题目需要给学习者补充上下文(如代码片段、场景设定)时才写
@@ -101,9 +102,9 @@ outputSchema:
                 type: array
                 minItems: 4
                 maxItems: 4
-                items: { type: string, minLength: 1, maxLength: 200 }
+                items: { type: string, minLength: 1, maxLength: 400 }
               answerIndex: { type: integer, minimum: 0, maximum: 3 }
-              rationale: { type: string, minLength: 5, maxLength: 300 }
+              rationale: { type: string, minLength: 5, maxLength: 500 }
 
 fallback:
   commonMisconceptions: []

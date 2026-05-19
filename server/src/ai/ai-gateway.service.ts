@@ -154,16 +154,40 @@ export class AiGatewayService implements OnModuleInit {
           maxTokens: tpl.maxTokens,
           temperature: tpl.temperature,
         });
+        // B. JSON.parse 偶发因模型在字符串里塞了裸换行 / 控制字符而失败(issue #4)。
+        // 第一次 parse 失败时,转义控制字符再 parse 一次(不消耗 retry 配额);
+        // 仍失败才把"非法 JSON"反馈回 retry。
         try {
           parsedJson = JSON.parse(outcome.content);
         } catch (err) {
-          lastError = `JSON parse: ${(err as Error).message}`;
-          userPrompt = `${baseUser}\n\n你上次返回了非法 JSON,错误:${lastError}。请只返回符合 schema 的 JSON object,无任何额外文本。`;
-          continue;
+          const sanitized = sanitizeControlChars(outcome.content);
+          if (sanitized !== outcome.content) {
+            try {
+              parsedJson = JSON.parse(sanitized);
+            } catch (err2) {
+              lastError = `JSON parse: ${(err2 as Error).message}`;
+              userPrompt =
+                `${baseUser}\n\n你上次返回了非法 JSON,错误:${(err as Error).message}。` +
+                `多见于字符串里出现真实换行/制表符 — 请把它们写成 \\n / \\t 转义形式,只返回符合 schema 的 JSON object,无任何额外文本。`;
+              continue;
+            }
+          } else {
+            lastError = `JSON parse: ${(err as Error).message}`;
+            userPrompt =
+              `${baseUser}\n\n你上次返回了非法 JSON,错误:${lastError}。` +
+              `请只返回符合 schema 的 JSON object,字符串内必须用 \\n / \\t 转义换行制表,无任何额外文本。`;
+            continue;
+          }
         }
         if (validator && !validator(parsedJson)) {
+          // A. 重试 hint 改成人类可读 + 引用 schema 限制 + 实际超出量(issue #2 #3 #5)。
+          // 原来直接丢 ajv 错误 JSON,模型不一定能解码 instancePath;
+          // 现在写成"字段 X 超过 N 字符,实际 M 字符,请缩短到 ~M' 以内"。
           lastError = `Schema mismatch: ${JSON.stringify(validator.errors)}`;
-          userPrompt = `${baseUser}\n\n你上次返回的 JSON 不符合 schema,错误:${lastError}。请按 schema 严格返回。`;
+          const humanHints = formatSchemaErrorsForRetry(validator.errors ?? [], parsedJson);
+          userPrompt =
+            `${baseUser}\n\n你上次返回的 JSON 不符合 schema,具体问题:\n${humanHints}\n` +
+            `请严格按 schema 修正(尤其字符串长度上限要遵守),只返回 JSON object 本身。`;
           continue;
         }
         // success
@@ -341,4 +365,105 @@ const DEEPSEEK_PRICES: Record<string, { input: number; output: number }> = {
 function computeDeepSeekCost(model: string, tokensIn: number, tokensOut: number): number {
   const p = DEEPSEEK_PRICES[model] ?? DEEPSEEK_PRICES['deepseek-v4-flash'];
   return (tokensIn * p.input + tokensOut * p.output) / 1_000_000;
+}
+
+// 把 ajv 错误数组转成人类(/AI)可读的指令式 hint。
+// 重点针对最常爆的 maxLength / minLength / pattern 三种,带上"实际值/长度"让模型能精准修。
+// 其他错误退化成 message 原文,不丢信息。
+function formatSchemaErrorsForRetry(errors: readonly unknown[], parsed: unknown): string {
+  const lines: string[] = [];
+  for (const e of errors as Array<{
+    instancePath?: string;
+    keyword?: string;
+    params?: Record<string, unknown>;
+    message?: string;
+  }>) {
+    const path = e.instancePath || '(root)';
+    const actual = e.instancePath ? getByJsonPointer(parsed, e.instancePath) : undefined;
+    if (e.keyword === 'maxLength' && typeof actual === 'string') {
+      const limit = e.params?.limit as number | undefined;
+      // 目标长度给个比 limit 略小的缓冲,让模型有余地命中
+      const target = limit ? Math.max(10, Math.floor(limit * 0.9)) : undefined;
+      lines.push(
+        `- ${path}:超出 maxLength=${limit}(实际 ${actual.length} 字符),请缩短到 ${target ?? '上限'} 字符以内。` +
+          (limit && limit <= 200 ? '若内容必须含代码/SQL,用片段或省略号(…)代替。' : ''),
+      );
+    } else if (e.keyword === 'minLength' && typeof actual === 'string') {
+      const limit = e.params?.limit as number | undefined;
+      lines.push(`- ${path}:低于 minLength=${limit}(实际 ${actual.length} 字符),请补充内容。`);
+    } else if (e.keyword === 'pattern' && typeof actual === 'string') {
+      lines.push(
+        `- ${path}:值 "${actual}" 不匹配 pattern ${e.params?.pattern}。` +
+          (e.params?.pattern?.toString().includes('a-z') ? '请只用小写字母数字与连字符/下划线。' : ''),
+      );
+    } else if (e.keyword === 'maxItems' || e.keyword === 'minItems') {
+      lines.push(`- ${path}:${e.keyword}=${e.params?.limit} 不满足 — ${e.message}`);
+    } else {
+      lines.push(`- ${path}:${e.message ?? e.keyword}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+// 按 JSON Pointer (RFC 6901) 取值。ajv 的 instancePath 就是这格式("/chapters/1/slug")。
+function getByJsonPointer(obj: unknown, pointer: string): unknown {
+  if (!pointer) return obj;
+  const parts = pointer
+    .split('/')
+    .slice(1)
+    .map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'));
+  let cur: unknown = obj;
+  for (const p of parts) {
+    if (cur == null) return undefined;
+    if (Array.isArray(cur)) cur = cur[Number(p)];
+    else if (typeof cur === 'object') cur = (cur as Record<string, unknown>)[p];
+    else return undefined;
+  }
+  return cur;
+}
+
+// 把 JSON 字符串字面量内部的裸控制字符(LF/CR/TAB 等)转成 \\n / \\r / \\t 转义形式。
+// 仅在字符串字面量上下文中替换,避开真正的 JSON 结构换行/缩进。
+// 用于 DeepSeek 偶发在 stem / rationale 内夹真实换行导致 JSON.parse 失败的场景(issue #4)。
+function sanitizeControlChars(input: string): string {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    const code = input.charCodeAt(i);
+    if (!inString) {
+      out += ch;
+      if (ch === '"') inString = true;
+      continue;
+    }
+    // inString
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      out += ch;
+      inString = false;
+      continue;
+    }
+    // 字符串内,未转义,遇到控制字符(0x00-0x1F,排除已被前面分支处理的)
+    if (code <= 0x1f) {
+      if (ch === '\n') out += '\\n';
+      else if (ch === '\r') out += '\\r';
+      else if (ch === '\t') out += '\\t';
+      else if (ch === '\b') out += '\\b';
+      else if (ch === '\f') out += '\\f';
+      else out += '\\u' + code.toString(16).padStart(4, '0');
+      continue;
+    }
+    out += ch;
+  }
+  return out;
 }

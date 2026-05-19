@@ -94,9 +94,9 @@ outputSchema:
             type: string
             pattern: '^[a-z0-9](?:_?[a-z0-9])*$'
             minLength: 2
-            # 30 是经验值:实际课程的 LO slug 大多 10-19 字符,留 30 给 AI 喘息
-            # (原来 20 太紧,AI 想用稍长的描述就撞限,重试也救不回来)
-            maxLength: 30
+            # 40 是经验值:实际 LO slug 大多 10-19 字符,留 40 给 AI 喘息
+            # (历史上 20 / 30 都太紧,AI 想用稍长描述就撞限,重试也救不回来)
+            maxLength: 40
           name: { type: string, minLength: 1, maxLength: 60 }
           description: { type: string, minLength: 5, maxLength: 200 }
           estimatedDurationMin: { type: integer, enum: [10, 15, 20, 25, 30, 40] }

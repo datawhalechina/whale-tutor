@@ -42,7 +42,7 @@ system: |
        * 大覆盖(整个学科入门)→ 6-8 章
   5. **id / slug 规范**:
      - courseId: kebab-case 全小写 ASCII(只字母数字连字符,2-30 字符,跟课程名相关且直观)
-     - chapter slug: 蛇形小写 ASCII(只字母数字下划线,2-25 字符,代表该章主题)
+     - chapter slug: 蛇形小写 ASCII(只字母数字下划线,2-40 字符,代表该章主题,**尽量短**,常见 < 20)
   6. **subject**:必须是**单个学科名词**(首字母大写),如 Python / SQL / Pandas / Java / Statistics,
      不要写"Python 编程入门" 这种短语
   7. **description**:课程简介,2-4 句话,给学习者看(说清这门课讲什么 + 学完能做到什么)
@@ -93,7 +93,7 @@ outputSchema:
             type: string
             pattern: '^[a-z0-9](?:_?[a-z0-9])*$'
             minLength: 2
-            maxLength: 25
+            maxLength: 40
           name:
             type: string
             minLength: 1
