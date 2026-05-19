@@ -394,7 +394,9 @@ function formatSchemaErrorsForRetry(errors: readonly unknown[], parsed: unknown)
     } else if (e.keyword === 'pattern' && typeof actual === 'string') {
       lines.push(
         `- ${path}:值 "${actual}" 不匹配 pattern ${e.params?.pattern}。` +
-          (e.params?.pattern?.toString().includes('a-z') ? '请只用小写字母数字与连字符/下划线。' : ''),
+          (e.params?.pattern?.toString().includes('a-z')
+            ? '请只用小写字母数字与连字符/下划线。'
+            : ''),
       );
     } else if (e.keyword === 'maxItems' || e.keyword === 'minItems') {
       lines.push(`- ${path}:${e.keyword}=${e.params?.limit} 不满足 — ${e.message}`);

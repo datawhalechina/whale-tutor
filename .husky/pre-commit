@@ -1,1 +1,11 @@
+# 禁止直接提交到 main — 本项目流程要求所有改动走 PR(见 CONTRIBUTING.md)。
+# 真要绕过(初始化 / 紧急 hotfix):WHALE_TUTOR_ALLOW_MAIN_COMMIT=1 git commit ...
+branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo)"
+if [ "$branch" = "main" ] && [ "$WHALE_TUTOR_ALLOW_MAIN_COMMIT" != "1" ]; then
+  echo "✗ 禁止直接提交到 main 分支。" >&2
+  echo "  请先 git checkout -b <feature-branch> 切到分支再提交。" >&2
+  echo "  确需绕过:WHALE_TUTOR_ALLOW_MAIN_COMMIT=1 git commit ..." >&2
+  exit 1
+fi
+
 npx lint-staged
