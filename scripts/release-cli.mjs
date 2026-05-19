@@ -57,7 +57,14 @@ function run(cmd, cwd = ROOT) {
     console.log(`  [dry-run] skipped`);
     return;
   }
-  execSync(cmd, { stdio: 'inherit', cwd });
+  // release 脚本就在 main 上跑(step 1 已校验),git commit 会被 .husky/pre-commit
+  // 钩死。钩子留了 WHALE_TUTOR_ALLOW_MAIN_COMMIT=1 逃生口,这里统一打开 —
+  // 整个 release 流程是受控的、原子的 release commit,本就是 main 的合法写入。
+  execSync(cmd, {
+    stdio: 'inherit',
+    cwd,
+    env: { ...process.env, WHALE_TUTOR_ALLOW_MAIN_COMMIT: '1' },
+  });
 }
 
 function check(cmd, cwd = ROOT) {
