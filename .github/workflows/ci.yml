@@ -5,11 +5,10 @@
 #   2. typecheck 全包过(tsc / vue-tsc)
 #   3. ESLint 0 警告(--max-warnings 0)
 #   4. Prettier 格式正确
-#   5. server / web build 成功(不跑测试 — 项目目前无测试,后续加)
+#   5. server / web build 成功,AI Gateway 离线回归通过
 #   6. 内置课程过 ajv 校验(boot KnowledgeModule 在 validate-only 模式)
 #
 # 不跑的:
-#   - 单元测试(等社区贡献了再加 vitest job)
 #   - e2e(需要 mysql 容器,后续拆 job 加)
 #   - whale-tutor build(消耗 DEEPSEEK_API_KEY 成本,留 manual workflow_dispatch)
 #
@@ -62,6 +61,9 @@ jobs:
 
       - name: Build server
         run: pnpm build:server
+
+      - name: AI Gateway timeout regression tests
+        run: node --test server/test/ai-gateway-timeout.test.mjs
 
       - name: Build web
         run: pnpm build:web
