@@ -250,9 +250,8 @@ export class AiGatewayService implements OnModuleInit {
     // 30s 给上游够时间正常吐 token,超过就 abort → 走 fallback / 让 caller 感知失败。
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 30_000);
-    let res: Response;
     try {
-      res = await fetch(`${this.apiBaseUrl}/v1/chat/completions`, {
+      const res = await fetch(`${this.apiBaseUrl}/v1/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -270,6 +269,22 @@ export class AiGatewayService implements OnModuleInit {
         }),
         signal: ac.signal,
       });
+      // fetch resolves at the headers; keep the deadline active while reading the body.
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`DeepSeek API ${res.status}: ${text.slice(0, 300)}`);
+      }
+      const data = (await res.json()) as DeepSeekChatResponse;
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) throw new Error('Empty content in DeepSeek response');
+      const tokensIn = data.usage?.prompt_tokens ?? 0;
+      const tokensOut = data.usage?.completion_tokens ?? 0;
+      return {
+        content,
+        tokensIn,
+        tokensOut,
+        costUsd: computeDeepSeekCost(input.model, tokensIn, tokensOut),
+      };
     } catch (err) {
       // AbortError → 把 message 改成更可读的形式给上层日志
       if ((err as { name?: string }).name === 'AbortError') {
@@ -279,21 +294,6 @@ export class AiGatewayService implements OnModuleInit {
     } finally {
       clearTimeout(timer);
     }
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`DeepSeek API ${res.status}: ${text.slice(0, 300)}`);
-    }
-    const data = (await res.json()) as DeepSeekChatResponse;
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) throw new Error('Empty content in DeepSeek response');
-    const tokensIn = data.usage?.prompt_tokens ?? 0;
-    const tokensOut = data.usage?.completion_tokens ?? 0;
-    return {
-      content,
-      tokensIn,
-      tokensOut,
-      costUsd: computeDeepSeekCost(input.model, tokensIn, tokensOut),
-    };
   }
 
   private async recordCall(input: {
